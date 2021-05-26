@@ -130,7 +130,7 @@ class Zombi():
             stg.write_categories(cat_file)
             
 
-    def G(self, parameters_file, experiment_folder, advanced_mode):
+    def G(self, parameters_file, experiment_folder, advanced_mode, root_genome):
 
         parameters = af.prepare_genome_parameters(af.read_parameters(parameters_file))
         events_file = os.path.join(experiment_folder, "T/Events.tsv")
@@ -141,7 +141,7 @@ class Zombi():
         genomes_folder = os.path.join(genome_folder, "Genomes")
         gene_families_folder = os.path.join(genome_folder, "Gene_families")
 
-        gss = GenomeSimulator(parameters, events_file)
+        gss = GenomeSimulator(parameters, events_file, root_genome)
 
         if advanced_mode == "0":
             gss.run()
@@ -387,10 +387,13 @@ if __name__ == "__main__":
                                             help="Mode")
     parser.add_argument("params", type=str, help="Parameters file")
     parser.add_argument("output", type=str, help="Name of the experiment folder")
+    parser.add_argument("-r", "--root-genome", metavar="GFF_FILE",
+                        help="Start G mode with this ancestral genome")
 
     args = parser.parse_args()
 
     mode, parameters_file, experiment_folder = args.mode, args.params, args.output
+    root_genome = args.root_genome
 
     if len(mode) == 1:
         main_mode = mode[0]
@@ -433,14 +436,14 @@ if __name__ == "__main__":
 
         if not os.path.isdir(genome_folder):
             os.mkdir(genome_folder)
-            Z.G(parameters_file, experiment_folder, advanced_mode)
+            Z.G(parameters_file, experiment_folder, advanced_mode, root_genome)
 
         else:
             # print("G folder already present in experiment folder. Please, remove previous existing data to proceed.")
             # print("For instance: rm -r ./" + (os.path.join(experiment_folder, "G")))
             os.system("rm -r " + genome_folder)
             os.mkdir(genome_folder)
-            Z.G(parameters_file, experiment_folder, advanced_mode)
+            Z.G(parameters_file, experiment_folder, advanced_mode, root_genome)
 
 
 

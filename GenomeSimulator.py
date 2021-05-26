@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import AuxiliarFunctions as af
 import ete3
 import numpy
@@ -6,14 +8,18 @@ import random
 import os
 import networkx as nx
 import ReconciledTree as RT
-from itertools import cycle
+from itertools import tee, zip_longest
 from functools import reduce
+from typing import List, Tuple, Set, Dict
+
+from BCBio import GFF
+from Bio.SeqFeature import SeqFeature
 
 # from GenomeClasses import GeneFamily, Gene, Intergene, CircularChromosome, LinearChromosome, Genome
 
 class GenomeSimulator():
 
-    def __init__(self, parameters, events_file):
+    def __init__(self, parameters, events_file, root_genome: str=''):
 
         self.parameters = parameters
 
@@ -26,11 +32,11 @@ class GenomeSimulator():
         self.distances_to_start = self._read_distances_to_start(events_file) # Only useful when computing assortative transfers
         self.complete_tree = self._read_tree(events_file.replace("Events.tsv", "CompleteTree.nwk"))
 
-        self.all_genomes = dict()
-        self.all_gene_families = dict()
+        self.all_genomes: Dict[str, Genome] = dict()
+        self.all_gene_families: Dict[str, GeneFamily] = dict()
 
         self.gene_families_counter = 0
-        self.active_genomes = set()
+        self.active_genomes: Set[str] = set()
 
         if self.parameters["RATE_FILE"] != "False":
             if self.parameters["SCALE_RATES"] == "True":
@@ -39,6 +45,9 @@ class GenomeSimulator():
             else:
                 self.empirical_rates = af.read_empirical_rates(rates_file=self.parameters["RATE_FILE"])
 
+        self.root_genome_file = root_genome     #Get root genome from GFF file.
+        if root_genome and not os.path.exists(root_genome):
+            raise(Exception(f"Root genome file {root_genome} not found."))
 
     def write_genomes(self, genome_folder, intergenic_sequences = False):
 
@@ -430,6 +439,155 @@ class GenomeSimulator():
 
         return genome
 
+    def read_genome(self, genome_file:str, intergenic_sequences = False,
+                    family_rates = False, interactome = False):
+        """
+        Create a genome with genes and intergenic regions specified by the given
+        `genome_file` (.gff).
+
+        Parameters
+        ----------
+        genome_file : str
+            the filename (.gff) that annotates the genes in the genome. A
+            single chromosome is assumed.
+        intergenic_sequences : bool, optional
+            [description], by default False
+        family_rates : bool, optional
+            [description], by default False
+        interactome : bool, optional
+            [description], by default False
+
+        Returns
+        -------
+        Genome
+            the newly constructed genome with gene and intergenic sizes having
+            the lengths specified in `genome_file`.
+
+        Notes
+        -----
+            Only makes a single circular chromosome at the moment.
+        """
+
+        genome = Genome()
+        genome.species = "Root"
+        time = 0
+
+        chrom_len, gene_features = parse_GFF(genome_file)
+
+            #Create a chromosome of the appropriate shape:
+        shape = "C"
+        if shape == "L":
+            chromosome: Chromosome = LinearChromosome()
+            chromosome.shape = "L"
+        elif shape == "C":
+            chromosome = CircularChromosome()
+            chromosome.shape = "C"
+
+            #Create the genes:
+        for feature in gene_features:
+            gene, gene_family = self.make_gene(feature, genome.species,
+                                               time, family_rates,
+                                               self.parameters["RATE_FILE"] != "False")
+            chromosome.genes.append(gene)
+            self.all_gene_families[str(self.gene_families_counter)] = gene_family
+
+            #Create the intergenes:
+        if intergenic_sequences:    #NOTE: is the first intergene before or after the first gene?
+            chromosome.has_intergenes = True
+
+            if shape == "L":    #before the first gene
+                chromosome.intergenes.append(Intergene(chromosome.genes[0].start))
+
+            for gene1, gene2 in pairwise(chromosome.genes):
+                chromosome.intergenes.append(Intergene(gene2.start - gene1.end))
+
+            if shape == "L":    #after the last gene
+                intergene = Intergene(chrom_len - chromosome.genes[-1].end)
+            elif shape == "C":  #betweeen the last and first genes
+                intergene = Intergene((chrom_len - chromosome.genes[-1].end) +
+                                      chromosome.genes[0].start)
+            else:
+                raise(Exception(f"Unrecognized shape string: {shape}"))
+            chromosome.intergenes.append(intergene)
+
+                                #NOTE: this is called in run_f as well!
+            chromosome.obtain_flankings()
+            chromosome.obtain_locations()
+            import pprint; pprint.pprint(chromosome.map_of_locations)
+
+        genome.chromosomes.append(chromosome)
+
+        if interactome:
+            genome.create_interactome()
+
+        return genome
+
+    def make_gene(self, gene_feature: SeqFeature, species_tree_node: str,
+                  time: int, family_mode = False, empirical_rates = False) -> Tuple[Gene, GeneFamily]:
+        """
+        Make a new gene in a new gene family, based on the given `gene_feature`.
+
+        Parameters
+        ----------
+        gene_feature : SeqFeature
+            the Biopython gene feature
+        species_tree_node : str
+            the species tree node to assign to this genome
+        time : int
+            the time tick when this genome exists
+        family_mode : bool, optional
+            the gene family should have its own rates, by default False
+        empirical_rates : bool, optional
+            use empirical rates rather than new rates, by default False
+
+        Returns
+        -------
+        Tuple[Gene, GeneFamily]
+            [description]
+        """
+        self.gene_families_counter += 1
+        gene_family_id = str(self.gene_families_counter)
+
+        gene = Gene()
+
+        if gene_feature.strand == 1:
+            gene.orientation = "+"
+        elif gene_feature.strand == -1:
+            gene.orientation = "-"
+        else:
+            raise(Exception(f"Unknown strand for gene:\n{gene_feature}"))
+
+        gene.gene_family = str(self.gene_families_counter)
+        gene.species = species_tree_node
+        gene.start = gene_feature.location.start
+        gene.end = gene_feature.location.end
+        gene.length = gene.end - gene.start
+
+        gene_family = GeneFamily(gene_family_id, time)
+        gene_family.length = gene.length
+        gene_family.genes.append(gene)
+        gene.gene_id = gene_family.obtain_new_gene_id()
+
+        self.all_gene_families[gene_family_id] = gene_family
+        self.all_gene_families[gene.gene_family].register_event(str(time), "O", species_tree_node)
+
+        if family_mode and not empirical_rates:
+            d, t,l, _, _, _ = self.generate_new_rates()
+            gene_family.rates["DUPLICATION"] = d
+            gene_family.rates["TRANSFER"] = t
+            gene_family.rates["LOSS"] = l
+
+        elif family_mode and empirical_rates:
+            d, t, l = self.generate_empirical_rates()
+            gene_family.rates["DUPLICATION"] = d
+            gene_family.rates["TRANSFER"] = t
+            gene_family.rates["LOSS"] = l
+
+        initial_gene = copy.deepcopy(gene)
+        initial_gene.species = "Initial"
+        gene_family.genes.append(initial_gene)
+
+        return gene, gene_family
 
     def run(self):
 
@@ -719,7 +877,7 @@ class GenomeSimulator():
                 current_time += time_to_next_genome_event
                 self.advanced_evolve_genomes(current_time)
 
-    def run_f(self):
+    def run_f(self): #NOTE: modify this one
 
         d = af.obtain_value(self.parameters["DUPLICATION"])
         t = af.obtain_value(self.parameters["TRANSFER"])
@@ -728,15 +886,19 @@ class GenomeSimulator():
         c = af.obtain_value(self.parameters["TRANSPOSITION"])
         o = af.obtain_value(self.parameters["ORIGINATION"])
 
-        # First we prepare the first genome
+        # First we prepare the root genome
 
-        genome = self.fill_genome(intergenic_sequences=True)
+        if self.root_genome_file:
+            genome = self.read_genome(self.root_genome_file,
+                                      intergenic_sequences=True)
+        else:
+            genome = self.fill_genome(intergenic_sequences=True)
 
-        ## These two lines are important for this mode
+        ## These two lines are important for this mode (already in read_genome)
 
-        for chromosome in genome:
-            chromosome.obtain_flankings()
-            chromosome.obtain_locations()
+        #for chromosome in genome:
+        #    chromosome.obtain_flankings()
+        #    chromosome.obtain_locations()
 
         self.active_genomes.add(genome.species)
         self.all_genomes["Root"] = genome
@@ -2845,6 +3007,25 @@ class GeneFamily():
 
 
 class Gene():
+    """
+    Attributes
+    ----------
+    length: int
+        the length of the gene
+    start: int
+        the starting coordinate of the gene, python indexed
+    end: int
+        the ending coordinate of the gene, python indexed (non-inclusive)
+    orientation: str
+        the orientation of the gene ("+" or "-")
+    total_flanking: Tuple[int, int]
+        (i, j) where i is the total number of bases before this gene excluding
+        the bases from the intergene before the first gene, and j is i plus the
+        length of this gene
+    specific_flanking: Tuple[int, int]
+        (i, j) where i is the number of bases before this gene excluding all the
+        bases from the intergenes, and j is i plus the length of this gene
+    """
 
     def __init__(self):
 
@@ -2856,8 +3037,10 @@ class Gene():
         self.species = ""
         self.importance = 0
         self.length = 0
-        self.total_flanking = 0
-        self.specific_flanking = 0
+        self.start: int = None       #pythonic (inclusive start, 0 indexed)
+        self.end: int = None         #pythonic (non-inclusive end)
+        self.total_flanking: Tuple[int, int] = None
+        self.specific_flanking: Tuple[int, int] = None
 
     def determine_orientation(self):
 
@@ -2884,12 +3067,30 @@ class Gene():
 
 
 class Intergene():
+    """
+    Attributes
+    ----------
+    length: int
+        the length of the intergene
+    total_flanking: Tuple[int, int]
+        (i, j) where i is the total number of bases before this intergene
+        excluding the bases from the intergene before the first gene, and j is i
+        plus the length of this intergene
+    specific_flanking: Tuple[int, int]
+        (i, j) where i is the number of bases before this intergene excluding
+        the bases from the intergene before the first gene and all the bases
+        of the genes, and j is i plus the length of this intergene
+    """
 
-    def __init__(self):
+    def __init__(self, length = 0):
 
-        self.length = 0
-        self.total_flanking = 0
-        self.specific_flanking = 0
+        if length:
+            self.length = length
+        else:
+            self.length = 0
+
+        self.total_flanking: Tuple[int, int] = None
+        self.specific_flanking: Tuple[int, int] = None
         self.id = 0 # Only for debugging purposes
 
     def __str__(self):
@@ -2904,8 +3105,8 @@ class Chromosome():
     def __init__(self):
 
         self.has_intergenes = False
-        self.intergenes = list()
-        self.genes = list()
+        self.intergenes: List[Intergene] = list()
+        self.genes: List[Gene] = list()
         self.shape = ""
         self.length = 0
 
@@ -3531,3 +3732,63 @@ class Genome():
     def __iter__(self):
         for chromosome in self.chromosomes:
             yield chromosome
+
+def parse_GFF(genome_file: str, sort=True) -> Tuple[int, List[SeqFeature]]:
+    """
+    Extract the chromosome length and the genes from the given GFF file.
+    Genes are in Biopython SeqFeature format:
+
+        https://biopython.org/docs/latest/api/Bio.SeqFeature.html
+
+    Parameters
+    ----------
+    genome_file : str
+        the GFF file to parse
+    sort : bool, default true
+        return the genes sorted by start index
+
+    Returns
+    -------
+    Tuple[int, List[SeqFeature]]
+        the chromosome length along with Biopython SeqFeatures for all of the
+        genes. The indices for seqfeatures are pythonic (zero indexed, end not
+        inclusive).
+    """
+        #Efficiency: Could use examiner.available_limits dictionary to help in
+        #big files while giving the limit_info keyword arg to GFF.parse.
+        #See 'gff_source_type' key in that dict.
+    #examiner = GFF.GFFExaminer()
+    #import pprint; pprint.pprint(examiner.available_limits(genome_file))
+
+    genome_len = 0
+    genes: List[SeqFeature] = []
+    for rec in GFF.parse(genome_file, target_lines=1000):
+        if 'sequence-region' in rec.annotations:
+            genome_len = rec.annotations['sequence-region'][0][2]
+
+        for feature in rec.features:
+            if feature.type == 'CDS':
+                genes.append(feature)
+            #elif feature.type == 'region':
+            #    genome_len = rec.features[0].location.end
+
+    if sort:                    #sort by start index
+        genes.sort(key=lambda f: f.location.start)
+
+    if not genome_len:
+        raise(Exception(f'No sequence-region directive found in "{genome_file}".'))
+    if not genes:
+        raise(Exception(f'No CDS entries found in "{genome_file}".'))
+
+    return genome_len, genes
+
+
+
+def pairwise(iterable, wrap=False):
+  "s -> (s0,s1), (s1,s2), (s2, s3), ..."
+  a, b = tee(iterable)
+  first = next(b, None)
+  if wrap:
+    return zip_longest(a, b, fillvalue=first)
+
+  return zip(a, b)
