@@ -8,11 +8,9 @@ import random
 import os
 import networkx as nx
 import ReconciledTree as RT
-from itertools import tee, zip_longest
 from functools import reduce
 from typing import List, Tuple, Set, Dict
 
-from BCBio import GFF
 from Bio.SeqFeature import SeqFeature
 
 # from GenomeClasses import GeneFamily, Gene, Intergene, CircularChromosome, LinearChromosome, Genome
@@ -90,6 +88,51 @@ class GenomeSimulator():
                             i += 1
 
 
+    def write_gene_family_info(self, genome_folder:str,
+                               filename="GeneFamily_info.tsv"):
+        """
+        Write a TSV file with containing gene id, gff gene id, and start and
+        end coordinates for every gene in `self.all_gene_families`.
+
+        Parameters
+        ----------
+        genome_folder : str
+            the folder
+        filename : str, optional
+            the filename to use, by default "GeneFamily_info.tsv"
+        """
+        with open(os.path.join(genome_folder, filename), "w") as f:
+            header = ["GENE_FAMILY", "GFF_ID", "START", "END"]
+            f.write("\t".join(map(str, header)) + "\n")
+
+            for gene_family_name, gene_family in self.all_gene_families.items():
+                if gene_family.gff_id:
+                    line = "\t".join([gene_family_name, str(gene_family.gff_id),
+                                      str(gene_family.genes[0].start+1),
+                                      str(gene_family.genes[0].end)]) + "\n"
+                    f.write(line)
+
+    def write_gene_family_GFF_ids(self, genome_folder:str,
+                               filename="GeneFamily_GFF_ids.tsv"):
+        """
+        Write a TSV file with containing gene id and gff gene id for every gene
+        in `self.all_gene_families`.
+
+        Parameters
+        ----------
+        genome_folder : str
+            the folder
+        filename : str, optional
+            the filename to use, by default "GeneFamily_GFF_ids.tsv"
+        """
+        with open(os.path.join(genome_folder, filename), "w") as f:
+            header = ["GENE_FAMILY", "GFF_ID"]
+            f.write("\t".join(map(str, header)) + "\n")
+
+            for gene_family_name, gene_family in self.all_gene_families.items():
+                if gene_family.gff_id:
+                    line = "\t".join([gene_family_name, str(gene_family.gff_id)]) + "\n"
+                    f.write(line)
 
     def write_gene_family_lengths(self, genome_folder):
 
@@ -472,7 +515,7 @@ class GenomeSimulator():
         genome.species = "Root"
         time = 0
 
-        chrom_len, gene_features = parse_GFF(genome_file)
+        chrom_len, gene_features = af.parse_GFF(genome_file)
 
             #Create a chromosome of the appropriate shape:
         shape = "C"
@@ -498,7 +541,7 @@ class GenomeSimulator():
             if shape == "L":    #before the first gene
                 chromosome.intergenes.append(Intergene(chromosome.genes[0].start))
 
-            for gene1, gene2 in pairwise(chromosome.genes):
+            for gene1, gene2 in af.pairwise(chromosome.genes):
                 chromosome.intergenes.append(Intergene(gene2.start - gene1.end))
 
             if shape == "L":    #after the last gene
@@ -513,7 +556,6 @@ class GenomeSimulator():
                                 #NOTE: this is called in run_f as well!
             chromosome.obtain_flankings()
             chromosome.obtain_locations()
-            import pprint; pprint.pprint(chromosome.map_of_locations)
 
         genome.chromosomes.append(chromosome)
 
@@ -566,6 +608,7 @@ class GenomeSimulator():
         gene_family = GeneFamily(gene_family_id, time)
         gene_family.length = gene.length
         gene_family.genes.append(gene)
+        gene_family.gff_id = gene_feature.id
         gene.gene_id = gene_family.obtain_new_gene_id()
 
         self.all_gene_families[gene_family_id] = gene_family
@@ -896,7 +939,7 @@ class GenomeSimulator():
 
         ## These two lines are important for this mode (already in read_genome)
 
-        #for chromosome in genome:
+        #for chromosome in genome:          #NOTE: already done in read_genome
         #    chromosome.obtain_flankings()
         #    chromosome.obtain_locations()
 
@@ -2665,8 +2708,10 @@ class GeneFamily():
 
     def __init__(self, identifier, time):
 
-        self.identifier = identifier
+        self.identifier = identifier    #unique integer
         self.origin = time
+
+        self.gff_id = ''                #unique ID from the gff file
 
         self.genes = list()
         self.events = list()
@@ -3143,7 +3188,7 @@ class Chromosome():
                 lb = self.intergenes[i-1].total_flanking[1]
                 ub = lb + self.genes[i].length
 
-                lbg = self.genes[i-1].specific_flanking[1] + 1
+                lbg = self.genes[i-1].specific_flanking[1] + 1 #NOTE: why +1 ?
                 ubg = lbg + self.genes[i].length
 
                 self.genes[i].total_flanking = (lb, ub)
@@ -3732,63 +3777,3 @@ class Genome():
     def __iter__(self):
         for chromosome in self.chromosomes:
             yield chromosome
-
-def parse_GFF(genome_file: str, sort=True) -> Tuple[int, List[SeqFeature]]:
-    """
-    Extract the chromosome length and the genes from the given GFF file.
-    Genes are in Biopython SeqFeature format:
-
-        https://biopython.org/docs/latest/api/Bio.SeqFeature.html
-
-    Parameters
-    ----------
-    genome_file : str
-        the GFF file to parse
-    sort : bool, default true
-        return the genes sorted by start index
-
-    Returns
-    -------
-    Tuple[int, List[SeqFeature]]
-        the chromosome length along with Biopython SeqFeatures for all of the
-        genes. The indices for seqfeatures are pythonic (zero indexed, end not
-        inclusive).
-    """
-        #Efficiency: Could use examiner.available_limits dictionary to help in
-        #big files while giving the limit_info keyword arg to GFF.parse.
-        #See 'gff_source_type' key in that dict.
-    #examiner = GFF.GFFExaminer()
-    #import pprint; pprint.pprint(examiner.available_limits(genome_file))
-
-    genome_len = 0
-    genes: List[SeqFeature] = []
-    for rec in GFF.parse(genome_file, target_lines=1000):
-        if 'sequence-region' in rec.annotations:
-            genome_len = rec.annotations['sequence-region'][0][2]
-
-        for feature in rec.features:
-            if feature.type == 'CDS':
-                genes.append(feature)
-            #elif feature.type == 'region':
-            #    genome_len = rec.features[0].location.end
-
-    if sort:                    #sort by start index
-        genes.sort(key=lambda f: f.location.start)
-
-    if not genome_len:
-        raise(Exception(f'No sequence-region directive found in "{genome_file}".'))
-    if not genes:
-        raise(Exception(f'No CDS entries found in "{genome_file}".'))
-
-    return genome_len, genes
-
-
-
-def pairwise(iterable, wrap=False):
-  "s -> (s0,s1), (s1,s2), (s2, s3), ..."
-  a, b = tee(iterable)
-  first = next(b, None)
-  if wrap:
-    return zip_longest(a, b, fillvalue=first)
-
-  return zip(a, b)

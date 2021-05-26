@@ -2,8 +2,16 @@ import ete3
 import numpy
 import copy
 import sys
+import os
 import scipy
 import scipy.stats as ss
+from itertools import tee, zip_longest
+from typing import Dict, List, Tuple
+
+from BCBio import GFF
+from Bio.SeqFeature import SeqFeature
+from Bio.SeqRecord import SeqRecord
+from Bio import SeqIO
 
 
 def normalize(array):
@@ -742,4 +750,154 @@ def write_sampled_sequences(tree_file, infasta_folder, outfasta_folder):
     fasta_writer(outfasta_folder + "/" + file_name + "_sampled.fasta", clean_entries)
 
 
+def parse_GFF(gff_file: str, sort=True) -> Tuple[int, List[SeqFeature]]:
+    """
+    Extract the chromosome length and the genes from the given GFF file.
+    Genes are in Biopython SeqFeature format:
 
+        https://biopython.org/docs/latest/api/Bio.SeqFeature.html
+
+    Parameters
+    ----------
+    gff_file : str
+        the GFF file to parse
+    sort : bool, default true
+        return the genes sorted by start index
+
+    Returns
+    -------
+    Tuple[int, List[SeqFeature]]
+        the chromosome length along with Biopython SeqFeatures for all of the
+        genes. The indices for seqfeatures are pythonic (zero indexed, end not
+        inclusive).
+    """
+        #Efficiency: Could use examiner.available_limits dictionary to help in
+        #big files while giving the limit_info keyword arg to GFF.parse.
+        #See 'gff_source_type' key in that dict.
+    #examiner = GFF.GFFExaminer()
+    #import pprint; pprint.pprint(examiner.available_limits(gff_file))
+
+    genome_len = 0
+    genes: List[SeqFeature] = []
+    try:
+        for rec in GFF.parse(gff_file, target_lines=1000):
+            if 'sequence-region' in rec.annotations:
+                genome_len = rec.annotations['sequence-region'][0][2]
+
+            for feature in rec.features:
+                if feature.type == 'CDS':
+                    genes.append(feature)
+                #elif feature.type == 'region':
+                #    genome_len = rec.features[0].location.end
+    except TypeError as e:
+        sys.exit(f'Problem opening GFF file (remove fasta lines?):\n{e}')
+
+    if sort:                    #sort by start index
+        genes.sort(key=lambda f: f.location.start)
+
+    if not genome_len:
+        raise(Exception(f'No sequence-region directive found in "{gff_file}".'))
+    if not genes:
+        raise(Exception(f'No CDS entries found in "{gff_file}".'))
+
+    return genome_len, genes
+
+
+
+def pairwise(iterable, wrap=False):
+    "s -> (s0,s1), (s1,s2), (s2, s3), ..."
+    a, b = tee(iterable)
+    first = next(b, None)
+    if wrap:
+        return zip_longest(a, b, fillvalue=first)
+
+    return zip(a, b)
+
+def read_nucleotide_sequences(fasta: str, genome_folder: str,
+                              gene_family_info = 'GeneFamily_info.tsv') -> Dict[str, SeqRecord]:
+    """
+    Return a dictionary mapping the gene id to its SeqRecord.
+    The file `gene_family_info` contains coordinates for the genes in the root
+    genome of the phylogeny. The `fasta` file is expected to contain the sequence
+    of the root phylogeny genome.
+
+        https://biopython.org/docs/latest/api/Bio.SeqRecord.html
+
+    Parameters
+    ----------
+    fasta : str
+        the file with the sequence
+    genome_folder : str
+        the folder containing the `gene_family_info` file
+    gene_family_info : str
+        the filename containing the gene GFF ID and start and end indices
+
+    Returns
+    -------
+    Dict[str, SeqRecord]
+        map genome id (not GFF ID) to SeqRecord for the gene
+    """
+    sequence: SeqRecord = None
+    for i, seq_record in enumerate(SeqIO.parse(fasta, "fasta")):
+        if i:
+            print(f'Warning: using only the first of several entries in "{fasta}".')
+            break
+
+        sequence = seq_record
+
+    if not sequence:
+        raise(Exception(f'No sequence in "{fasta}".'))
+
+    gidTOseq: Dict[str, SeqRecord] = {}
+    with open(os.path.join(genome_folder, gene_family_info)) as f:
+        f.readline()
+        for line in f:
+            gid, _, start, end = line.strip().split("\t")
+            gidTOseq[gid] = sequence[int(start)-1: int(end)]
+
+    return gidTOseq
+
+def read_protein_sequences(gff_file: str, genome_folder: str,
+                           gene_family_info = 'GeneFamily_info.tsv') -> Dict[str, str]:
+    """
+    Return a dictionary mapping the gene id to its sequence.
+    The file `gene_family_info` contains a the GFF IDs necessary to find
+    the correct genomes in the GFF file.
+
+    Parameters
+    ----------
+    gff_file : str
+        the file containing features with "translated" attributes
+    genome_folder : str
+        the folder containing the `gene_family_info` file
+    gene_family_info : str
+        the filename containing the gene GFF ID and start and end indices
+
+    Returns
+    -------
+    Dict[str, SeqRecord]
+        map genome id (not GFF ID) to SeqRecord for the gene
+    """
+    gffidTOseq: Dict[str, str] = {}
+    try:
+        for rec in GFF.parse(gff_file, target_lines=1000):
+            for feature in rec.features:
+                if feature.type == 'CDS':
+                    if 'ID' not in feature.qualifiers:
+                        raise(Exception(f'Feature missing "ID" attribute.'))
+                    gffid = feature.qualifiers['ID'][0]
+                    if 'translation' not in feature.qualifiers:
+                        raise(Exception(f'Feature missing "tranlation" attribute.'))
+
+                    gffidTOseq[gffid] = feature.qualifiers['translation'][0]
+    except TypeError as e:
+        sys.exit(f'Problem opening GFF file (remove ##FASTA lines?):\n{e}')
+
+    gidTOseq: Dict[str, str] = {}
+    with open(os.path.join(genome_folder, gene_family_info)) as f:
+        f.readline()
+        for line in f:
+            gid, gffid, _, _ = line.strip().split("\t")
+            gidTOseq[gid] = gffidTOseq[gffid]
+
+    return gidTOseq

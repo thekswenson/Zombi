@@ -1,11 +1,10 @@
 from SpeciesTreeSimulator import SpeciesTreeGenerator
 from GenomeSimulator import GenomeSimulator
 from SequenceSimulator import SequenceSimulator
+from typing import Dict, Tuple
 import AuxiliarFunctions as af
 import argparse
 import os
-import sys
-import shutil
 
 
 class Zombi():
@@ -171,6 +170,8 @@ class Zombi():
         if advanced_mode == "f":
             gss.write_genomes(genomes_folder, intergenic_sequences=True)
             gss.write_gene_family_lengths(genome_folder)
+            if root_genome:
+                gss.write_gene_family_info(genome_folder)
 
         else:
             gss.write_genomes(genomes_folder, intergenic_sequences=False)
@@ -213,7 +214,7 @@ class Zombi():
             gene_trees_folder = os.path.join(genome_folder, "Gene_trees")
             gss.write_gene_trees(gene_trees_folder, reconciliations=True, gene_trees=False)
 
-    def S(self, parameters_file, experiment_folder, advanced_mode):
+    def S(self, parameters_file, experiment_folder, advanced_mode, gff_file: str, fasta_file: str):
 
         gene_trees_folder = os.path.join(experiment_folder, "G/Gene_trees")
         sequences_folder = os.path.join(experiment_folder, "S")
@@ -226,7 +227,7 @@ class Zombi():
 
         print("Preparing simulator of sequences")
 
-        ss = SequenceSimulator(parameters)
+        ss = SequenceSimulator(parameters, force_nuc_model=bool(fasta_file))
 
         if advanced_mode == "0":
 
@@ -317,7 +318,7 @@ class Zombi():
 
             complete_trees = [x for x in os.listdir(gene_trees_folder) if "complete" in x]
 
-            gf_lengths = dict()
+            gf_lengths: Dict[str, int] = dict()
 
             genome_folder = os.path.join(experiment_folder, "G")
 
@@ -327,8 +328,13 @@ class Zombi():
                     gf, l = line.strip().split("\t")
                     gf_lengths[gf] = int(l)
 
+            if fasta_file:
+                id_to_seq = af.read_nucleotide_sequences(fasta_file, genome_folder)
+            elif gff_file:
+                id_to_seq = af.read_protein_sequences(gff_file, genome_folder)
+
             if parameters["SEQUENCE"] != "nucleotide":
-                print("Sequence mode will be changed to codon for fully compatibility with Sf mode")
+                print("Sequence mode will be changed to codon for full compatibility with Sf mode")
 
             for tree_file in complete_trees:
 
@@ -337,7 +343,11 @@ class Zombi():
                 tree_path = os.path.join(gene_trees_folder, tree_file)
                 if parameters["VERBOSE"] == 1:
                     print("Simulating sequence for gene family %s" % gf)
-                ss.run_f(tree_path, gf_lengths[gf], sequences_folder)
+
+                if gf in id_to_seq:     #gf from root genome so use fasta sequence
+                    ss.run_f(tree_path, gf_lengths[gf], sequences_folder, id_to_seq[gf])
+                else:                   #gf originated after the root so make random gene
+                    ss.run_f(tree_path, gf_lengths[gf], sequences_folder)
                 af.write_pruned_sequences(tree_path.replace("complete", "pruned"), sequences_folder)
 
             print("Writing whole genomes")
@@ -387,13 +397,16 @@ if __name__ == "__main__":
                                             help="Mode")
     parser.add_argument("params", type=str, help="Parameters file")
     parser.add_argument("output", type=str, help="Name of the experiment folder")
-    parser.add_argument("-r", "--root-genome", metavar="GFF_FILE",
-                        help="Start G mode with this ancestral genome")
+    parser.add_argument("-g", "--genome-root", metavar="GFF_FILE",
+                        help="Seed Gf mode with this ancestral gene sequence")
+    parser.add_argument("-s", "--sequence-root", metavar="FASTA_FILE",
+                        help="Seed Sf mode with this ancestral sequence (use after -g in Gf mode)")
 
     args = parser.parse_args()
 
     mode, parameters_file, experiment_folder = args.mode, args.params, args.output
-    root_genome = args.root_genome
+    root_gff = args.genome_root
+    root_fasta = args.sequence_root
 
     if len(mode) == 1:
         main_mode = mode[0]
@@ -436,14 +449,14 @@ if __name__ == "__main__":
 
         if not os.path.isdir(genome_folder):
             os.mkdir(genome_folder)
-            Z.G(parameters_file, experiment_folder, advanced_mode, root_genome)
+            Z.G(parameters_file, experiment_folder, advanced_mode, root_gff)
 
         else:
             # print("G folder already present in experiment folder. Please, remove previous existing data to proceed.")
             # print("For instance: rm -r ./" + (os.path.join(experiment_folder, "G")))
             os.system("rm -r " + genome_folder)
             os.mkdir(genome_folder)
-            Z.G(parameters_file, experiment_folder, advanced_mode, root_genome)
+            Z.G(parameters_file, experiment_folder, advanced_mode, root_gff)
 
 
 
@@ -453,13 +466,13 @@ if __name__ == "__main__":
 
         if not os.path.isdir(sequences_folder):
             os.mkdir(sequences_folder)
-            Z.S(parameters_file, experiment_folder, advanced_mode)
+            Z.S(parameters_file, experiment_folder, advanced_mode, root_gff, root_fasta)
         else:
             # print("S folder already present in experiment folder. Please, remove previous existing data to proceed.")
             # print("For instance: rm -r ./" + (os.path.join(experiment_folder, "S")))
 
             os.system("rm -r " + os.path.join(experiment_folder, "S"))
-            Z.S(parameters_file, experiment_folder, advanced_mode)
+            Z.S(parameters_file, experiment_folder, advanced_mode, root_gff, root_fasta)
 
 
     else:

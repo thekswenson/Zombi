@@ -3,14 +3,15 @@ import os
 import ete3
 import numpy
 import random
-import itertools
 import AuxiliarFunctions as af
+from typing import Union
 
+from Bio.SeqRecord import SeqRecord
 
 
 class SequenceSimulator():
 
-    def __init__(self, parameters):
+    def __init__(self, parameters, force_nuc_model=False):
 
         self.parameters = parameters
 
@@ -19,7 +20,10 @@ class SequenceSimulator():
             numpy.random.seed(parameters["SEED"])
 
         self.size = self.parameters["SEQUENCE_SIZE"]
-        self.sequence = self.parameters["SEQUENCE"]
+        if force_nuc_model:
+            self.sequence = 'nucleotide'
+        else:
+            self.sequence = self.parameters["SEQUENCE"]
 
         sequence_type = "The type of sequence be either 'nucleotide', 'amino-acid' or 'codon'"
         assert self.sequence in ['nucleotide', 'amino-acid', 'codon'], sequence_type
@@ -81,22 +85,44 @@ class SequenceSimulator():
         # Correct the names
         self.correct_names(os.path.join(sequences_folder, fasta_file), name_mapping)
 
-    def run_f(self, tree_file, gene_length, sequences_folder):
+    def run_f(self, tree_file, gene_length: int, sequences_folder: str,
+              sequence: Union[SeqRecord, str] = None):
+        """
+        Simulation full sequence evolution for the gene tree.
 
-        if self.parameters["SEQUENCE"] != "codon":
+        Parameters
+        ----------
+        sequence : Union[SeqRecord, str], optional
+            If this is a SeqRecord then seed the root of the tree with the
+            nucleotide sequence, If this is a string, then seed the root with
+            the given protien sequence. Otherwise, seed with a random sequence
+            according to `gene_length`.
+        """
+        if self.parameters["SEQUENCE"] != "codon" and not isinstance(sequence, SeqRecord):
             self.model = self.get_codon_model()
 
         with open(tree_file) as f:
 
             line = f.readline().strip()
             if "(" not in line or line == ";":
-                self.simulate_single_sequence(line.replace(";",""),gene_length, tree_file, sequences_folder)
+                self.simulate_single_sequence(line.replace(";",""), gene_length, tree_file, sequences_folder)
                 return None
             else:
                 my_tree = ete3.Tree(line, format=1)
                 tree = pyvolve.read_tree(tree=my_tree.write(format=5), scale_tree = self.parameters["SCALING"])
                 name_mapping = self.get_mapping_internal_names(tree, my_tree)
-                partition = pyvolve.Partition(models=self.model, size=gene_length)
+                if sequence:
+                    if isinstance(sequence, SeqRecord):
+                        partition = pyvolve.Partition(models=self.model,
+                                                      root_sequence=str(sequence.seq).upper())
+                    elif isinstance(sequence, str):
+                        partition = pyvolve.Partition(models=self.model,
+                                                      root_sequence=sequence)
+                    else:
+                        raise(Exception(f'Variable of type {type(sequence)} given for sequence.'))
+
+                else:
+                    partition = pyvolve.Partition(models=self.model, size=gene_length)
                 evolver = pyvolve.Evolver(tree=tree, partitions=partition)
                 fasta_file = tree_file.split("/")[-1].replace("_completetree.nwk", "_complete") + ".fasta"
                 evolver(seqfile=os.path.join(sequences_folder, fasta_file), ratefile=None, infofile=None, write_anc=True)
