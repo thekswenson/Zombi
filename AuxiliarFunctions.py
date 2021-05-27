@@ -771,24 +771,19 @@ def parse_GFF(gff_file: str, sort=True) -> Tuple[int, List[SeqFeature]]:
         genes. The indices for seqfeatures are pythonic (zero indexed, end not
         inclusive).
     """
-        #Efficiency: Could use examiner.available_limits dictionary to help in
-        #big files while giving the limit_info keyword arg to GFF.parse.
-        #See 'gff_source_type' key in that dict.
-    #examiner = GFF.GFFExaminer()
+            #Get the CDSs and genome length:
     #import pprint; pprint.pprint(examiner.available_limits(gff_file))
-
     genome_len = 0
     genes: List[SeqFeature] = []
     try:
-        for rec in GFF.parse(gff_file, target_lines=1000):
+        for rec in GFF.parse(gff_file, target_lines=1000,
+                             limit_info={'gff_type': ['CDS']}):
             if 'sequence-region' in rec.annotations:
                 genome_len = rec.annotations['sequence-region'][0][2]
 
             for feature in rec.features:
                 if feature.type == 'CDS':
                     genes.append(feature)
-                #elif feature.type == 'region':
-                #    genome_len = rec.features[0].location.end
     except TypeError as e:
         sys.exit(f'Problem opening GFF file (remove fasta lines?):\n{e}')
 

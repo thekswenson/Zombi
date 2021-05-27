@@ -86,19 +86,17 @@ class SequenceSimulator():
         self.correct_names(os.path.join(sequences_folder, fasta_file), name_mapping)
 
     def run_f(self, tree_file, gene_length: int, sequences_folder: str,
-              sequence: Union[SeqRecord, str] = None):
+              sequence: SeqRecord = None):
         """
         Simulation full sequence evolution for the gene tree.
 
         Parameters
         ----------
-        sequence : Union[SeqRecord, str], optional
-            If this is a SeqRecord then seed the root of the tree with the
-            nucleotide sequence, If this is a string, then seed the root with
-            the given protien sequence. Otherwise, seed with a random sequence
-            according to `gene_length`.
+        sequence : SeqRecord, optional
+            seed the root of the tree with the nucleotide sequence, otherwise,
+            seed with a random sequence according to `gene_length`.
         """
-        if self.parameters["SEQUENCE"] != "codon" and not isinstance(sequence, SeqRecord):
+        if self.parameters["SEQUENCE"] != "codon":
             self.model = self.get_codon_model()
 
         with open(tree_file) as f:
@@ -112,17 +110,11 @@ class SequenceSimulator():
                 tree = pyvolve.read_tree(tree=my_tree.write(format=5), scale_tree = self.parameters["SCALING"])
                 name_mapping = self.get_mapping_internal_names(tree, my_tree)
                 if sequence:
-                    if isinstance(sequence, SeqRecord):
-                        partition = pyvolve.Partition(models=self.model,
-                                                      root_sequence=str(sequence.seq).upper())
-                    elif isinstance(sequence, str):
-                        partition = pyvolve.Partition(models=self.model,
-                                                      root_sequence=sequence)
-                    else:
-                        raise(Exception(f'Variable of type {type(sequence)} given for sequence.'))
-
+                    partition = pyvolve.Partition(models=self.model,
+                                                  root_sequence=str(sequence.seq).upper())
                 else:
                     partition = pyvolve.Partition(models=self.model, size=gene_length)
+
                 evolver = pyvolve.Evolver(tree=tree, partitions=partition)
                 fasta_file = tree_file.split("/")[-1].replace("_completetree.nwk", "_complete") + ".fasta"
                 evolver(seqfile=os.path.join(sequences_folder, fasta_file), ratefile=None, infofile=None, write_anc=True)

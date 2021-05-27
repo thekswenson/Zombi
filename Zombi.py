@@ -214,7 +214,7 @@ class Zombi():
             gene_trees_folder = os.path.join(genome_folder, "Gene_trees")
             gss.write_gene_trees(gene_trees_folder, reconciliations=True, gene_trees=False)
 
-    def S(self, parameters_file, experiment_folder, advanced_mode, gff_file: str, fasta_file: str):
+    def S(self, parameters_file, experiment_folder, advanced_mode, fasta_file: str):
 
         gene_trees_folder = os.path.join(experiment_folder, "G/Gene_trees")
         sequences_folder = os.path.join(experiment_folder, "S")
@@ -330,8 +330,6 @@ class Zombi():
 
             if fasta_file:
                 id_to_seq = af.read_nucleotide_sequences(fasta_file, genome_folder)
-            elif gff_file:
-                id_to_seq = af.read_protein_sequences(gff_file, genome_folder)
 
             if parameters["SEQUENCE"] != "nucleotide":
                 print("Sequence mode will be changed to codon for full compatibility with Sf mode")
@@ -466,13 +464,13 @@ if __name__ == "__main__":
 
         if not os.path.isdir(sequences_folder):
             os.mkdir(sequences_folder)
-            Z.S(parameters_file, experiment_folder, advanced_mode, root_gff, root_fasta)
+            Z.S(parameters_file, experiment_folder, advanced_mode, root_fasta)
         else:
             # print("S folder already present in experiment folder. Please, remove previous existing data to proceed.")
             # print("For instance: rm -r ./" + (os.path.join(experiment_folder, "S")))
 
             os.system("rm -r " + os.path.join(experiment_folder, "S"))
-            Z.S(parameters_file, experiment_folder, advanced_mode, root_gff, root_fasta)
+            Z.S(parameters_file, experiment_folder, advanced_mode, root_fasta)
 
 
     else:
