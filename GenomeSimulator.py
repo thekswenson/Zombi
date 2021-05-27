@@ -527,12 +527,19 @@ class GenomeSimulator():
             chromosome.shape = "C"
 
             #Create the genes:
+        prev_feature = None
         for feature in gene_features:
-            gene, gene_family = self.make_gene(feature, genome.species,
-                                               time, family_rates,
-                                               self.parameters["RATE_FILE"] != "False")
-            chromosome.genes.append(gene)
-            self.all_gene_families[str(self.gene_families_counter)] = gene_family
+            if prev_feature and prev_feature.location.end > feature.location.start:
+                print(f'WARNING: skipping the creation of overlapping gene '
+                      f'{feature.id},\n\tas it overlaps with {prev_feature.id}')
+            else:
+                gene, gene_family = self.make_gene(feature, genome.species,
+                                                   time, family_rates,
+                                                   self.parameters["RATE_FILE"] != "False")
+                chromosome.genes.append(gene)
+                self.all_gene_families[str(self.gene_families_counter)] = gene_family
+
+            prev_feature = feature
 
             #Create the intergenes:
         if intergenic_sequences:    #NOTE: is the first intergene before or after the first gene?
