@@ -1,3 +1,4 @@
+from Bio.SeqRecord import SeqRecord
 from SpeciesTreeSimulator import SpeciesTreeGenerator
 from GenomeSimulator import GenomeSimulator
 from SequenceSimulator import SequenceSimulator
@@ -5,6 +6,7 @@ from typing import Dict, Tuple
 import AuxiliarFunctions as af
 import argparse
 import os
+import multiprocessing
 
 
 class Zombi():
@@ -214,7 +216,7 @@ class Zombi():
             gene_trees_folder = os.path.join(genome_folder, "Gene_trees")
             gss.write_gene_trees(gene_trees_folder, reconciliations=True, gene_trees=False)
 
-    def S(self, parameters_file, experiment_folder, advanced_mode, fasta_file: str):
+    def S(self, parameters_file, experiment_folder, advanced_mode, num_threads: int, fasta_file: str):
 
         gene_trees_folder = os.path.join(experiment_folder, "G/Gene_trees")
         sequences_folder = os.path.join(experiment_folder, "S")
@@ -334,19 +336,20 @@ class Zombi():
             if parameters["SEQUENCE"] != "nucleotide":
                 print("Sequence mode will be changed to codon for full compatibility with Sf mode")
 
-            for tree_file in complete_trees:
+            if num_threads:
+                n = len(complete_trees)
+                print(f"Using {num_threads} threads in parallel.")
+                with multiprocessing.Pool(processes=num_threads) as pool:
+                    pool.starmap(simulate_sequences_on_tree,
+                                 zip(complete_trees, [gene_trees_folder]*n,
+                                     [ss]*n, [gf_lengths]*n, [id_to_seq]*n,
+                                     [parameters["VERBOSE"]]*n))
+            else:
+                for tree_file in complete_trees:
+                    simulate_sequences_on_tree(tree_file, gene_trees_folder,
+                                               ss, gf_lengths, id_to_seq,
+                                               parameters["VERBOSE"])
 
-                gf = tree_file.split("_")[0]
-
-                tree_path = os.path.join(gene_trees_folder, tree_file)
-                if parameters["VERBOSE"] == 1:
-                    print("Simulating sequence for gene family %s" % gf)
-
-                if gf in id_to_seq:     #gf from root genome so use fasta sequence
-                    ss.run_f(tree_path, gf_lengths[gf], sequences_folder, id_to_seq[gf])
-                else:                   #gf originated after the root so make random gene
-                    ss.run_f(tree_path, gf_lengths[gf], sequences_folder)
-                af.write_pruned_sequences(tree_path.replace("complete", "pruned"), sequences_folder)
 
             print("Writing whole genomes")
 
@@ -385,6 +388,23 @@ class Zombi():
                 af.fasta_writer(os.path.join(sequences_folder, species + "_Wholegenome.fasta"), entry)
 
 
+def simulate_sequences_on_tree(tree_file: str, gene_trees_folder: str,
+                               seq_sim: SequenceSimulator,
+                               gf_lengths: Dict[str, int],
+                               id_to_seq: Dict[str, SeqRecord],
+                               verbose: bool) -> None:
+    gf = tree_file.split("_")[0]
+
+    tree_path = os.path.join(gene_trees_folder, tree_file)
+    if verbose:
+        print("Simulating sequence for gene family %s" % gf)
+
+    if gf in id_to_seq:   #gf from root genome so use fasta sequence
+        seq_sim.run_f(tree_path, gf_lengths[gf], sequences_folder, id_to_seq[gf])
+    else:                 #gf originated after species tree root so make random gene
+        seq_sim.run_f(tree_path, gf_lengths[gf], sequences_folder)
+    af.write_pruned_sequences(tree_path.replace("complete", "pruned"), sequences_folder)
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
@@ -399,12 +419,15 @@ if __name__ == "__main__":
                         help="Seed Gf mode with this ancestral gene sequence")
     parser.add_argument("-s", "--sequence-root", metavar="FASTA_FILE",
                         help="Seed Sf mode with this ancestral sequence (use after -g in Gf mode)")
+    parser.add_argument("-p", "--parallel", metavar="NUM_THREADS", type=int, default=0,
+                        help="Use this many threads to simulated sequences (in Sf mode)")
 
     args = parser.parse_args()
 
     mode, parameters_file, experiment_folder = args.mode, args.params, args.output
     root_gff = args.genome_root
     root_fasta = args.sequence_root
+    num_threads = args.parallel
 
     if len(mode) == 1:
         main_mode = mode[0]
@@ -464,13 +487,13 @@ if __name__ == "__main__":
 
         if not os.path.isdir(sequences_folder):
             os.mkdir(sequences_folder)
-            Z.S(parameters_file, experiment_folder, advanced_mode, root_fasta)
+            Z.S(parameters_file, experiment_folder, advanced_mode, num_threads, root_fasta)
         else:
             # print("S folder already present in experiment folder. Please, remove previous existing data to proceed.")
             # print("For instance: rm -r ./" + (os.path.join(experiment_folder, "S")))
 
             os.system("rm -r " + os.path.join(experiment_folder, "S"))
-            Z.S(parameters_file, experiment_folder, advanced_mode, root_fasta)
+            Z.S(parameters_file, experiment_folder, advanced_mode, num_threads, root_fasta)
 
 
     else:
