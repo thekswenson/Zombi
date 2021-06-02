@@ -9,7 +9,7 @@ import os
 import networkx as nx
 import ReconciledTree as RT
 from functools import reduce
-from typing import List, Tuple, Set, Dict
+from typing import List, Tuple, Set, Dict, Union
 
 from Bio.SeqFeature import SeqFeature
 
@@ -927,7 +927,7 @@ class GenomeSimulator():
                 current_time += time_to_next_genome_event
                 self.advanced_evolve_genomes(current_time)
 
-    def run_f(self): #NOTE: modify this one
+    def run_f(self):
 
         d = af.obtain_value(self.parameters["DUPLICATION"])
         t = af.obtain_value(self.parameters["TRANSFER"])
@@ -1444,7 +1444,7 @@ class GenomeSimulator():
 
                 donor = lineage
 
-                r = self.select_advanced_length(lineage, t_e * multiplier)
+                r = self.select_advanced_length(lineage, 1/t_e * multiplier)
 
                 if r == None:
                     return None
@@ -1459,7 +1459,7 @@ class GenomeSimulator():
 
         elif event == "L":
 
-            r = self.select_advanced_length(lineage, l_e * multiplier)
+            r = self.select_advanced_length(lineage, 1/l_e * multiplier)
 
             if r == None:
                 return None
@@ -1474,7 +1474,7 @@ class GenomeSimulator():
 
         elif event == "I":
 
-            r = self.select_advanced_length(lineage, i_e * multiplier)
+            r = self.select_advanced_length(lineage, 1/i_e * multiplier)
 
             if r == None:
                 return None
@@ -1485,7 +1485,7 @@ class GenomeSimulator():
 
         elif event == "P":
 
-            r = self.select_advanced_length(lineage, c_e * multiplier)
+            r = self.select_advanced_length(lineage, 1/c_e * multiplier)
             if r == None:
                 return None
             else:
@@ -2642,7 +2642,18 @@ class GenomeSimulator():
             return self.gene_family["Gene_tree"].write(format=1)
 
 
-    def select_advanced_length(self, lineage, p):
+    def select_advanced_length(self, lineage, p) -> Union[Tuple[int, int, str], None]:
+        """
+        Return a pair of specific coordinates for intergenic regions according
+        to `p` on a chromosome of `lineage`.
+
+        Returns
+        -------
+        Tuple[int, int, str]
+            (sc1, sc2, direction) where sc1 and sc2 are specific coordinates
+            and direction is one of {"left", "right"} indicating if sc2 is
+            left or right of sc1.
+        """
 
         chromosome = self.all_genomes[lineage].select_random_chromosome()
         total_genome_length = chromosome.map_of_locations[-1][1]
@@ -3294,7 +3305,8 @@ class Chromosome():
                 if c >= spc1 and c <= spc2:
                     return l
 
-    def return_affected_region(self, c1, c2, direction):
+    def return_affected_region(self, c1: int, c2: int, direction:str
+                               ) -> Union[Tuple[List[int], List[int], Tuple[int, int], Tuple[int, int]], None]:
 
         # It returns a tuple
         # 1. List of the position of the genes affected. ALWAYS FROM LEFT TO RIGHT
@@ -3422,13 +3434,13 @@ class CircularChromosome(Chromosome):
     def __init__(self):
         super().__init__()
 
-    def obtain_segment(self, affected_genes):
+    def obtain_segment(self, affected_genes) -> List[Gene]:
 
         segment = [self.genes[x] for x in affected_genes]
 
         return segment
 
-    def obtain_intergenic_segment(self, affected_intergenes):
+    def obtain_intergenic_segment(self, affected_intergenes) -> List[Intergene]:
 
         segment = [self.intergenes[x] for x in affected_intergenes]
 
@@ -3478,7 +3490,7 @@ class CircularChromosome(Chromosome):
             self.genes.insert(position + i, gene)
 
 
-    def obtain_affected_genes(self, p_extension):
+    def obtain_affected_genes(self, p_extension) -> List[int]:
 
         # Returns the index list of the affected genes
 
@@ -3741,7 +3753,7 @@ class Genome():
             elif shape == "C":
                 self.chromosomes.append(CircularChromosome(size))
 
-    def select_random_chromosome(self):
+    def select_random_chromosome(self) -> CircularChromosome:
 
         # I have to weight by the length of each chromosome
 
