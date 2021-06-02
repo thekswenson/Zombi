@@ -330,6 +330,7 @@ class Zombi():
                     gf, l = line.strip().split("\t")
                     gf_lengths[gf] = int(l)
 
+            id_to_seq = None
             if fasta_file:
                 id_to_seq = af.read_nucleotide_sequences(fasta_file, genome_folder)
 
@@ -337,8 +338,8 @@ class Zombi():
                 print("Sequence mode will be changed to codon for full compatibility with Sf mode")
 
             if num_threads:
-                n = len(complete_trees)
                 print(f"Using {num_threads} threads in parallel.")
+                n = len(complete_trees)
                 with multiprocessing.Pool(processes=num_threads) as pool:
                     pool.starmap(simulate_sequences_on_tree,
                                  zip(complete_trees, [gene_trees_folder]*n,
@@ -357,36 +358,45 @@ class Zombi():
             genome_lengths = [x for x in os.listdir(lengths_folder) if
                               "LENGTH" in x and "Initial" not in x and "Root" not in x]
 
-            for length_file in genome_lengths:
+            if num_threads:
+                print(f"Using {num_threads} threads in parallel.")
+                n = len(genome_lengths)
+                with multiprocessing.Pool(processes=num_threads) as pool:
+                    pool.starmap(write_whole_genome,
+                                 zip(genome_lengths, [lengths_folder]*n, [ss]*n))
+            else:
+                for length_file in genome_lengths:
+                    write_whole_genome(length_file, lengths_folder, ss)
 
-                species = length_file.split("_")[0]
-                whole_genome = ""
-                length_path = os.path.join(lengths_folder, length_file)
 
-                with open(length_path) as f:
-                    f.readline()
-                    for line in f:
+def write_whole_genome(length_file: str, lengths_folder:str, seq_sim: SequenceSimulator):
+    species = length_file.split("_")[0]
+    whole_genome = ""
+    length_path = os.path.join(lengths_folder, length_file)
 
-                        p, id, l = line.strip().split("\t")
+    with open(length_path) as f:
+        f.readline()
+        for line in f:
 
-                        if "G" in id:
-                            gf = id.split("_")[0].split("(")[1]
-                            id = id.split("_")[1].split(")")[0]
-                            name = species + "_" + id
-                            sequence = ss.retrieve_sequences(name, gf, sequences_folder)
-                            orientation = ss.retrieve_orientation(species, gf + "_" + id, lengths_folder)
-                            if orientation == "+":
-                                whole_genome += sequence
-                            elif orientation == "-":
-                                whole_genome += af.get_complementary_sequence(sequence)
-                            else:
-                                print("Error. Bad orientation of gene")
-                        elif id == "I":
-                            whole_genome += ss.generate_intergenic_sequences(int(l))
+            p, id, l = line.strip().split("\t")
 
-                entry = [(">" + species, whole_genome)]
-                af.fasta_writer(os.path.join(sequences_folder, species + "_Wholegenome.fasta"), entry)
+            if "G" in id:
+                gf = id.split("_")[0].split("(")[1]
+                id = id.split("_")[1].split(")")[0]
+                name = species + "_" + id
+                sequence = seq_sim.retrieve_sequences(name, gf, sequences_folder)
+                orientation = seq_sim.retrieve_orientation(species, gf + "_" + id, lengths_folder)
+                if orientation == "+":
+                    whole_genome += sequence
+                elif orientation == "-":
+                    whole_genome += af.get_complementary_sequence(sequence)
+                else:
+                    print("Error. Bad orientation of gene")
+            elif id == "I":
+                whole_genome += seq_sim.generate_intergenic_sequences(int(l))
 
+    entry = [(">" + species, whole_genome)]
+    af.fasta_writer(os.path.join(sequences_folder, species + "_Wholegenome.fasta"), entry)
 
 def simulate_sequences_on_tree(tree_file: str, gene_trees_folder: str,
                                seq_sim: SequenceSimulator,
@@ -398,12 +408,14 @@ def simulate_sequences_on_tree(tree_file: str, gene_trees_folder: str,
     tree_path = os.path.join(gene_trees_folder, tree_file)
     if verbose:
         print("Simulating sequence for gene family %s" % gf)
-
-    if gf in id_to_seq:   #gf from root genome so use fasta sequence
+                          #gf from root genome so use fasta sequence
+    if id_to_seq and gf in id_to_seq:
         seq_sim.run_f(tree_path, gf_lengths[gf], sequences_folder, id_to_seq[gf])
     else:                 #gf originated after species tree root so make random gene
         seq_sim.run_f(tree_path, gf_lengths[gf], sequences_folder)
     af.write_pruned_sequences(tree_path.replace("complete", "pruned"), sequences_folder)
+
+
 
 if __name__ == "__main__":
 
