@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from Bio.SeqRecord import SeqRecord
 from SpeciesTreeSimulator import SpeciesTreeGenerator
 from GenomeSimulator import GenomeSimulator
