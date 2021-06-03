@@ -526,7 +526,7 @@ class GenomeSimulator():
             chromosome.shape = "C"
 
             #Create the genes:
-        prev_feature = None
+        prev_feature = None     #previous feature used to make a gene
         for feature in gene_features:
             if prev_feature and prev_feature.location.end > feature.location.start:
                 print(f'WARNING: skipping the creation of overlapping gene '
@@ -538,21 +538,22 @@ class GenomeSimulator():
                 chromosome.genes.append(gene)
                 self.all_gene_families[str(self.gene_families_counter)] = gene_family
 
-            prev_feature = feature
+                prev_feature = feature
 
             #Create the intergenes:
-        if intergenic_sequences:    #NOTE: is the first intergene before or after the first gene?
+        if intergenic_sequences:    #first intergene is after the first gene
             chromosome.has_intergenes = True
 
-            if shape == "L":    #before the first gene
+            if shape == "L":        #before the first gene
                 chromosome.intergenes.append(Intergene(chromosome.genes[0].start))
 
             for gene1, gene2 in af.pairwise(chromosome.genes):
+                assert gene2.start >= gene1.end
                 chromosome.intergenes.append(Intergene(gene2.start - gene1.end))
 
-            if shape == "L":    #after the last gene
+            if shape == "L":        #after the last gene
                 intergene = Intergene(chrom_len - chromosome.genes[-1].end)
-            elif shape == "C":  #betweeen the last and first genes
+            elif shape == "C":      #betweeen the last and first genes
                 intergene = Intergene((chrom_len - chromosome.genes[-1].end) +
                                       chromosome.genes[0].start)
             else:
