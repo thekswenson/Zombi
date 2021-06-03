@@ -510,7 +510,6 @@ class GenomeSimulator():
         -----
             Only makes a single circular chromosome at the moment.
         """
-
         genome = Genome()
         genome.species = "Root"
         time = 0
@@ -523,7 +522,7 @@ class GenomeSimulator():
             chromosome: Chromosome = LinearChromosome()
             chromosome.shape = "L"
         elif shape == "C":
-            chromosome = CircularChromosome()
+            chromosome = CircularChromosome(num_nucleotides=chrom_len)
             chromosome.shape = "C"
 
             #Create the genes:
@@ -1405,7 +1404,7 @@ class GenomeSimulator():
             return 0
 
         mean_intergene_length = int(self.parameters["INTERGENE_LENGTH"])
-        multiplier = 1.0 / (mean_gene_length + mean_intergene_length)
+        multiplier = 1.0 / mean_intergene_length
 
 
         lineage = random.choice(list(self.active_genomes))
@@ -1417,7 +1416,7 @@ class GenomeSimulator():
 
         if event == "D":
 
-            r = self.select_advanced_length(lineage, d_e * multiplier)
+            r = self.select_advanced_length(lineage, 1/d_e * multiplier)
             if r == None:
                 return None
             else:
@@ -2642,72 +2641,75 @@ class GenomeSimulator():
             return self.gene_family["Gene_tree"].write(format=1)
 
 
-    def select_advanced_length(self, lineage, p) -> Union[Tuple[int, int, str], None]:
+    def select_advanced_length(self, lineage: str, p: float, reps=100,
+                               ) -> Union[Tuple[int, int, str], None]:
         """
         Return a pair of specific coordinates for intergenic regions according
         to `p` on a chromosome of `lineage`.
 
+        Parameters
+        ----------
+        lineage: str
+            the lineage to choose the chromosome from
+        p: float
+            1/p should be the expected (in nucleotides) difference between
+            sc1 and sc2. in other words the expected number of intergenic
+            nucleotides between the two breakpoints.
+        reps: int
+            try this many times to get a legal breakpoint pair.
+
         Returns
         -------
         Tuple[int, int, str]
-            (sc1, sc2, direction) where sc1 and sc2 are specific coordinates
-            and direction is one of {"left", "right"} indicating if sc2 is
-            left or right of sc1.
+            (sc1, sc2, direction) where sc1 and sc2 are specific intergenic
+            coordinates, meant to be breakpoints, and direction is one of
+            {"left", "right"} indicating if sc2 is left or right of sc1.
         """
-
         chromosome = self.all_genomes[lineage].select_random_chromosome()
-        total_genome_length = chromosome.map_of_locations[-1][1]
+            #The total number of intergenic nucleotides can be retrieved from
+            #the last intergenic location:
+        assert chromosome.map_of_locations[-1][5] == "I"
+        intergenic_specific_length = chromosome.map_of_locations[-1][3]
+
         success = False
-
         counter = 0
-
-        while counter <= 100 and success == False:
-
+        while counter <= reps and success == False:
             counter += 1
 
             sc1 = chromosome.select_random_coordinate_in_intergenic_regions()
-            tc1 = chromosome.return_total_coordinate_from_specific_coordinate(sc1, "I")
             d = numpy.random.choice(("left", "right"), p=[0.5, 0.5])
 
-            ## CHANGE
-
             extension = numpy.random.geometric(p)
-            #extension = numpy.random.randint(1000000+1000)
-
 
             if d == "right":
 
-                if tc1 + extension >= total_genome_length:
-                    tc2 = total_genome_length - (extension - tc1)
-                    if tc2 < tc1:
-                        success = True
+                if sc1 + extension >= intergenic_specific_length:
+                    #sc2 = intergenic_specific_length - (extension - sc1)
+                    sc2 = sc1 + extension - intergenic_specific_length
+                    if sc2 < sc1:
+                        success = True  # The event wraps to the right
                     else:
-                        # The event covers the whole genome
-                        pass
+                        pass            # The event covers the whole genome
                 else:
-                    tc2 = tc1 + extension
+                    sc2 = sc1 + extension
                     success = False
 
             elif d == "left":
 
-                if tc1 - extension <= 0:
-                    tc2 = total_genome_length - extension - (0 - tc1)
-                    if tc1 < tc2:
-                        success = True
+                if sc1 - extension <= 0:
+                    #sc2 = intergenic_specific_length - extension - (0 - sc1)
+                    sc2 = intergenic_specific_length - (extension - sc1)
+                    if sc1 < sc2:
+                        success = True  # The event wraps to the left
                     else:
-                        # The event covers the whole genome
-                        success = False
+                        success = False # The event covers the whole genome
                 else:
-                    tc2 = tc1 - extension
+                    sc2 = sc1 - extension
                     success = True
 
-            if success == True and tc2 >= 0 and tc2 <= total_genome_length:
+            if success:
+                return sc1, sc2, d
 
-                sc2 = chromosome.return_specific_coordinate_from_total_coordinate(tc2)
-                if sc2 == None:
-                    success = False
-                else:
-                    return sc1, sc2, d
         return None
 
 ##################
@@ -2723,6 +2725,17 @@ class GenomeSimulator():
 ##################
 
 class GeneFamily():
+    """
+    Represent a gene family which knows its history of events on a gene tree.
+
+    Attributes
+    ----------
+    events: List[Tuple[str, str, str]]
+        list of events (time, type, location) where time is a string
+        representing a float, type is the single capital character representing
+        the event type (e.g. 'O', 'I', etc.), and location is a ';' delimited
+        list of node names with gene ids (e.g. n16;2;n8;35)
+    """
 
     def __init__(self, identifier, time):
 
@@ -2732,7 +2745,7 @@ class GeneFamily():
         self.gff_id = ''                #unique ID from the gff file
 
         self.genes = list()
-        self.events = list()
+        self.events: List[Tuple[str, str, str]] = list()
         self.event_counter = 0  # Each time that the family is modified in any form, we have to update the event counter
         self.gene_ids_counter = 0
 
@@ -3164,17 +3177,35 @@ class Intergene():
 
 
 class Chromosome():
+    """
+    A chromosome that knows its "locations", which are the tuples holding
+    information about either genes or intergenes.
 
-    def __init__(self):
+    Attributes
+    ----------
+    map_of_locations: List[Tuple[int, int, int, int, str, str]]
+        list of "locations". Each location is a tuple
+        (tc1, tc2, sc1, sc2, i, type) where tc1 and tc2 are the genome
+        coordinates of the start and end of the location, sc1 and sc2 are the
+        "specific" coordinates of the start and end of the location, i is a
+        string version of the integer index of the gene/intergene, and type is
+        either "G" for "I" (for gene or intergene). A "specific" coordinate is
+        one that only counts the number of nucleotides in the specific category
+        of either gene or intergene.
+    num_nucleotides: int
+        the length of the chromosome (in nucleotides)
+    """
+
+    def __init__(self, num_nucleotides = 0):
 
         self.has_intergenes = False
         self.intergenes: List[Intergene] = list()
         self.genes: List[Gene] = list()
         self.shape = ""
         self.length = 0
+        self.num_nucleotides = num_nucleotides
 
-        self.total_locations = list()
-        self.map_of_locations = list()
+        self.map_of_locations: List[Tuple[int, int, int, int, str, str]] = []
 
         self.total_rates = 0
 
@@ -3402,7 +3433,19 @@ class Chromosome():
 
         return self.total_rates
 
+    def get_num_nucleotides(self) -> int:
+        """
+        Return the total number of nuclotides in this genome.
 
+        Returns
+        -------
+        int
+            number of nucleotides
+        """
+        if self.num_nucleotides:
+            return self.num_nucleotides
+        else:
+            return self.map_of_locations[-1][1]
 
     def __len__(self):
 
@@ -3431,8 +3474,8 @@ class Chromosome():
 
 class CircularChromosome(Chromosome):
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def obtain_segment(self, affected_genes) -> List[Gene]:
 
