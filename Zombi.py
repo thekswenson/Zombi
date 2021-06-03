@@ -402,8 +402,8 @@ def write_whole_genome(length_file: str, lengths_folder:str, seq_sim: SequenceSi
 def simulate_sequences_on_tree(tree_file: str, gene_trees_folder: str,
                                seq_sim: SequenceSimulator,
                                gf_lengths: Dict[str, int],
-                               id_to_seq: Dict[str, SeqRecord],
-                               verbose: bool) -> None:
+                               id_to_seq: Dict[str, SeqRecord]=None,
+                               verbose: bool=False) -> None:
     gf = tree_file.split("_")[0]
 
     tree_path = os.path.join(gene_trees_folder, tree_file)

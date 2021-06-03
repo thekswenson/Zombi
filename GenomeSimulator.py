@@ -16,6 +16,15 @@ from Bio.SeqFeature import SeqFeature
 # from GenomeClasses import GeneFamily, Gene, Intergene, CircularChromosome, LinearChromosome, Genome
 
 class GenomeSimulator():
+    """
+    Attributes
+    ----------
+    active_genomes: Set[str]
+        list of lineages that currently exist in the gene tree, each lineage is
+        represented as a string indicating the pendant node (e.g. n37)
+    all_genomes: Dict[str, Genome]
+        map lineage name to Genome (gene order)
+    """
 
     def __init__(self, parameters, events_file, root_genome: str=''):
 
@@ -946,7 +955,7 @@ class GenomeSimulator():
 
         ## These two lines are important for this mode (already in read_genome)
 
-        #for chromosome in genome:          #NOTE: already done in read_genome
+        #for chromosome in genome:          #NOTE: already done in read_genome!?
         #    chromosome.obtain_flankings()
         #    chromosome.obtain_locations()
 
@@ -1863,7 +1872,7 @@ class GenomeSimulator():
             return None
 
         else:
-            r1, r2, r3, r4 = r
+            r1, r2, r3, r4, int1, int2 = r
             segment = chromosome.obtain_segment(r1)
             intergene_segment = chromosome.obtain_intergenic_segment(r2[1:])
 
@@ -1886,6 +1895,7 @@ class GenomeSimulator():
         new_segment = new_segment_1 + new_segment_2
         new_intergene_segment = new_intergene_segment_1 + new_intergene_segment_2
 
+        #TandemDup()
         ###
         ###
 
@@ -2270,7 +2280,7 @@ class GenomeSimulator():
             return None
 
         else:
-            r1, r2, r3, r4 = r
+            r1, r2, r3, r4, int1, int2 = r
             segment = chromosome1.obtain_segment(r1)
             
         new_identifiers1 = self.return_new_identifiers_for_segment(segment)
@@ -2307,7 +2317,7 @@ class GenomeSimulator():
 
 
 
-        position = int(l[4]) + 1
+        position = l.position + 1
 
         
         for i, gene in enumerate(copied_segment2):
@@ -2315,9 +2325,9 @@ class GenomeSimulator():
         for i, intergene in enumerate(new_intergene_segment):
             chromosome2.intergenes.insert(position + i, intergene)
 
-        cut_position = (intergene_coordinate - l[2], l[3] - intergene_coordinate)
+        cut_position = (intergene_coordinate - l.sc1, l.sc2 - intergene_coordinate)
 
-        scar1 = chromosome2.intergenes[int(l[4])]
+        scar1 = chromosome2.intergenes[l.position]
         scar2 = chromosome2.intergenes[position + i]
 
         if d == "left":
@@ -2387,7 +2397,7 @@ class GenomeSimulator():
             return None
 
         else:
-            r1, r2, r3, r4 = r
+            r1, r2, r3, r4, int1, int2 = r
 
             segment = chromosome.obtain_segment(r1)
             intergene_segment = chromosome.obtain_intergenic_segment(r2[1:])
@@ -2481,7 +2491,7 @@ class GenomeSimulator():
         segment = chromosome.obtain_segment(affected_genes)
         chromosome.invert_segment(affected_genes)
 
-        for i, gene in enumerate(segment):
+        for gene in segment:
             self.all_gene_families[gene.gene_family].register_event(str(time), "I", ";".join(map(str,[lineage, gene.gene_id])))
 
     def make_inversion_intergenic(self, c1, c2, d, lineage, time):
@@ -2489,12 +2499,12 @@ class GenomeSimulator():
         chromosome = self.all_genomes[lineage].select_random_chromosome()
         r = chromosome.return_affected_region(c1, c2, d)
 
-        if r== None:
+        if r == None:
 
             return None
         else:
 
-            r1, r2, r3, r4 = r
+            r1, r2, r3, r4, int1, int2 = r
 
             segment = chromosome.obtain_segment(r1)
             chromosome.invert_segment(r1)
@@ -2508,7 +2518,7 @@ class GenomeSimulator():
             scar1.length = r3[0] + r4[0]
             scar2.length = r4[1] + r3[1]
 
-            for i, gene in enumerate(segment):
+            for gene in segment:
                 self.all_gene_families[gene.gene_family].register_event(str(time), "I", ";".join(map(str,[lineage, gene.gene_id])))
 
     def make_transposition(self, p, lineage, time):
@@ -2518,7 +2528,7 @@ class GenomeSimulator():
         segment = chromosome.obtain_segment(affected_genes)
         chromosome.cut_and_paste(affected_genes)
 
-        for i, gene in enumerate(segment):
+        for gene in segment:
             self.all_gene_families[gene.gene_family].register_event(str(time), "P", ";".join(map(str,[lineage, gene.gene_id])))
 
     def make_transposition_intergenic(self, c1, c2, d, lineage, time):
@@ -2530,7 +2540,7 @@ class GenomeSimulator():
             return None
 
         else:
-            r1, r2, r3, r4 = r
+            r1, r2, r3, r4, int1, int2 = r
 
         success = False
         counter = 0
@@ -2539,8 +2549,8 @@ class GenomeSimulator():
             c3 = chromosome.select_random_coordinate_in_intergenic_regions()
             l3 = chromosome.return_location_by_coordinate(c3, within_intergene=True)
 
-            tc3_1, tc3_2, sc3_1, sc3_2, p, t = l3
-            tc3_1, tc3_2, sc3_1, sc3_2, p = map(int, (tc3_1, tc3_2, sc3_1, sc3_2, p))
+            sc3_1, sc3_2, p = l3.sc1, l3.sc2, l3.position
+            #tc3_1, tc3_2, sc3_1, sc3_2, p = map(int, (tc3_1, tc3_2, sc3_1, sc3_2, p))
 
             if p not in r2:
                 success = True
@@ -2651,7 +2661,8 @@ class GenomeSimulator():
         Parameters
         ----------
         lineage: str
-            the lineage to choose the chromosome from
+            the lineage to choose the chromosome from (the pendant node in 
+            the species tree, e.g. n34)
         p: float
             1/p should be the expected (in nucleotides) difference between
             sc1 and sc2. in other words the expected number of intergenic
@@ -2669,8 +2680,8 @@ class GenomeSimulator():
         chromosome = self.all_genomes[lineage].select_random_chromosome()
             #The total number of intergenic nucleotides can be retrieved from
             #the last intergenic location:
-        assert chromosome.map_of_locations[-1][5] == "I"
-        intergenic_specific_length = chromosome.map_of_locations[-1][3]
+        assert chromosome.map_of_locations[-1].isIntergenic()
+        intergenic_specific_length = chromosome.map_of_locations[-1].sc2
 
         success = False
         counter = 0
@@ -3184,17 +3195,12 @@ class Chromosome():
 
     Attributes
     ----------
-    map_of_locations: List[Tuple[int, int, int, int, str, str]]
-        list of "locations". Each location is a tuple
-        (tc1, tc2, sc1, sc2, i, type) where tc1 and tc2 are the genome
-        coordinates of the start and end of the location, sc1 and sc2 are the
-        "specific" coordinates of the start and end of the location, i is a
-        string version of the integer index of the gene/intergene, and type is
-        either "G" for "I" (for gene or intergene). A "specific" coordinate is
-        one that only counts the number of nucleotides in the specific category
-        of either gene or intergene.
+    map_of_locations: List[Location]
+        list of Locations, which represent gene or intergene regions
     num_nucleotides: int
         the length of the chromosome (in nucleotides)
+    shape: str
+        one of "L" or "C" for linear or circular
     """
 
     def __init__(self, num_nucleotides = 0):
@@ -3206,9 +3212,11 @@ class Chromosome():
         self.length = 0
         self.num_nucleotides = num_nucleotides
 
-        self.map_of_locations: List[Tuple[int, int, int, int, str, str]] = []
+        self.map_of_locations: List[Interval] = []
 
         self.total_rates = 0
+
+        self.event_history: List[GenomeEvent] = []
 
     def obtain_total_itergenic_length(self):
 
@@ -3218,6 +3226,7 @@ class Chromosome():
         return total_length
 
     def select_random_position(self):
+
 
         return numpy.random.randint(len(self.genes))
 
@@ -3265,13 +3274,13 @@ class Chromosome():
             tc2 = self.genes[i].total_flanking[1]
             sc1 = self.genes[i].specific_flanking[0]
             sc2 = self.genes[i].specific_flanking[1]
-            self.map_of_locations.append((tc1, tc2, sc1, sc2, str(i), "G"))
+            self.map_of_locations.append(Interval(tc1, tc2, sc1, sc2, i, "G"))
 
             tc1 = self.intergenes[i].total_flanking[0]
             tc2 = self.intergenes[i].total_flanking[1]
             sc1 = self.intergenes[i].specific_flanking[0]
             sc2 = self.intergenes[i].specific_flanking[1]
-            self.map_of_locations.append((tc1, tc2, sc1, sc2, str(i), "I"))
+            self.map_of_locations.append(Interval(tc1, tc2, sc1, sc2, i, "I"))
 
 
     def select_random_coordinate_in_intergenic_regions(self):
@@ -3281,18 +3290,17 @@ class Chromosome():
         t = sum([x.length for x in self.intergenes]) + len(self.intergenes) - 1
         return random.randint(0, int(t))
 
-    def return_total_coordinate_from_specific_coordinate(self, c, type = "I", debug = False):
+    def return_total_coordinate_from_specific_coordinate(self, c, type = "I", debug = False) -> int:
 
         tc = None
         for r in self.map_of_locations:
-            tc1, tc2, spc1, spc2, sp, t = r
             if debug == True:
                 print(r)
-            if t != type:
+            if r.itype != type:
                 continue
-            if c >= spc1 and c <= spc2:
-                distance_to_lower_bound = c - spc1
-                tc = tc1 + distance_to_lower_bound
+            if r.containsTotal(c):
+                distance_to_lower_bound = c - r.sc1
+                tc = r.tc1 + distance_to_lower_bound
         return tc
 
     def return_specific_coordinate_from_total_coordinate(self, c, debug = False):
@@ -3300,13 +3308,12 @@ class Chromosome():
 
         sc = None
         for r in self.map_of_locations:
-            tc1, tc2, spc1, spc2, sp, t = r
-            if debug == True:
+            if debug:
                 print(r)
-            if t == "I" and c >= tc1 and c <= tc2:
+            if r.itype == "I" and r.containsTotal(c):
 
-                distance_to_lower_bound = c - tc1
-                sc = spc1 + distance_to_lower_bound
+                distance_to_lower_bound = c - r.tc1
+                sc = r.sc1 + distance_to_lower_bound
 
                 if debug == True:
                     print("PRINTING R")
@@ -3314,55 +3321,81 @@ class Chromosome():
 
         return sc
 
-    def return_location_by_coordinate(self, c, within_intergene = False):
+    def return_location_by_coordinate(self, c: int,
+                                      within_intergene = False) -> Interval:
+        """
+        Given a coordinate, return the endpoints of the Gene or Intergene that
+        contains it.
 
-        ### Returns
-        ### 1 and 2 Limits for total coordinates
-        ### 3 and 4 Limits for specific coordinates
-        ### 5  Position in the list of genes or itergenes
-        ### 6  Intergene (I) or Gene(G)
+        Parameters
+        ----------
+        c : int
+            the coordinate
+        within_intergene : bool, optional
+            search intergene specific coordinates. otherwise, search genes
+            and intergenes using total coordinates.
 
+        Returns
+        -------
+        Location
+            Location information for the given coordinate
+        """
         if within_intergene == False:
 
             for l in self.map_of_locations:
-                tc1, tc2, spc1, spc2, sp, t = l
-                if c >= tc1 and c <= tc2:
-                    return l
+                if l.containsTotal(c):
+                    return Interval(*l.asTuple(), c,
+                                    self.return_specific_coordinate_from_total_coordinate(c))
         else:
 
             for l in self.map_of_locations:
-                tc1, tc2, spc1, spc2, sp, t = l
-                if t != "I":
-                    continue
-                if c >= spc1 and c <= spc2:
-                    return l
+                if l.isIntergenic() and l.containsSpecific(c):
+                    return Interval(*l.asTuple(),
+                                    self.return_total_coordinate_from_specific_coordinate(c), c)
 
     def return_affected_region(self, c1: int, c2: int, direction:str
-                               ) -> Union[Tuple[List[int], List[int], Tuple[int, int], Tuple[int, int]], None]:
+                               ) -> Tuple[List[int], List[int],
+                                          Tuple[int, int], Tuple[int, int],
+                                          Interval, Interval]:
+        """
+        Return 
 
-        # It returns a tuple
-        # 1. List of the position of the genes affected. ALWAYS FROM LEFT TO RIGHT
-        # 2. List of the position of the intergenes affected. ALWAYS FROM LEFT TO RIGHT
-        # 3. Tuple with left and right cuts of first intergene.
-        # #  Watch out, the fact of calling it left or right can be confusing.
-        # 4. Tuple with left and right cuts of last intergene. Same note than above
+        Parameters
+        ----------
+        c1 : int
+            first intergene specific coordinate
+        c2 : int
+            second intergene specific coordinate
+        direction : str
+            one of 'left' or 'right'
+
+        Returns
+        -------
+        Tuple[List[int], List[int], Tuple[int, int], Tuple[int, int], Location, Location]
+            Returns a tuple
+            (genepositions, intergenepositions, firstlengths, secondlengths,
+             interval1, interval2)
+            where
+            1. List of the position of the genes affected. ALWAYS FROM LEFT TO RIGHT
+            2. List of the position of the intergenes affected. ALWAYS FROM LEFT TO RIGHT
+            3. Pair with left and right lengths of first intergene.
+               Watch out, the fact of calling it left or right can be confusing!
+            4. Pair with left and right lengths of last intergene.
+               Same note as above
+            5. The intergenic interval containing c1
+            6. The intergenic interval containing c2
+        """
 
         l1 = self.return_location_by_coordinate(c1, within_intergene=True)
         l2 = self.return_location_by_coordinate(c2, within_intergene=True)
 
-        tc1_1, tc1_2, sc1_1, sc1_2, p1, t1, = l1
-        tc2_1, tc2_2, sc2_1, sc2_2, p2, t2 = l2
-
-        p1 = int(p1)
-        p2 = int(p2)
+        sc1_1, sc1_2, p1 = l1.sc1, l1.sc2, l1.position
+        sc2_1, sc2_2, p2 = l2.sc1, l2.sc2, l2.position
 
         affected_genes = list()
         affected_intergenes = list()
 
         t_length = len(self.intergenes)
-
-        left_limits = None
-        right_limits = None
 
         if c1 == c2:
             return None
@@ -3412,7 +3445,8 @@ class Chromosome():
             left_limits = (c1 - sc1_1, sc1_2 - c1)
             right_limits = (c2 - sc2_1, sc2_2 - c2)
 
-        return (affected_genes, affected_intergenes, left_limits, right_limits)
+        return (affected_genes, affected_intergenes, left_limits, right_limits,
+                l1, l2)
 
 
     def select_random_length(self, p):
@@ -3446,7 +3480,7 @@ class Chromosome():
         if self.num_nucleotides:
             return self.num_nucleotides
         else:
-            return self.map_of_locations[-1][1]
+            return self.map_of_locations[-1].tc2
 
     def __len__(self):
 
@@ -3752,13 +3786,13 @@ class CircularChromosome(Chromosome):
         for gene in segment:
             self.genes.remove(gene)
 
-    def insert_gene_within_intergene(self, coordinate, location, gene):
+    def insert_gene_within_intergene(self, coordinate, location: Interval, gene):
 
-        tc1, tc2, sc1, sc2, position, t = location
+        tc1, tc2, sc1, sc2, position, t = location.asTuple()
 
         # Convert to ints:
 
-        tc1, tc2, sc1, sc2, position = map(int,(tc1,tc2,sc1,sc2,position))
+        #tc1, tc2, sc1, sc2, position = map(int,(tc1,tc2,sc1,sc2,position))
 
         # The first part is easier - We simply add the gene to the list of genes
 
@@ -3779,14 +3813,21 @@ class CircularChromosome(Chromosome):
 
 class LinearChromosome(Chromosome):
 
-    pass
+    def __init__(self):
+        raise(NotImplementedError)
 
 class Genome():
+    """
+    Attributes
+    ----------
+    species: str
+        the string indicating the pendant node name
+    """
 
     def __init__(self):
 
         self.species = ""
-        self.chromosomes = list()
+        self.chromosomes: List[Chromosome] = list()
 
     def start_genome(self, input):
 
@@ -3840,3 +3881,67 @@ class Genome():
     def __iter__(self):
         for chromosome in self.chromosomes:
             yield chromosome
+
+
+class Interval:
+    """
+    A Gene or Intergene interval holding both total and specific coordinates, 
+    along with possibly a coordinate contained inside it. Total coordinates are
+    with repect to all nucleotides (Gene or Intergene), whereas specific
+    coordinates consider only the nucleotides from `itype`, ignoring the others.
+
+    Attributes
+    ----------
+    tc1: int
+        left total coordinate of interval
+    tc2: int
+        right total coordinate of interval
+    sc1: int
+        left intergene specific coordinate of interval
+    sc2: int
+        right intergene specific coordinate of interval
+    position: int
+        the position of the Gene or Intergene in its list
+    itype: str
+        one of 'G' or 'I' for Gene or Intergene
+    t_coord: int
+        the total coordinate
+    s_coord: int
+        the specific coordinate
+    """
+    def __init__(self, tc1: int, tc2: int, spc1: int, spc2: int, index: str,
+                 itype: str, total=0, specific=0):
+        self.tc1 = tc1
+        self.tc2 = tc2
+        self.sc1 = spc1
+        self.sc2 = spc2
+        self.position = int(index)
+        self.itype = itype
+        self.t_coord = total
+        self.s_coord = specific
+
+    def asTuple(self) -> Tuple[int, int, int, int, int, str]:
+        """
+        Convert this Location into a tuple.
+
+        Returns
+        -------
+        Tuple[int, int, int, int, int, str]
+            (tc1, tc2, sc1, sc2, position, itype)
+        """
+        return self.tc1, self.tc2, self.sc1, self.sc2, self.position, self.itype
+
+    def containsTotal(self, t_coord:int) -> bool:
+        return self.tc1 <= t_coord <= self.tc2      #NOTE: is tc2 not pythonic?
+
+    def containsSpecific(self, s_coord:int) -> bool:
+        return self.sc1 <= s_coord <= self.sc2      #NOTE: is sc2 not pythonic?
+
+    def isIntergenic(self) -> bool:
+        return self.itype == 'I'
+
+    def __str__(self):
+        return f'{self.tc1} {self.tc2} {self.sc1} {self.sc2} {self.position} {self.itype}'
+
+    def __repr__(self):
+        return str(self)
