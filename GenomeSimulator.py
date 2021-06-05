@@ -1914,6 +1914,8 @@ class GenomeSimulator():
 
         if d == "left":
             r3, r4 = r4, r3
+        chromosome.obtain_flankings()
+        print(f'why non-adjacent? {scar1.specific_flanking} {scar2.specific_flanking}')
 
         scar1.length = r3[1] + r4[0]
         #scar2.length = r4[1          NOTE: missing r4[0]?
