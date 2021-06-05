@@ -3887,6 +3887,111 @@ class Genome():
             yield chromosome
 
 
+DUP = 'D'
+FER = 'T'
+LOSS = 'L'
+INV = 'I'
+POS = 'P'
+ORIG = 'O'
+T_EVENT = str
+class GenomeEvent:
+    """
+    An rearrangement event. Meant to be used as a base class.
+
+    Attributes
+    ----------
+    etype: str
+        the type of event from {DUP, FER, LOSS, INV, POS, ORIG}
+    lineage: str
+        the lineage on which the event happened (pendant node name)
+    time: float
+        the time at which it happened
+    """
+    def __init__(self, etype: T_EVENT, lineage: str, time: float):
+        self.etype: T_EVENT = etype
+        self.lineage: str = lineage
+        self.time: float = time
+
+RIGHT = 0
+LEFT = 1
+T_DIRECTION = bool
+class EventTwoCuts(GenomeEvent):
+    """
+    An event with two cuts. Meant to be used as a base class.
+    """
+    def __init__(self, sc1: int, sc2: int, direction: T_DIRECTION,
+                 *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.sc1: int = sc1
+        self.sc2: int = sc2
+        self.direction: T_DIRECTION = direction
+
+class Origination(EventTwoCuts):
+    pass
+
+class Inversion(EventTwoCuts):
+    pass
+
+T_PAIR = Tuple[int, int]
+class TandemDup(EventTwoCuts):
+    """
+    A tandem duplication event. When instantiating this you must also provide
+    the arguments for EventTwoCuts and GenomeEvent.
+    """
+    def __init__(self, int1: Interval, int2: Interval, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.before1: Interval = int1
+        self.before2: Interval = int2
+        self.after1: Interval = None
+        self.after2: Interval = None
+        self.after3: Interval = None
+
+        self.setAfter()
+
+    def setAfter(self):
+        """
+        Set the three intergenic regions that exist after the tandem
+        duplication.  Consider intergenic regions I = `before1` and
+        J = `before2` on either side of segement S:
+
+            I S J
+
+        I is split at `c1` into I1 I2 and J is split at `c2` into J1 J2. Then
+        we get
+
+            I1 I2 S J1 J2
+
+        and the tandem duplication produces
+
+            I1 I2 S J1 I2 S J1 J2
+
+        if `direction` is RIGHT, and produces
+
+            I1 I2 S J1 -J1 -S -I2 J2
+            
+        if `direction` is LEFT.
+        """
+        self.after1 = self.before1
+
+        lenI2 = self.before1.sc2 - self.sc1
+        lenJ1 = self.sc2 - self.before2.sc1
+        lenJ2 = self.before2.sc2 - self.sc2
+        lenS = self.before1.sc1 - self.before1.sc2
+        if self.direction == RIGHT:
+            scenterstart = self.before2.sc1
+            scenterend = self.before2.sc1 + lenJ1 + lenI2
+            tcenterstart = self.before2.sc1
+            tcenterend = self.before2.sc1 + lenJ1 + lenI2
+
+            srightstart = self.before1.sc2 + lenS + lenJ1 + lenI2 + lenS
+            srightend = srightstart + lenJ1 + lenJ2
+            trightstart = self.before1.tc2 + lenS + lenJ1 + lenI2 + lenS
+            trightend = srightstart + lenJ1 + lenJ2
+    
+            self.after2 = Interval(tcenterstart, tcenterend,
+                                   scenterstart, scenterend, self.position, 'I')
+            self.after3 = Interval(trightstart, trightend,
+                                   srightstart, srightend, self.position, 'I')
 class Interval:
     """
     A Gene or Intergene interval holding both total and specific coordinates, 
