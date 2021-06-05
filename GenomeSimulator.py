@@ -9,7 +9,7 @@ import os
 import networkx as nx
 import ReconciledTree as RT
 from functools import reduce
-from typing import List, Tuple, Set, Dict, Union
+from typing import List, Tuple, Set, Dict
 
 from Bio.SeqFeature import SeqFeature
 
@@ -481,7 +481,6 @@ class GenomeSimulator():
                 if intergenic_sequences == True:
                     gene.length = int(af.obtain_value(self.parameters["GENE_LENGTH"]))
             if intergenic_sequences == True:
-                chromosome.obtain_flankings()
                 chromosome.obtain_locations()
             genome.chromosomes.append(chromosome)
 
@@ -570,7 +569,6 @@ class GenomeSimulator():
             chromosome.intergenes.append(intergene)
 
                                 #NOTE: this is called in run_f as well!
-            chromosome.obtain_flankings()
             chromosome.obtain_locations()
 
         genome.chromosomes.append(chromosome)
@@ -1895,12 +1893,13 @@ class GenomeSimulator():
         new_segment = new_segment_1 + new_segment_2
         new_intergene_segment = new_intergene_segment_1 + new_intergene_segment_2
 
-        #TandemDup()
         ###
         ###
 
         position = r1[-1] + 1
 
+            #Insert the new genes and intergenes. map_of_locations will later be
+            #updated by obtain_locations().
         for i, gene in enumerate(new_segment):
             chromosome.genes.insert(position + i, gene)
         for i, intergene in enumerate(new_intergene_segment):
@@ -1917,7 +1916,8 @@ class GenomeSimulator():
             r3, r4 = r4, r3
 
         scar1.length = r3[1] + r4[0]
-        scar2.length = r4[1]
+        #scar2.length = r4[1          NOTE: missing r4[0]?
+        scar2.length = r4[1] + r4[0]
 
         for i, gene in enumerate(segment):
             nodes = [gene.species,
@@ -2310,7 +2310,6 @@ class GenomeSimulator():
         # Normal transfer
 
         chromosome2 = self.all_genomes[recipient].select_random_chromosome()
-        chromosome2.obtain_flankings()
         chromosome2.obtain_locations()
         intergene_coordinate = chromosome2.select_random_coordinate_in_intergenic_regions()
         l = chromosome2.return_location_by_coordinate(intergene_coordinate, within_intergene=True)
@@ -2653,7 +2652,7 @@ class GenomeSimulator():
 
 
     def select_advanced_length(self, lineage: str, p: float, reps=100,
-                               ) -> Union[Tuple[int, int, str], None]:
+                               ) -> Tuple[int, int, str]:
         """
         Return a pair of specific coordinates for intergenic regions according
         to `p` on a chromosome of `lineage`.
@@ -2698,29 +2697,30 @@ class GenomeSimulator():
                 if sc1 + extension >= intergenic_specific_length:
                     #sc2 = intergenic_specific_length - (extension - sc1)
                     sc2 = sc1 + extension - intergenic_specific_length
-                    if sc2 < sc1:
-                        success = True  # The event wraps to the right
-                    else:
-                        pass            # The event covers the whole genome
+                    if sc2 < sc1:       # The event wraps to the right and
+                        success = True  # doesn't cover the whole genome
                 else:
                     sc2 = sc1 + extension
-                    success = False
+                    success = True
 
             elif d == "left":
 
                 if sc1 - extension <= 0:
                     #sc2 = intergenic_specific_length - extension - (0 - sc1)
                     sc2 = intergenic_specific_length - (extension - sc1)
-                    if sc1 < sc2:
-                        success = True  # The event wraps to the left
-                    else:
-                        success = False # The event covers the whole genome
+                    if sc1 < sc2:       # The event wraps to the left and
+                        success = True  # doesn't cover the whole genome
                 else:
                     sc2 = sc1 - extension
                     success = True
 
             if success:
-                return sc1, sc2, d
+                l1 = chromosome.return_location_by_coordinate(sc1, True)
+                l2 = chromosome.return_location_by_coordinate(sc2, True)
+                if l1 != l2:
+                    return sc1, sc2, d
+
+                success = False
 
         return None
 
@@ -3101,16 +3101,16 @@ class Gene():
     length: int
         the length of the gene
     start: int
-        the starting coordinate of the gene, python indexed
+        the starting index of the gene (in gene order), python indexed
     end: int
-        the ending coordinate of the gene, python indexed (non-inclusive)
+        the ending index of the gene, python indexed (non-inclusive)
     orientation: str
         the orientation of the gene ("+" or "-")
-    total_flanking: Tuple[int, int]
+    total_flanking: T_PAIR
         (i, j) where i is the total number of bases before this gene excluding
         the bases from the intergene before the first gene, and j is i plus the
         length of this gene
-    specific_flanking: Tuple[int, int]
+    specific_flanking: T_PAIR
         (i, j) where i is the number of bases before this gene excluding all the
         bases from the intergenes, and j is i plus the length of this gene
     """
@@ -3127,8 +3127,8 @@ class Gene():
         self.length = 0
         self.start: int = None       #pythonic (inclusive start, 0 indexed)
         self.end: int = None         #pythonic (non-inclusive end)
-        self.total_flanking: Tuple[int, int] = None
-        self.specific_flanking: Tuple[int, int] = None
+        self.total_flanking: T_PAIR = None
+        self.specific_flanking: T_PAIR = None
 
     def determine_orientation(self):
 
@@ -3160,11 +3160,11 @@ class Intergene():
     ----------
     length: int
         the length of the intergene
-    total_flanking: Tuple[int, int]
+    total_flanking: T_PAIR
         (i, j) where i is the total number of bases before this intergene
         excluding the bases from the intergene before the first gene, and j is i
         plus the length of this intergene
-    specific_flanking: Tuple[int, int]
+    specific_flanking: T_PAIR
         (i, j) where i is the number of bases before this intergene excluding
         the bases from the intergene before the first gene and all the bases
         of the genes, and j is i plus the length of this intergene
@@ -3177,8 +3177,8 @@ class Intergene():
         else:
             self.length = 0
 
-        self.total_flanking: Tuple[int, int] = None
-        self.specific_flanking: Tuple[int, int] = None
+        self.total_flanking: T_PAIR = None
+        self.specific_flanking: T_PAIR = None
         self.id = 0 # Only for debugging purposes
 
     def __str__(self):
@@ -3190,8 +3190,9 @@ class Intergene():
 
 class Chromosome():
     """
-    A chromosome that knows its "locations", which are the tuples holding
-    information about either genes or intergenes.
+    A chromosome that knows its genes and intergenes, as well as its
+    `map_of_locations`, which is the representation of the chromsome as a
+    list of Intervals representing, in alternations, the Genes and Intergenes.
 
     Attributes
     ----------
@@ -3231,6 +3232,10 @@ class Chromosome():
         return numpy.random.randint(len(self.genes))
 
     def obtain_flankings(self):
+        """
+        Set the "flanking" intervals for each of the genes and intergenes based
+        on their lengths.
+        """
 
         if self.has_intergenes:
 
@@ -3262,11 +3267,14 @@ class Chromosome():
             #self.intergenes[i].total_flanking = (ub, 0)
 
     def obtain_locations(self):
-
+        """
+        Setup the `map_of_locations` list which will contain all of the genes
+        and intergenes interleaved, in the order in which they appear in the
+        genome. In the process, set the "flanking" endpoints for each of the
+        genes and intergenes (based on their length).
+        """
+        self.obtain_flankings()
         self.map_of_locations = list()
-
-        # The structure of total location is:
-        # tc1, tc2, Specific coordinate 1, specific coordinate 2, position, Gene/intergene
 
         for i in range(len(self.genes)):
 
@@ -3298,7 +3306,7 @@ class Chromosome():
                 print(r)
             if r.itype != type:
                 continue
-            if r.containsTotal(c):
+            if r.containsSpecific(c):
                 distance_to_lower_bound = c - r.sc1
                 tc = r.tc1 + distance_to_lower_bound
         return tc
@@ -3351,11 +3359,11 @@ class Chromosome():
             for l in self.map_of_locations:
                 if l.isIntergenic() and l.containsSpecific(c):
                     return Interval(*l.asTuple(),
-                                    self.return_total_coordinate_from_specific_coordinate(c), c)
+                                    self.return_total_coordinate_from_specific_coordinate(c),
+                                    c)
 
     def return_affected_region(self, c1: int, c2: int, direction:str
-                               ) -> Tuple[List[int], List[int],
-                                          Tuple[int, int], Tuple[int, int],
+                               ) -> Tuple[List[int], List[int], T_PAIR, T_PAIR,
                                           Interval, Interval]:
         """
         Return 
@@ -3367,17 +3375,19 @@ class Chromosome():
         c2 : int
             second intergene specific coordinate
         direction : str
-            one of 'left' or 'right'
+            one of 'left' or 'right' defining whether the region goes left or
+            right from c1
 
         Returns
         -------
-        Tuple[List[int], List[int], Tuple[int, int], Tuple[int, int], Location, Location]
+        Tuple[List[int], List[int], T_PAIR, T_PAIR, Location, Location]
             Returns a tuple
             (genepositions, intergenepositions, firstlengths, secondlengths,
              interval1, interval2)
             where
             1. List of the position of the genes affected. ALWAYS FROM LEFT TO RIGHT
             2. List of the position of the intergenes affected. ALWAYS FROM LEFT TO RIGHT
+               (The intergenes containing c1 and c2 are affected)
             3. Pair with left and right lengths of first intergene.
                Watch out, the fact of calling it left or right can be confusing!
             4. Pair with left and right lengths of last intergene.
@@ -3406,9 +3416,7 @@ class Chromosome():
         elif c1 < c2 and direction == "right":
 
             affected_genes = [i + 1 for i in range(p1, p2)]
-            affected_intergenes = [i for i in range(p1,p2 + 1)]
-            left_limits = (c1 - sc1_1, sc1_2 - c1)
-            right_limits = (c2 - sc2_1, sc2_2 - c2)
+            affected_intergenes = [i for i in range(p1, p2 + 1)]
 
         elif c1 > c2 and direction == "right":
 
@@ -3418,15 +3426,10 @@ class Chromosome():
             affected_intergenes = [i for i in range(p1, t_length)]
             affected_intergenes += [i for i in range(0, p2 + 1)]
 
-            left_limits = (c1 - sc1_1, sc1_2 - c1)
-            right_limits = (c2 - sc2_1, sc2_2 - c2)
-
         elif c1 > c2 and direction == "left":
 
             affected_genes = [i for i in range(p1, p2, - 1)]
             affected_intergenes = [i for i in range(p1, p2 - 1, -1)]
-            left_limits = (c1 - sc1_1, sc1_2 - c1)
-            right_limits = (c2 - sc2_1, sc2_2 - c2)
 
             affected_genes.reverse()
             affected_intergenes.reverse()
@@ -3442,11 +3445,12 @@ class Chromosome():
             affected_genes.reverse()
             affected_intergenes.reverse()
 
-            left_limits = (c1 - sc1_1, sc1_2 - c1)
-            right_limits = (c2 - sc2_1, sc2_2 - c2)
+        left_lengths = (c1 - sc1_1, sc1_2 - c1)
+        right_lengths = (c2 - sc2_1, sc2_2 - c2)
 
-        return (affected_genes, affected_intergenes, left_limits, right_limits,
-                l1, l2)
+        return (affected_genes, affected_intergenes,
+                left_lengths, right_lengths, l1, l2)
+                
 
 
     def select_random_length(self, p):
@@ -3909,16 +3913,49 @@ class Interval:
     s_coord: int
         the specific coordinate
     """
-    def __init__(self, tc1: int, tc2: int, spc1: int, spc2: int, index: str,
+    def __init__(self, tc1: int, tc2: int, sc1: int, sc2: int, index: int,
                  itype: str, total=0, specific=0):
+        """
+        Create a new Interval that may or may not contain breakpoint
+        coordinates.
+
+        Parameters
+        ----------
+        tc1 : int
+            first total coordinate
+        tc2 : int
+            second total coordinate
+        spc1 : int
+            first specific coordinate
+        spc2 : int
+            second specific coordinate
+        index : int
+            the position of the Interval in its respective list
+        itype : str
+            one of 'I' or 'G'
+        total : int, optional
+            total coordinate in the interval corresponding to a breakpoint, by
+            default 0
+        specific : int, optional
+            specific coordinate in the interval corresponding to `total`, by default 0
+        """
         self.tc1 = tc1
         self.tc2 = tc2
-        self.sc1 = spc1
-        self.sc2 = spc2
-        self.position = int(index)
+        self.sc1 = sc1
+        self.sc2 = sc2
+        self.position = index
         self.itype = itype
-        self.t_coord = total
-        self.s_coord = specific
+        self.t_breakpoint = total
+        self.s_breakpoint = specific
+
+            #Sanity checks:
+        assert tc2 - tc1 == sc2 - sc1
+        if total:
+            assert tc1 <= total <= tc2
+        if specific:
+            assert sc1 <= specific <= sc2
+            if total:
+                assert tc2 - total == sc2 - specific
 
     def asTuple(self) -> Tuple[int, int, int, int, int, str]:
         """
@@ -3931,6 +3968,12 @@ class Interval:
         """
         return self.tc1, self.tc2, self.sc1, self.sc2, self.position, self.itype
 
+    def totalPair(self) -> T_PAIR:
+        return self.tc1, self.tc2
+
+    def specificPair(self) -> T_PAIR:
+        return self.sc1, self.sc2
+
     def containsTotal(self, t_coord:int) -> bool:
         return self.tc1 <= t_coord <= self.tc2      #NOTE: is tc2 not pythonic?
 
@@ -3939,6 +3982,18 @@ class Interval:
 
     def isIntergenic(self) -> bool:
         return self.itype == 'I'
+
+    def splitSpecific(self) -> T_PAIR:
+        """
+        Get the halves of the specific interval split by `s_breakpoint`.
+        """
+        return ((self.sc1, self.s_breakpoint), (self.s_breakpoint, self.sc2))
+
+    def splitTotal(self) -> T_PAIR:
+        """
+        Get the halves of the specific interval split by `t_breakpoint`.
+        """
+        return ((self.tc1, self.t_breakpoint), (self.t_breakpoint, self.tc2))
 
     def __str__(self):
         return f'{self.tc1} {self.tc2} {self.sc1} {self.sc2} {self.position} {self.itype}'

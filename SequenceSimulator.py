@@ -88,7 +88,7 @@ class SequenceSimulator():
     def run_f(self, tree_file, gene_length: int, sequences_folder: str,
               sequence: SeqRecord = None):
         """
-        Simulation full sequence evolution for the gene tree.
+        Simulation full genome sequence evolution for the gene tree.
 
         Parameters
         ----------
