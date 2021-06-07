@@ -3935,10 +3935,20 @@ class Inversion(EventTwoCuts):
 T_PAIR = Tuple[int, int]
 class TandemDup(EventTwoCuts):
     """
-    A tandem duplication event. When instantiating this you must also provide
-    the arguments for EventTwoCuts and GenomeEvent.
+    A tandem duplication event.
     """
     def __init__(self, int1: Interval, int2: Interval, *args, **kwargs):
+        """
+        Create a TandemDuplication event.  When instantiating this you must also
+        provide the arguments for EventTwoCuts and GenomeEvent.
+
+        Parameters
+        ----------
+        int1 : Interval
+            the old intergene at the left
+        int2 : Interval
+            the old intergene at the right
+        """
         super().__init__(*args, **kwargs)
         self.before1: Interval = int1
         self.before2: Interval = int2
@@ -3974,24 +3984,36 @@ class TandemDup(EventTwoCuts):
         self.after1 = self.before1
 
         lenI2 = self.before1.sc2 - self.sc1
+        lenS = self.before2.sc1 - self.before1.sc2
         lenJ1 = self.sc2 - self.before2.sc1
         lenJ2 = self.before2.sc2 - self.sc2
-        lenS = self.before1.sc1 - self.before1.sc2
         if self.direction == RIGHT:
             scenterstart = self.before2.sc1
             scenterend = self.before2.sc1 + lenJ1 + lenI2
-            tcenterstart = self.before2.sc1
-            tcenterend = self.before2.sc1 + lenJ1 + lenI2
+            tcenterstart = self.before2.tc1
+            tcenterend = self.before2.tc1 + lenJ1 + lenI2
 
             srightstart = self.before1.sc2 + lenS + lenJ1 + lenI2 + lenS
             srightend = srightstart + lenJ1 + lenJ2
             trightstart = self.before1.tc2 + lenS + lenJ1 + lenI2 + lenS
-            trightend = srightstart + lenJ1 + lenJ2
+            trightend = trightstart + lenJ1 + lenJ2
+
+        if self.direction == LEFT:
+            scenterstart = self.before2.sc1
+            scenterend = self.before2.sc1 + lenJ1 + lenJ1
+            tcenterstart = self.before2.tc1
+            tcenterend = self.before2.tc1 + lenJ1 + lenJ1
+
+            srightstart = self.before1.sc2 + lenS + lenJ1 + lenJ1 + lenS
+            srightend = srightstart + lenI2 + lenJ2
+            trightstart = self.before1.tc2 + lenS + lenJ1 + lenJ1 + lenS
+            trightend = trightstart + lenI2 + lenJ2
     
-            self.after2 = Interval(tcenterstart, tcenterend,
-                                   scenterstart, scenterend, self.position, 'I')
-            self.after3 = Interval(trightstart, trightend,
-                                   srightstart, srightend, self.position, 'I')
+        position = self.before1.position
+        self.after2 = Interval(tcenterstart, tcenterend,
+                               scenterstart, scenterend, position+1, 'I')
+        self.after3 = Interval(trightstart, trightend,
+                               srightstart, srightend, position+2, 'I')
 class Interval:
     """
     A Gene or Intergene interval holding both total and specific coordinates, 
@@ -4054,7 +4076,7 @@ class Interval:
         self.s_breakpoint = specific
 
             #Sanity checks:
-        assert tc2 - tc1 == sc2 - sc1
+        assert tc2 - tc1 == sc2 - sc1, print(f'{tc2-tc1} != {sc2-sc1}')
         if total:
             assert tc1 <= total <= tc2
         if specific:
