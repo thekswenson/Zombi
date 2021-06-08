@@ -3,8 +3,7 @@ import os
 import ete3
 import numpy
 import random
-import AuxiliarFunctions as af
-from typing import Union
+from . import AuxiliarFunctions as af
 
 from Bio.SeqRecord import SeqRecord
 

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 from Bio.SeqRecord import SeqRecord
-from SpeciesTreeSimulator import SpeciesTreeGenerator
-from GenomeSimulator import GenomeSimulator
-from SequenceSimulator import SequenceSimulator
-from typing import Dict, Tuple
-import AuxiliarFunctions as af
+from zombi.SpeciesTreeSimulator import SpeciesTreeGenerator
+from zombi.GenomeSimulator import GenomeSimulator
+from zombi.SequenceSimulator import SequenceSimulator
+from typing import Dict
+import zombi.AuxiliarFunctions as af
 import argparse
 import os
 import multiprocessing

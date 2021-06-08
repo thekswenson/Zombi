@@ -1,8 +1,7 @@
-import AuxiliarFunctions as af
+#!/usr/bin/env python3
+from . import AuxiliarFunctions as af
 import argparse
 import os
-import random
-import numpy
 import ete3
 
 

@@ -1,4 +1,4 @@
-import AuxiliarFunctions as af
+from . import AuxiliarFunctions as af
 import numpy
 import ete3
 import random
