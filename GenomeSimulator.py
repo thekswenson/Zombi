@@ -1916,7 +1916,7 @@ class GenomeSimulator():
             r3, r4 = r4, r3
 
         scar1.length = r3[1] + r4[0]
-        #scar2.length = r4[1          NOTE: missing r4[0]?
+        #scar2.length = r4[1]         NOTE: missing r4[0]?
         scar2.length = r4[1] + r4[0]
 
         for i, gene in enumerate(segment):
@@ -3919,25 +3919,88 @@ class EventTwoCuts(GenomeEvent):
     """
     An event with two cuts. Meant to be used as a base class.
     """
-    def __init__(self, sc1: int, sc2: int, direction: T_DIRECTION,
-                 *args, **kwargs):
+    def __init__(self, int1: Interval, int2: Interval, sc1: int, sc2: int,
+                 direction: T_DIRECTION, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.before1: Interval = int1
+        self.before2: Interval = int2
         self.sc1: int = sc1
         self.sc2: int = sc2
         self.direction: T_DIRECTION = direction
 
-class Origination(EventTwoCuts):
+class Origination(GenomeEvent):
     pass
 
 class Inversion(EventTwoCuts):
-    pass
+    """
+    An Inversion event.
+    """
+    def __init__(self, *args, **kwargs):
+        """
+        Create an Inversion event.  When instantiating this you must also
+        provide the arguments for EventTwoCuts and GenomeEvent.
+
+        Parameters
+        ----------
+        int1 : Interval
+            the old intergene at the left
+        int2 : Interval
+            the old intergene at the right
+        sc1 : int
+            the specific coordinate where the first interval is to be cut
+        sc2 : int
+            the specific coordinate where the second interval is to be cut
+        """
+        super().__init__(*args, **kwargs)
+        self.after1: Interval = None
+        self.after2: Interval = None
+
+        self.setAfter()
+
+    def setAfter(self):
+        """
+        Set the two intergenic regions that exist after the inversion.
+        Consider intergenic regions I = `before1` and J = `before2` on either
+        side of segement S:
+
+            I S J
+
+        I is split at `c1` into I1 I2 and J is split at `c2` into J1 J2. Then
+        we get
+
+            I1 I2 S J1 J2
+
+        and the inversion produces
+
+            I1 -J1 -S -I2 J2
+        """
+        lenI1 = self.sc1 - self.before1.sc1
+        lenI2 = self.before1.sc2 - self.sc1
+        lenJ1 = self.sc2 - self.before2.sc1
+        lenJ2 = self.before2.sc2 - self.sc2
+
+        sleftstart = self.before1.sc1
+        sleftend = sleftstart + lenI1 + lenJ1
+        tleftstart = self.before1.tc1
+        tleftend = tleftstart + lenI1 + lenJ1
+
+        srightstart = self.before2.sc1
+        srightend = srightstart + lenI2 + lenJ2
+        trightstart = self.before2.tc1
+        trightend = trightstart + lenI2 + lenJ2
+
+        position = self.before1.position
+        self.after1 = Interval(tleftstart, tleftend,
+                               sleftstart, sleftend, position, 'I')
+        self.after2 = Interval(trightstart, trightend,
+                               srightstart, srightend, position+1, 'I')
 
 T_PAIR = Tuple[int, int]
 class TandemDup(EventTwoCuts):
     """
     A tandem duplication event.
     """
-    def __init__(self, int1: Interval, int2: Interval, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         """
         Create a TandemDuplication event.  When instantiating this you must also
         provide the arguments for EventTwoCuts and GenomeEvent.
@@ -3950,13 +4013,12 @@ class TandemDup(EventTwoCuts):
             the old intergene at the right
         """
         super().__init__(*args, **kwargs)
-        self.before1: Interval = int1
-        self.before2: Interval = int2
         self.after1: Interval = None
         self.after2: Interval = None
         self.after3: Interval = None
 
         self.setAfter()
+
 
     def setAfter(self):
         """
@@ -3966,20 +4028,14 @@ class TandemDup(EventTwoCuts):
 
             I S J
 
-        I is split at `c1` into I1 I2 and J is split at `c2` into J1 J2. Then
+        I is split at `c1` into I0 I1 and J is split at `c2` into J0 J1. Then
         we get
 
-            I1 I2 S J1 J2
+            I0 I1 S J0 J1
 
         and the tandem duplication produces
 
-            I1 I2 S J1 I2 S J1 J2
-
-        if `direction` is RIGHT, and produces
-
-            I1 I2 S J1 -J1 -S -I2 J2
-            
-        if `direction` is LEFT.
+            I0 I1 S J0 I1 S J0 J1
         """
         self.after1 = self.before1
 
