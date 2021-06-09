@@ -525,8 +525,8 @@ class Chromosome():
 
     def obtain_flankings(self):
         """
-        Set the "flanking" intervals for each of the genes and intergenes based
-        on their lengths.
+        Set the "flanking" breakpoint intervals for each of the genes and
+        intergenes based on their lengths.
         """
 
         if self.has_intergenes:

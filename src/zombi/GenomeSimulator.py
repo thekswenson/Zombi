@@ -1958,6 +1958,17 @@ class GenomeSimulator():
         assert scar2.length == len(dup.afterR)
         chromosome.event_history.append(dup)
 
+        chromosome.obtain_flankings()
+        assert scar1.specific_flanking[0] == dup.afterC.sc1, \
+               f'{scar1.specific_flanking[0]} != {dup.afterC.sc1} {specificlen}'
+        assert scar1.specific_flanking[1] == dup.afterC.sc2, \
+               f'{scar1.specific_flanking[1]} != {dup.afterC.sc2} {specificlen}'
+        assert scar2.specific_flanking[0] == dup.afterR.sc1, \
+               f'{scar2.specific_flanking[0]} != {dup.afterR.sc1} {specificlen}'
+        assert scar2.specific_flanking[1] == dup.afterR.sc2, \
+               f'{scar2.specific_flanking[1]} != {dup.afterR.sc2} {specificlen}'
+
+
         for i, gene in enumerate(segment):
             nodes = [gene.species,
                      gene.gene_id,
