@@ -1964,7 +1964,7 @@ class GenomeSimulator():
 
         assert scar1.length == len(dup.afterC)
         assert scar2.length == len(dup.afterR)
-        chromosome.event_history.append[dup]
+        chromosome.event_history.append(dup)
 
         for i, gene in enumerate(segment):
             nodes = [gene.species,
