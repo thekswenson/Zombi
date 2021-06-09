@@ -2,11 +2,6 @@ from .Interval import Interval
 
 # Types:
 T_EVENT = str
-T_DIR = bool
-
-# Directions:
-RIGHT = False
-LEFT = True
 
 # Event types:
 TDUP = 'D'  #: Tandem Duplication
@@ -43,37 +38,41 @@ class EventTwoCuts(GenomeEvent):
         `before1` and 'sc1' are always considered to be to the left of `before2`
         and `sc2`, so if the event wraps around the indices of `before1` will
         be greater than the indices of `before2`.
+
+    ATTRIBUTES
+    ----------
+    beforeL: Interval
+        the first intergenic interval to be cut (leftmost unless wraps)
+    beforeR: Interval
+        the second intergenic interval to be cut
+    scL: int
+        the first cut
+    scR: int
+        the second cut
+    twraplen: int
+        the total length of the chromosome
+    swraplen: int
+        the intergene specific length of the chromosome
     """
     def __init__(self, int1: Interval, int2: Interval, sc1: int, sc2: int,
-                 direction: T_DIR, *args, **kwargs):
+                 swraplen: int, twraplen: int, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.before1: Interval = int1
-        self.before2: Interval = int2
-        self.sc1: int = sc1
-        self.sc2: int = sc2
-        self.direction: T_DIR = direction
+        self.beforeL: Interval = int1
+        self.beforeR: Interval = int2
+        self.scL: int = sc1
+        self.scR: int = sc2
+        self.swraplen: int = swraplen   #: specific wrap length
+        self.twraplen: int = twraplen   #: total wrap length
 
-    def wrapsLeft(self) -> bool:
+    def wraps(self) -> bool:
         """
-        Does this event wrap left (the `direction` is LEFT and `before1` occurs
-        to the left of `before2`)?
-
-        NOTES
-        -----
-            Assumes no intergenes that wrap from the end to beginning.
-        """
-        return self.direction == LEFT and self.before1.tc1 < self.before2.tc1
-
-    def wrapsRight(self) -> bool:
-        """
-        Does this event wrap right (the `direction` is RIGHT and `before1`
-        occurs to the right of `before2`)?
+        Does this event wrap right (`before1` occurs after `before2`)?
 
         NOTES
         -----
             Assumes no intergenes that wrap from the end to beginning.
         """
-        return self.direction == RIGHT and self.before1.tc1 > self.before2.tc1
+        return self.beforeL.tc1 > self.beforeR.tc1
 
 class Origination(GenomeEvent):
     pass
@@ -99,8 +98,8 @@ class Inversion(EventTwoCuts):
             the specific coordinate where the second interval is to be cut
         """
         super().__init__(*args, **kwargs)
-        self.after1: Interval = None
-        self.after2: Interval = None
+        self.afterL: Interval = None
+        self.afterR: Interval = None
 
         self.setAfter()
 
@@ -121,36 +120,42 @@ class Inversion(EventTwoCuts):
 
             I0 -J0 -S -I1 J1
         """
-        lenI0 = self.sc1 - self.before1.sc1
-        lenI1 = self.before1.sc2 - self.sc1
-        lenJ0 = self.sc2 - self.before2.sc1
-        lenJ1 = self.before2.sc2 - self.sc2
+        lenI0 = self.scL - self.beforeL.sc1
+        lenI1 = self.beforeL.sc2 - self.scL
+        lenJ0 = self.scR - self.beforeR.sc1
+        lenJ1 = self.beforeR.sc2 - self.scR
 
-        sleftstart = self.before1.sc1
+        sleftstart = self.beforeL.sc1
         sleftend = sleftstart + lenI0 + lenJ0
-        tleftstart = self.before1.tc1
+        tleftstart = self.beforeL.tc1
         tleftend = tleftstart + lenI0 + lenJ0
 
-        srightstart = self.before2.sc1
+        srightstart = self.beforeR.sc1
         srightend = srightstart + lenI1 + lenJ1
-        trightstart = self.before2.tc1
+        trightstart = self.beforeR.tc1
         trightend = trightstart + lenI1 + lenJ1
 
-        position = self.before1.position
-        self.after1 = Interval(tleftstart, tleftend,
+        position = self.beforeL.position
+        self.afterL = Interval(tleftstart, tleftend,
                                sleftstart, sleftend, position, 'I')
-        self.after2 = Interval(trightstart, trightend,
+        self.afterR = Interval(trightstart, trightend,
                                srightstart, srightend, position+1, 'I')
 
 class TandemDup(EventTwoCuts):
     """
     A tandem duplication event. See the description of `setAfter()` for details.
     
-    Attributes
+    ATTRIBUTES
     ----------
+    afterL: Interval
+        the first intergenic interval after the event (I0 I1, see `setAfter()`)
+    afterC: Interval
+        the second intergenic interval after the event (J0 I1)
+    afterR: Interval
+        the third intergenic interval after the event (J0 J1)
     """
     def __init__(self, int1: Interval, int2: Interval, sc1: int, sc2: int,
-                 direction: T_DIR, lineage: str, time: float):
+                 swraplen: int, twraplen: int, lineage: str, time: float):
         """
         Create a TandemDuplication event.  When instantiating this you must
         provide the arguments for EventTwoCuts and GenomeEvent.
@@ -158,25 +163,26 @@ class TandemDup(EventTwoCuts):
         Parameters
         ----------
         int1: Interval
-            the first intergenic interval to be cut
+            the left intergenic interval to be cut
         int2: Interval
             the second intergenic interval to be cut
         sc1: int
             the first cut
         sc2: int
             the second cut
-        direction: T_DIR
-            the direction, if RIGHT then the second interval is to the right of
-            the first
+        twraplen: int
+            the total length of the chromosome
+        swraplen: int
+            the intergene specific length of the chromosome
         lineage: str
             the lineage on which the event happened (pendant node name)
         time: float
             the time at which it happened
         """
-        super().__init__(int1, int2, sc1, sc2, direction, TDUP, lineage, time)
-        self.after1: Interval = None
-        self.after2: Interval = None
-        self.after3: Interval = None
+        super().__init__(int1, int2, sc1, sc2, swraplen, twraplen, TDUP, lineage, time)
+        self.afterL: Interval = None
+        self.afterC: Interval = None
+        self.afterR: Interval = None
 
         self.setAfter()
 
@@ -185,10 +191,8 @@ class TandemDup(EventTwoCuts):
         """
         Set the three intergenic regions that exist after the tandem
         duplication.
-        If `direction` is RIGHT then consider intergenic regions I = `before1`
-        and J = `before2`.  If `direction` is LEFT then intergenic region I
-        is `before2` and J is `before1`. I and J are on either side of segment
-        S composed of genes and intergenes:
+        Consider intergenic regions I = `before1` and J = `before2`. I and J
+        are on either side of segment S composed of genes and intergenes:
 
             I S J
 
@@ -201,57 +205,42 @@ class TandemDup(EventTwoCuts):
 
             I0 I1 S J0 I1 S J0 J1
         """
-        if self.direction == RIGHT:
-            I = self.before1
-            J = self.before2
+        self.afterL = self.beforeL
+
+        lenI1 = self.beforeL.sc2 - self.scL
+        lenJ0 = self.scR - self.beforeR.sc1
+        lenJ1 = self.beforeR.sc2 - self.scR
+        if self.wraps():
+            lenS = (self.twraplen - self.beforeL.sc2) + self.beforeR.sc1
         else:
-            I = self.before2
-            J = self.before1
+            lenS = self.beforeR.sc1 - self.beforeL.sc2
 
-        self.after1 = self.before1
+        scenterstart = self.beforeR.sc1
+        scenterend = scenterstart + lenJ0 + lenI1
+        tcenterstart = self.beforeR.tc1
+        tcenterend = tcenterstart + lenJ0 + lenI1
 
-        lenI1 = self.before1.sc2 - self.sc1
-        lenS = self.before2.sc1 - self.before1.sc2
-        lenJ0 = self.sc2 - self.before2.sc1
-        lenJ1 = self.before2.sc2 - self.sc2
-        if self.direction == RIGHT:
-            scenterstart = self.before2.sc1
-            scenterend = self.before2.sc1 + lenJ0 + lenI1
-            tcenterstart = self.before2.tc1
-            tcenterend = self.before2.tc1 + lenJ0 + lenI1
-
-            srightstart = self.before1.sc2 + lenS + lenJ0 + lenI1 + lenS
-            srightend = srightstart + lenJ0 + lenJ1
-            trightstart = self.before1.tc2 + lenS + lenJ0 + lenI1 + lenS
-            trightend = trightstart + lenJ0 + lenJ1
-
-        if self.direction == LEFT:
-            scenterstart = self.before2.sc1
-            scenterend = self.before2.sc1 + lenJ0 + lenJ0
-            tcenterstart = self.before2.tc1
-            tcenterend = self.before2.tc1 + lenJ0 + lenJ0
-
-            srightstart = self.before1.sc2 + lenS + lenJ0 + lenJ0 + lenS
-            srightend = srightstart + lenI1 + lenJ1
-            trightstart = self.before1.tc2 + lenS + lenJ0 + lenJ0 + lenS
-            trightend = trightstart + lenI1 + lenJ1
+        srightstart = scenterend + lenS
+        srightend = srightstart + lenJ0 + lenJ1
+        trightstart = tcenterend + lenS
+        trightend = trightstart + lenJ0 + lenJ1
     
-        position = self.before1.position
-        self.after2 = Interval(tcenterstart, tcenterend,
+        position = self.beforeL.position
+        self.afterC = Interval(tcenterstart, tcenterend,
                                scenterstart, scenterend, position+1, 'I')
-        self.after3 = Interval(trightstart, trightend,
+        self.afterR = Interval(trightstart, trightend,
                                srightstart, srightend, position+2, 'I')
         
     def getTotalStr(self):
-        return f'{self.before1.tc1, self.before1.tc2} S ' + \
-               f'{self.before2.tc1, self.before2.tc2} ->' + \
-               f'{self.after1.tc1, self.after1.tc2} S ' + \
-               f'{self.after2.tc1, self.after2.tc2} S ' + \
-               f'{self.after3.tc1, self.after3.tc2}'
+        return f'{self.beforeL.tc1, self.beforeL.tc2} S ' + \
+               f'{self.beforeR.tc1, self.beforeR.tc2} ->' + \
+               f'{self.afterL.tc1, self.afterL.tc2} S ' + \
+               f'{self.afterC.tc1, self.afterC.tc2} S ' + \
+               f'{self.afterR.tc1, self.afterR.tc2}'
 
     def getSpecificStr(self):
-        return f'{self.before1.sc1, self.before1.sc2} S ' + \
-               f'{self.before2.sc1, self.before2.sc2} ->' + \
-               f'{self.after1.sc1, self.after1.sc2} S ' + \
-               f'{self.after2.sc1, self.after2.sc2} S ' + \
-               f'{self.after3.sc1, self.after3.sc2}'
+        return f'{self.beforeL.sc1, self.beforeL.sc2} S ' + \
+               f'{self.beforeR.sc1, self.beforeR.sc2} ->' + \
+               f'{self.afterL.sc1, self.afterL.sc2} S ' + \
+               f'{self.afterC.sc1, self.afterC.sc2} S ' + \
+               f'{self.afterR.sc1, self.afterR.sc2}'

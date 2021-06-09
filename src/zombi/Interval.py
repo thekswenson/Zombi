@@ -5,28 +5,29 @@ from . import T_PAIR
 class Interval:
     """
     A Gene or Intergene interval holding both total and specific coordinates, 
-    along with possibly a coordinate contained inside it. Total coordinates are
-    with repect to all nucleotides (Gene or Intergene), whereas specific
-    coordinates consider only the nucleotides from `itype`, ignoring the others.
+    along with possibly a breakpoint coordinate contained inside it. Total
+    coordinates are with repect to all nucleotides (Gene or Intergene), whereas
+    specific coordinates consider only the nucleotides from `itype`, ignoring
+    the others.
 
     Attributes
     ----------
     tc1: int
-        left total coordinate of interval
+        left total breakpoint coordinate of interval
     tc2: int
-        right total coordinate of interval
+        right total breakpoint coordinate of interval, inclusive
     sc1: int
-        left intergene specific coordinate of interval
+        left intergene specific breakpoint coordinate of interval
     sc2: int
-        right intergene specific coordinate of interval
+        right intergene specific breakpoint coordinate of interval, inclusive
     position: int
         the position of the Gene or Intergene in its list
     itype: str
         one of 'G' or 'I' for Gene or Intergene
-    t_coord: int
-        the total coordinate
-    s_coord: int
-        the specific coordinate
+    t_breakpoint: int
+        the total breakpoint coordinate
+    s_breakpoint: int
+        the specific breakpoint coordinate
     """
     def __init__(self, tc1: int, tc2: int, sc1: int, sc2: int, index: int,
                  itype: str, total=0, specific=0):
@@ -39,11 +40,11 @@ class Interval:
         tc1 : int
             first total coordinate
         tc2 : int
-            second total coordinate
+            second total coordinate, inclusive
         spc1 : int
             first specific coordinate
         spc2 : int
-            second specific coordinate
+            second specific coordinate, inclusive
         index : int
             the position of the Interval in its respective list
         itype : str
@@ -90,25 +91,28 @@ class Interval:
         return self.sc1, self.sc2
 
     def containsTotal(self, t_coord:int) -> bool:
-        return self.tc1 <= t_coord <= self.tc2      #NOTE: is tc2 not pythonic?
+        return self.tc1 <= t_coord <= self.tc2
 
     def containsSpecific(self, s_coord:int) -> bool:
-        return self.sc1 <= s_coord <= self.sc2      #NOTE: is sc2 not pythonic?
+        return self.sc1 <= s_coord <= self.sc2
 
     def isIntergenic(self) -> bool:
         return self.itype == 'I'
 
-    def splitSpecific(self) -> T_PAIR:
+    def splitSpecific(self) -> Tuple[T_PAIR, T_PAIR]:
         """
         Get the halves of the specific interval split by `s_breakpoint`.
         """
-        return ((self.sc1, self.s_breakpoint), (self.s_breakpoint, self.sc2))
+        return (self.sc1, self.s_breakpoint), (self.s_breakpoint, self.sc2)
 
-    def splitTotal(self) -> T_PAIR:
+    def splitTotal(self) -> Tuple[T_PAIR, T_PAIR]:
         """
         Get the halves of the specific interval split by `t_breakpoint`.
         """
-        return ((self.tc1, self.t_breakpoint), (self.t_breakpoint, self.tc2))
+        return (self.tc1, self.t_breakpoint), (self.t_breakpoint, self.tc2)
+
+    def __len__(self):
+        return self.sc2 - self.sc1
 
     def __str__(self):
         return f'{self.tc1} {self.tc2} {self.sc1} {self.sc2} {self.position} {self.itype}'

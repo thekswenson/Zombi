@@ -10,11 +10,17 @@ from . import AuxiliarFunctions as af
 from . import ReconciledTree as RT
 from . import T_PAIR
 from .Interval import Interval
-from .Events import GenomeEvent
+from .Events import GenomeEvent, TandemDup
 from functools import reduce
 from typing import List, Tuple, Set, Dict
 
 from Bio.SeqFeature import SeqFeature
+
+# Directions:
+T_DIR = bool
+
+RIGHT = False
+LEFT = True
 
 
 class GenomeSimulator():
@@ -1863,7 +1869,38 @@ class GenomeSimulator():
             self.all_genomes[lineage].interactome.add_edges_from(edges_to_add_to_new_node)
 
 
-    def make_duplication_within_intergene(self, c1, c2, d, lineage, time):
+    def make_duplication_within_intergene(self, c1: int, c2: int, d: T_DIR,
+                                          lineage: str, time: float):
+        """
+        Do a duplication that acts on the given pair of intergene spcific
+        breakpoint coordinates. Consider intergene I and J such that c1 lands in
+        intergene I and c2 lands in intergene J, with gene/intergene segment S
+        between the two. Then we have sequence
+
+            I S J
+
+        where I is split at `c1` into I0 I1 and J is split at `c2` into J0 J1.
+        Then we get
+
+            I0 I1 S J0 J1
+
+        and the tandem duplication produces
+
+            I0 I1 S J0 I1 S J0 J1.
+
+        Parameters
+        ----------
+        c1 : int
+            the first intergene specific breakpoint coordinate
+        c2 : int
+            the second intergene specific breakpoint coordinate
+        d : T_DIR
+            the direction, either RIGHT or LEFT
+        lineage : str
+            the lineage, which is the name of the pendant node
+        time : float
+            the time stamp of the event
+        """
 
         chromosome = self.all_genomes[lineage].select_random_chromosome()
         r = chromosome.return_affected_region(c1, c2, d)
@@ -1872,9 +1909,9 @@ class GenomeSimulator():
             return None
 
         else:
-            r1, r2, r3, r4, int1, int2 = r
-            segment = chromosome.obtain_segment(r1)
-            intergene_segment = chromosome.obtain_intergenic_segment(r2[1:])
+            genes, intergenes, leftlengths, rightlengths, int1, int2 = r
+            segment = chromosome.obtain_segment(genes)
+            intergene_segment = chromosome.obtain_intergenic_segment(intergenes[1:])
 
         new_identifiers1 = self.return_new_identifiers_for_segment(segment)
         new_identifiers2 = self.return_new_identifiers_for_segment(segment)
@@ -1886,8 +1923,8 @@ class GenomeSimulator():
 
         # And the intergenes
 
-        new_intergene_segment_1 = [copy.deepcopy(chromosome.intergenes[x]) for x in r2[1:]]
-        new_intergene_segment_2 = [copy.deepcopy(chromosome.intergenes[x]) for x in r2[1:]]
+        new_intergene_segment_1 = [copy.deepcopy(chromosome.intergenes[x]) for x in intergenes[1:]]
+        new_intergene_segment_2 = [copy.deepcopy(chromosome.intergenes[x]) for x in intergenes[1:]]
 
         scar1 = new_intergene_segment_1[-1]
         scar2 = new_intergene_segment_2[-1]
@@ -1898,7 +1935,7 @@ class GenomeSimulator():
         ###
         ###
 
-        position = r1[-1] + 1
+        position = genes[-1] + 1
 
             #Insert the new genes and intergenes. map_of_locations will later be
             #updated by obtain_locations().
@@ -1913,13 +1950,21 @@ class GenomeSimulator():
         chromosome.remove_intersegment(intergene_segment)
 
         # We adjust the new intergenes lengths
+            # obtain_flakings() not called yet, so get old length from intergene
+        specificlen = chromosome.intergenes[-1].specific_flanking[1]
+        totallen = chromosome.intergenes[-1].total_flanking[1]
+        if d == LEFT:
+            leftlengths, rightlengths = rightlengths, leftlengths
+            dup = TandemDup(int2, int1, c2, c1, specificlen, totallen, lineage, time)
+        else:
+            dup = TandemDup(int1, int2, c1, c2, specificlen, totallen, lineage, time)
 
-        if d == "left":
-            r3, r4 = r4, r3
+        scar1.length = leftlengths[1] + rightlengths[0]
+        scar2.length = rightlengths[1] + rightlengths[0]
 
-        scar1.length = r3[1] + r4[0]
-        #scar2.length = r4[1]         NOTE: missing r4[0]?
-        scar2.length = r4[1] + r4[0]
+        assert scar1.length == len(dup.afterC)
+        assert scar2.length == len(dup.afterR)
+        chromosome.event_history.append[dup]
 
         for i, gene in enumerate(segment):
             nodes = [gene.species,
@@ -2273,7 +2318,7 @@ class GenomeSimulator():
 
 
 
-    def make_transfer_intergenic(self, c1, c2, d, donor, recipient, time):
+    def make_transfer_intergenic(self, c1, c2, d: T_DIR, donor, recipient, time):
 
         chromosome1 = self.all_genomes[donor].select_random_chromosome()
         r = chromosome1.return_affected_region(c1, c2, d)
@@ -2331,7 +2376,7 @@ class GenomeSimulator():
         scar1 = chromosome2.intergenes[l.position]
         scar2 = chromosome2.intergenes[position + i]
 
-        if d == "left":
+        if d == LEFT:
             r3,r4 = r4,r3
 
         scar1.length = r3[1] + cut_position[0]
@@ -2389,7 +2434,7 @@ class GenomeSimulator():
             gene.active = False
             self.all_gene_families[gene.gene_family].register_event(time, "L", ";".join(map(str,[lineage, gene.gene_id])))
 
-    def make_loss_intergenic(self, c1, c2, d, lineage, time, pseudo =False):
+    def make_loss_intergenic(self, c1, c2, d: T_DIR, lineage, time, pseudo=False):
 
         chromosome = self.all_genomes[lineage].select_random_chromosome()
         r = chromosome.return_affected_region(c1, c2, d)
@@ -2417,7 +2462,7 @@ class GenomeSimulator():
 
             # We modify the length of the scar:
 
-            if d == "left":
+            if d == LEFT:
                 r3, r4 = r4, r3
 
             if pseudo == True:
@@ -2495,7 +2540,7 @@ class GenomeSimulator():
         for gene in segment:
             self.all_gene_families[gene.gene_family].register_event(str(time), "I", ";".join(map(str,[lineage, gene.gene_id])))
 
-    def make_inversion_intergenic(self, c1, c2, d, lineage, time):
+    def make_inversion_intergenic(self, c1, c2, d: T_DIR, lineage, time):
         
         chromosome = self.all_genomes[lineage].select_random_chromosome()
         r = chromosome.return_affected_region(c1, c2, d)
@@ -2510,7 +2555,7 @@ class GenomeSimulator():
             segment = chromosome.obtain_segment(r1)
             chromosome.invert_segment(r1)
 
-            if d == "left":
+            if d == LEFT:
                 r3, r4 = r4, r3
 
             scar1 = chromosome.intergenes[r2[0]]
@@ -2532,7 +2577,7 @@ class GenomeSimulator():
         for gene in segment:
             self.all_gene_families[gene.gene_family].register_event(str(time), "P", ";".join(map(str,[lineage, gene.gene_id])))
 
-    def make_transposition_intergenic(self, c1, c2, d, lineage, time):
+    def make_transposition_intergenic(self, c1, c2, d: T_DIR, lineage, time):
 
         chromosome = self.all_genomes[lineage].select_random_chromosome()
         r = chromosome.return_affected_region(c1, c2, d)
@@ -2606,7 +2651,7 @@ class GenomeSimulator():
 
         r5 = (c3 - sc3_1, sc3_2 - c3)
 
-        if d == "left":
+        if d == LEFT:
             r3, r4 = r4, r3
 
         scar1.length = r3[0] + r4[1]
@@ -2673,10 +2718,10 @@ class GenomeSimulator():
 
         Returns
         -------
-        Tuple[int, int, str]
+        Tuple[int, int, T_DIR]
             (sc1, sc2, direction) where sc1 and sc2 are specific intergenic
-            coordinates, meant to be breakpoints, and direction is one of
-            {"left", "right"} indicating if sc2 is left or right of sc1.
+            breakpoint coordinates, meant to be breakpoints, and direction is
+            one of {LEFT, RIGHT} indicating if sc2 is left or right of sc1.
         """
         chromosome = self.all_genomes[lineage].select_random_chromosome()
             #The total number of intergenic nucleotides can be retrieved from
@@ -2690,26 +2735,24 @@ class GenomeSimulator():
             counter += 1
 
             sc1 = chromosome.select_random_coordinate_in_intergenic_regions()
-            d = numpy.random.choice(("left", "right"), p=[0.5, 0.5])
+            d = numpy.random.choice((LEFT, RIGHT), p=[0.5, 0.5])
 
             extension = numpy.random.geometric(p)
 
-            if d == "right":
+            if d == RIGHT:
 
-                if sc1 + extension >= intergenic_specific_length:
-                    #sc2 = intergenic_specific_length - (extension - sc1)
-                    sc2 = sc1 + extension - intergenic_specific_length
+                if sc1 + extension > intergenic_specific_length:
+                    sc2 = sc1 + extension - intergenic_specific_length - 1
                     if sc2 < sc1:       # The event wraps to the right and
                         success = True  # doesn't cover the whole genome
                 else:
                     sc2 = sc1 + extension
                     success = True
 
-            elif d == "left":
+            elif d == LEFT:
 
-                if sc1 - extension <= 0:
-                    #sc2 = intergenic_specific_length - extension - (0 - sc1)
-                    sc2 = intergenic_specific_length - (extension - sc1)
+                if sc1 - extension < 0:
+                    sc2 = intergenic_specific_length - (extension - sc1) + 1
                     if sc1 < sc2:       # The event wraps to the left and
                         success = True  # doesn't cover the whole genome
                 else:
@@ -3109,12 +3152,16 @@ class Gene():
     orientation: str
         the orientation of the gene ("+" or "-")
     total_flanking: T_PAIR
-        (i, j) where i is the total number of bases before this gene excluding
-        the bases from the intergene before the first gene, and j is i plus the
+        these are the coordinates of the breakpoints at either end of the gene.
+        (i, j) where i is the total number of breakpoints before this gene
+        (assuming no intergene before the first gene), and j is i plus the
         length of this gene
     specific_flanking: T_PAIR
-        (i, j) where i is the number of bases before this gene excluding all the
-        bases from the intergenes, and j is i plus the length of this gene
+        these are the coordinates of the breakpoints at either end of the gene,
+        while only counting breakpoints that touch a gene.
+        (i, j) where i is the number of gene breakpoints (not intergene) before
+        this gene excluding all the breakpoints from the intergenes, and j is i
+        plus the length of this gene
     """
 
     def __init__(self):
@@ -3127,10 +3174,10 @@ class Gene():
         self.species = ""
         self.importance = 0
         self.length = 0
-        self.start: int = None       #pythonic (inclusive start, 0 indexed)
-        self.end: int = None         #pythonic (non-inclusive end)
-        self.total_flanking: T_PAIR = None
-        self.specific_flanking: T_PAIR = None
+        self.start: int = None       #: pythonic (inclusive start, 0 indexed)
+        self.end: int = None         #: pythonic (non-inclusive end)
+        self.total_flanking: T_PAIR = None      #: not pythonic (both inclusive)
+        self.specific_flanking: T_PAIR = None   #: not pythonic (both inclusive)
 
     def determine_orientation(self):
 
@@ -3163,13 +3210,14 @@ class Intergene():
     length: int
         the length of the intergene
     total_flanking: T_PAIR
-        (i, j) where i is the total number of bases before this intergene
-        excluding the bases from the intergene before the first gene, and j is i
-        plus the length of this intergene
+        these are the coordinates of the breakpoints at either end of the
+        intergene.  (i, j) where i is the total number of breakpoints before
+        this intergene, and j is i plus the length of this intergene
     specific_flanking: T_PAIR
-        (i, j) where i is the number of bases before this intergene excluding
-        the bases from the intergene before the first gene and all the bases
-        of the genes, and j is i plus the length of this intergene
+        these are the coordinates of the breakpoints at either end of the
+        intergene, while only counting breakpoints that touch an intergene.
+        (i, j) where i is the number of intergenic breakpoints before this
+        intergene, and j is i plus the length of this gene
     """
 
     def __init__(self, length = 0):
@@ -3179,8 +3227,8 @@ class Intergene():
         else:
             self.length = 0
 
-        self.total_flanking: T_PAIR = None
-        self.specific_flanking: T_PAIR = None
+        self.total_flanking: T_PAIR = None      #: not pythonic (both inclusive)
+        self.specific_flanking: T_PAIR = None   #: not pythonic (both inclusive)
         self.id = 0 # Only for debugging purposes
 
     def __str__(self):
@@ -3204,6 +3252,9 @@ class Chromosome():
         the length of the chromosome (in nucleotides)
     shape: str
         one of "L" or "C" for linear or circular
+    event_history: GenomeEvent
+        list of genome events (e.g. INV, TDUP, etc.) that have happened to this
+        chromosome
     """
 
     def __init__(self, num_nucleotides = 0):
@@ -3243,7 +3294,8 @@ class Chromosome():
 
             self.genes[0].total_flanking = (0, self.genes[0].length)
             self.genes[0].specific_flanking = (0, self.genes[0].length)
-            self.intergenes[0].total_flanking = (self.genes[0].total_flanking[1], self.genes[0].total_flanking[1] + self.intergenes[0].length)
+            self.intergenes[0].total_flanking = (self.genes[0].total_flanking[1],
+                                                 self.genes[0].total_flanking[1] + self.intergenes[0].length)
             self.intergenes[0].specific_flanking = (0, self.intergenes[0].length)
 
             for i in range(len(self.genes)):
@@ -3260,7 +3312,7 @@ class Chromosome():
                 self.genes[i].total_flanking = (lb, ub)
                 self.genes[i].specific_flanking = (lbg, ubg)
 
-                lbi = self.intergenes[i - 1].specific_flanking[1] + 1
+                lbi = self.intergenes[i-1].specific_flanking[1] + 1
                 ubi = lbi + self.intergenes[i].length
 
                 self.intergenes[i].total_flanking = (ub, ub + self.intergenes[i].length)
@@ -3347,7 +3399,7 @@ class Chromosome():
 
         Returns
         -------
-        Location
+        Interval
             Location information for the given coordinate
         """
         if within_intergene == False:
@@ -3364,7 +3416,7 @@ class Chromosome():
                                     self.return_total_coordinate_from_specific_coordinate(c),
                                     c)
 
-    def return_affected_region(self, c1: int, c2: int, direction:str
+    def return_affected_region(self, c1: int, c2: int, direction: T_DIR
                                ) -> Tuple[List[int], List[int], T_PAIR, T_PAIR,
                                           Interval, Interval]:
         """
@@ -3376,33 +3428,39 @@ class Chromosome():
             first intergene specific coordinate
         c2 : int
             second intergene specific coordinate
-        direction : str
-            one of 'left' or 'right' defining whether the region goes left or
+        direction : T_DIR
+            one of LEFT or RIGHT defining whether the region goes left or
             right from c1
 
         Returns
         -------
-        Tuple[List[int], List[int], T_PAIR, T_PAIR, Location, Location]
+        Tuple[List[int], List[int], T_PAIR, T_PAIR, Interval, Interval]
             Returns a tuple
             (genepositions, intergenepositions, firstlengths, secondlengths,
              interval1, interval2)
             where
+
             1. List of the position of the genes affected. ALWAYS FROM LEFT TO RIGHT
+
             2. List of the position of the intergenes affected. ALWAYS FROM LEFT TO RIGHT
                (The intergenes containing c1 and c2 are affected)
-            3. Pair with left and right lengths of first intergene.
+
+            3. Pair with left and right lengths (in nucs) of c1 intergene.
                Watch out, the fact of calling it left or right can be confusing!
-            4. Pair with left and right lengths of last intergene.
+
+            4. Pair with left and right lengths (in nucs) of c2 intergene.
                Same note as above
+
             5. The intergenic interval containing c1
+
             6. The intergenic interval containing c2
         """
 
         l1 = self.return_location_by_coordinate(c1, within_intergene=True)
         l2 = self.return_location_by_coordinate(c2, within_intergene=True)
 
-        sc1_1, sc1_2, p1 = l1.sc1, l1.sc2, l1.position
-        sc2_1, sc2_2, p2 = l2.sc1, l2.sc2, l2.position
+        p1 = l1.position
+        p2 = l2.position
 
         affected_genes = list()
         affected_intergenes = list()
@@ -3415,12 +3473,12 @@ class Chromosome():
         elif p1 == p2:
             return None
 
-        elif c1 < c2 and direction == "right":
+        elif c1 < c2 and direction == RIGHT:
 
             affected_genes = [i + 1 for i in range(p1, p2)]
             affected_intergenes = [i for i in range(p1, p2 + 1)]
 
-        elif c1 > c2 and direction == "right":
+        elif c1 > c2 and direction == RIGHT:
 
             affected_genes = [i + 1 for i in range(p1, t_length - 1)]
             affected_genes += [i for i in range(0, p2 + 1)]
@@ -3428,7 +3486,7 @@ class Chromosome():
             affected_intergenes = [i for i in range(p1, t_length)]
             affected_intergenes += [i for i in range(0, p2 + 1)]
 
-        elif c1 > c2 and direction == "left":
+        elif c1 > c2 and direction == LEFT:
 
             affected_genes = [i for i in range(p1, p2, - 1)]
             affected_intergenes = [i for i in range(p1, p2 - 1, -1)]
@@ -3436,7 +3494,7 @@ class Chromosome():
             affected_genes.reverse()
             affected_intergenes.reverse()
 
-        elif c1 < c2 and direction == "left":
+        elif c1 < c2 and direction == LEFT:
 
             affected_genes = [i for i in range(p1, -1, - 1)]
             affected_genes += [i for i in range(t_length - 1, p2, -1)]
@@ -3447,11 +3505,11 @@ class Chromosome():
             affected_genes.reverse()
             affected_intergenes.reverse()
 
-        left_lengths = (c1 - sc1_1, sc1_2 - c1)
-        right_lengths = (c2 - sc2_1, sc2_2 - c2)
+        c1_lengths = (c1 - l1.sc1, l1.sc2 - c1)
+        c2_lengths = (c2 - l2.sc1, l2.sc2 - c2)
 
         return (affected_genes, affected_intergenes,
-                left_lengths, right_lengths, l1, l2)
+                c1_lengths, c2_lengths, l1, l2)
                 
 
 
