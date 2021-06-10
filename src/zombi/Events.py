@@ -221,8 +221,10 @@ class TandemDup(EventTwoCuts):
 
         scenterstart = self.beforeR.sc1
         scenterend = scenterstart + lenJ0 + lenI1
+        scenterbreak = scenterstart + lenJ0
         tcenterstart = self.beforeR.tc1
         tcenterend = tcenterstart + lenJ0 + lenI1
+        tcenterbreak = tcenterstart + lenJ0
 
         srightstart = scenterend + lenSs
         srightend = srightstart + lenJ0 + lenJ1
@@ -231,20 +233,67 @@ class TandemDup(EventTwoCuts):
     
         position = self.beforeL.position
         self.afterC = Interval(tcenterstart, tcenterend,
-                               scenterstart, scenterend, position+1, 'I')
+                               scenterstart, scenterend, position+1, 'I',
+                               tcenterbreak, scenterbreak)
         self.afterR = Interval(trightstart, trightend,
                                srightstart, srightend, position+2, 'I')
 
+    def afterToBeforeS(self, sc: int) -> int:
+        """
+        Given a specific breakpoint coordinate after this TandemDup, return the
+        same one before.
+
+            I0 I1 S J0 J1 became
+            I0 I1 S J0 I1 S J0 J1
+
+        The breakpoint between J0 and I1 is the only ambiguous breakpoint. We
+        arbitarily map to the left breakpoint I0 I1 (rather than J0 J1).
+        """
+        if self.afterL.inSpecific(sc):          # I0 I1
+            return self.beforeL.sc1 + (sc - self.afterL.sc1)
+        elif self.afterC.inSpecific(sc):
+            if sc < self.afterC.s_breakpoint:   # J0
+                return self.beforeR.sc1 + (sc - self.afterC.sc1)
+            else:                               # I1
+                return self.beforeL.sc2 - (self.afterC.sc2 - sc)
+        elif self.afterR.inSpecific(sc):        # J0 J1
+            return self.beforeR.sc1 + (sc - self.afterR.sc1)
+        else:
+            raise(Exception('Given coordinate not in the after interavals.'))
+
+    def afterToBeforeT(self, tc: int) -> int:
+        """
+        Given a total breakpoint coordinate after this TandemDup, return the
+        same one before.
+
+            I0 I1 S J0 J1 became
+            I0 I1 S J0 I1 S J0 J1
+
+        The breakpoint between J0 and I1 is the only ambiguous breakpoint. We
+        arbitarily map to the left breakpoint I0 I1 (rather than J0 J1).
+        """
+        if self.afterL.inSpecific(tc):          # I0 I1
+            return self.beforeL.tc1 + (tc - self.afterL.tc1)
+        elif self.afterC.inSpecific(tc):
+            if tc < self.afterC.s_breakpoint:   # J0
+                return self.beforeR.tc1 + (tc - self.afterC.tc1)
+            else:                               # I1
+                return self.beforeL.tc2 - (self.afterC.tc2 - tc)
+        elif self.afterR.inSpecific(tc):        # J0 J1
+            return self.beforeR.tc1 + (tc - self.afterR.tc1)
+        else:
+            raise(Exception('Given coordinate not in the after interavals.'))
+
     def getTotalStr(self):
         return f'{self.beforeL.tc1, self.beforeL.tc2} S ' + \
-               f'{self.beforeR.tc1, self.beforeR.tc2} ->' + \
+               f'{self.beforeR.tc1, self.beforeR.tc2} -> ' + \
                f'{self.afterL.tc1, self.afterL.tc2} S ' + \
                f'{self.afterC.tc1, self.afterC.tc2} S ' + \
                f'{self.afterR.tc1, self.afterR.tc2}'
 
     def getSpecificStr(self):
         return f'{self.beforeL.sc1, self.beforeL.sc2} S ' + \
-               f'{self.beforeR.sc1, self.beforeR.sc2} ->' + \
+               f'{self.beforeR.sc1, self.beforeR.sc2} -> ' + \
                f'{self.afterL.sc1, self.afterL.sc2} S ' + \
                f'{self.afterC.sc1, self.afterC.sc2} S ' + \
                f'{self.afterR.sc1, self.afterR.sc2}'

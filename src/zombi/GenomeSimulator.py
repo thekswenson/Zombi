@@ -1982,23 +1982,50 @@ class GenomeSimulator():
 
     def _dupAssert(self, dup: TandemDup, icenter: Intergene, iright: Intergene,
                    chromosome: Chromosome):
+        """
+        Do sanity checks on the TandemDup by comparing it to the given center
+        and right intergenes on the give `chromosome`.
+
+        Parameters
+        ----------
+        dup : TandemDup
+            the duplication
+        icenter : Intergene
+            the new center breakpoint from the chromosome
+        iright : Intergene
+            the new right breakpoint from the chromosome
+        chromosome : Chromosome
+            the chromosome that was modified
+        """
         chromosome.obtain_flankings()
+
+            #Specific coordinate asserts:
         assert icenter.specific_flanking[0] == dup.afterC.sc1, \
                f'{icenter.specific_flanking[0]} != {dup.afterC.sc1} ' + \
-               f'{icenter.specific_flanking} {iright.specific_flanking}\n' + \
-               f'gene0: {chromosome.genes[0].specific_flanking}'
+               f'{icenter.specific_flanking} {iright.specific_flanking}'
         assert icenter.specific_flanking[1] == dup.afterC.sc2, \
                f'{icenter.specific_flanking[1]} != {dup.afterC.sc2} ' + \
-               f'{icenter.specific_flanking} {iright.specific_flanking}\n' + \
-               f'gene0: {chromosome.genes[0].specific_flanking}'
+               f'{icenter.specific_flanking} {iright.specific_flanking}'
         assert iright.specific_flanking[0] == dup.afterR.sc1, \
                f'{iright.specific_flanking[0]} != {dup.afterR.sc1}' + \
-               f'{icenter.specific_flanking} {iright.specific_flanking}\n' + \
-               f'gene0: {chromosome.genes[0].specific_flanking}'
+               f'{icenter.specific_flanking} {iright.specific_flanking}'
         assert iright.specific_flanking[1] == dup.afterR.sc2, \
                f'{iright.specific_flanking[1]} != {dup.afterR.sc2}' + \
-               f'{icenter.specific_flanking} {iright.specific_flanking}\n' + \
-               f'gene0: {chromosome.genes[0].specific_flanking}'
+               f'{icenter.specific_flanking} {iright.specific_flanking}'
+
+            #Total coordinate asserts:
+        assert icenter.total_flanking[0] == dup.afterC.tc1, \
+               f'{icenter.total_flanking[0]} != {dup.afterC.tc1} ' + \
+               f'{icenter.total_flanking} {iright.total_flanking}'
+        assert icenter.total_flanking[1] == dup.afterC.tc2, \
+               f'{icenter.total_flanking[1]} != {dup.afterC.tc2} ' + \
+               f'{icenter.total_flanking} {iright.total_flanking}'
+        assert iright.total_flanking[0] == dup.afterR.tc1, \
+               f'{iright.total_flanking[0]} != {dup.afterR.tc1}' + \
+               f'{icenter.total_flanking} {iright.total_flanking}'
+        assert iright.total_flanking[1] == dup.afterR.tc2, \
+               f'{iright.total_flanking[1]} != {dup.afterR.tc2}' + \
+               f'{icenter.total_flanking} {iright.total_flanking}'
 
 
     def choose_assortative_recipient(self, time, possible_recipients, donor):

@@ -599,7 +599,7 @@ class Chromosome():
                 print(r)
             if r.itype != type:
                 continue
-            if r.containsSpecific(c):
+            if r.inSpecific(c):
                 distance_to_lower_bound = c - r.sc1
                 tc = r.tc1 + distance_to_lower_bound
         return tc
@@ -611,7 +611,7 @@ class Chromosome():
         for r in self.map_of_locations:
             if debug:
                 print(r)
-            if r.itype == "I" and r.containsTotal(c):
+            if r.itype == "I" and r.inTotal(c):
 
                 distance_to_lower_bound = c - r.tc1
                 sc = r.sc1 + distance_to_lower_bound
@@ -644,13 +644,13 @@ class Chromosome():
         if within_intergene == False:
 
             for l in self.map_of_locations:
-                if l.containsTotal(c):
+                if l.inTotal(c):
                     return Interval(*l.asTuple(), c,
                                     self.return_specific_coordinate_from_total_coordinate(c))
         else:
 
             for l in self.map_of_locations:
-                if l.isIntergenic() and l.containsSpecific(c):
+                if l.isIntergenic() and l.inSpecific(c):
                     return Interval(*l.asTuple(),
                                     self.return_total_coordinate_from_specific_coordinate(c),
                                     c)

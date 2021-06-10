@@ -90,10 +90,10 @@ class Interval:
     def specificPair(self) -> T_PAIR:
         return self.sc1, self.sc2
 
-    def containsTotal(self, t_coord:int) -> bool:
+    def inTotal(self, t_coord:int) -> bool:
         return self.tc1 <= t_coord <= self.tc2
 
-    def containsSpecific(self, s_coord:int) -> bool:
+    def inSpecific(self, s_coord:int) -> bool:
         return self.sc1 <= s_coord <= self.sc2
 
     def isIntergenic(self) -> bool:
