@@ -207,22 +207,26 @@ class TandemDup(EventTwoCuts):
         """
         self.afterL = self.beforeL
 
-        lenI1 = self.beforeL.sc2 - self.scL
-        lenJ0 = self.scR - self.beforeR.sc1
-        lenJ1 = self.beforeR.sc2 - self.scR
-        if self.wraps():
-            lenS = (self.twraplen - self.beforeL.sc2) + self.beforeR.sc1
+        lenI1 = self.beforeL.sc2 - self.scL #number of (intergene) muclotides
+        lenJ0 = self.scR - self.beforeR.sc1 #number of (intergene) muclotides
+        lenJ1 = self.beforeR.sc2 - self.scR #number of (intergene) muclotides
+            #lenS will the be number of intergene nucleotides plus the number
+            #of genes in the region S:
+        if self.wraps():    #beforeL is not to the left if we wrap
+            lenSs = (self.swraplen - self.beforeL.sc2) + self.beforeR.sc1 + 1
+            lenSt = (self.twraplen - self.beforeL.tc2) + self.beforeR.tc1
         else:
-            lenS = self.beforeR.sc1 - self.beforeL.sc2
+            lenSs = self.beforeR.sc1 - self.beforeL.sc2
+            lenSt = self.beforeR.tc1 - self.beforeL.tc2
 
         scenterstart = self.beforeR.sc1
         scenterend = scenterstart + lenJ0 + lenI1
         tcenterstart = self.beforeR.tc1
         tcenterend = tcenterstart + lenJ0 + lenI1
 
-        srightstart = scenterend + lenS
+        srightstart = scenterend + lenSs
         srightend = srightstart + lenJ0 + lenJ1
-        trightstart = tcenterend + lenS
+        trightstart = tcenterend + lenSt
         trightend = trightstart + lenJ0 + lenJ1
     
         position = self.beforeL.position
@@ -230,7 +234,7 @@ class TandemDup(EventTwoCuts):
                                scenterstart, scenterend, position+1, 'I')
         self.afterR = Interval(trightstart, trightend,
                                srightstart, srightend, position+2, 'I')
-        
+
     def getTotalStr(self):
         return f'{self.beforeL.tc1, self.beforeL.tc2} S ' + \
                f'{self.beforeR.tc1, self.beforeR.tc2} ->' + \

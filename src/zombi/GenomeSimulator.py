@@ -1901,9 +1901,9 @@ class GenomeSimulator():
             return None
 
         else:
-            genes, intergenes, leftlengths, rightlengths, int1, int2 = r
-            segment = chromosome.obtain_segment(genes)
-            intergene_segment = chromosome.obtain_intergenic_segment(intergenes[1:])
+            genepositions, intergenepositions, leftlengths, rightlengths, int1, int2 = r
+            segment = chromosome.obtain_segment(genepositions)
+            intergene_segment = chromosome.obtain_intergenic_segment(intergenepositions[1:])
 
         new_identifiers1 = self.return_new_identifiers_for_segment(segment)
         new_identifiers2 = self.return_new_identifiers_for_segment(segment)
@@ -1913,38 +1913,42 @@ class GenomeSimulator():
         new_segment_1 = af.copy_segment(segment, new_identifiers1)
         new_segment_2 = af.copy_segment(segment, new_identifiers2)
 
-        # And the intergenes
+        # And the intergenes, which will have incorrect lengths until we update
+        # them later
 
-        new_intergene_segment_1 = [copy.deepcopy(chromosome.intergenes[x]) for x in intergenes[1:]]
-        new_intergene_segment_2 = [copy.deepcopy(chromosome.intergenes[x]) for x in intergenes[1:]]
+        new_intergene_segment_1 = [copy.deepcopy(chromosome.intergenes[x]) for x in intergenepositions[1:]]
+        new_intergene_segment_2 = [copy.deepcopy(chromosome.intergenes[x]) for x in intergenepositions[1:]]
 
         scar1 = new_intergene_segment_1[-1]
         scar2 = new_intergene_segment_2[-1]
 
-        new_segment = new_segment_1 + new_segment_2
-        new_intergene_segment = new_intergene_segment_1 + new_intergene_segment_2
-
         ###
         ###
 
-        position = genes[-1] + 1
 
-            #Insert the new genes and intergenes. map_of_locations will later be
-            #updated by obtain_locations().
-        for i, gene in enumerate(new_segment):
-            chromosome.genes.insert(position + i, gene)
-        for i, intergene in enumerate(new_intergene_segment):
-            chromosome.intergenes.insert(position + i, intergene)
-
-        # We remove the old copies:
-
-        chromosome.remove_segment(segment)
-        chromosome.remove_intersegment(intergene_segment)
-
-        # We adjust the new intergenes lengths
-            # obtain_flakings() not called yet, so get old length from intergene
+            # Get old lengths from last intergene before modifying chromosome.
         specificlen = chromosome.intergenes[-1].specific_flanking[1]
         totallen = chromosome.intergenes[-1].total_flanking[1]
+
+
+            #Replace the original set of genes/intergenes with the first copies:
+        for pos, newgene in zip(genepositions, new_segment_1):
+            chromosome.genes[pos] = newgene
+        for pos, newintergene in zip(intergenepositions[1:], new_intergene_segment_1):
+            chromosome.intergenes[pos] = newintergene
+            
+        position = genepositions[-1] + 1
+
+            #Insert the second copy of new genes and intergenes after the first.
+            #map_of_locations will later be updated by obtain_locations().
+        for i, gene in enumerate(new_segment_2):
+            chromosome.genes.insert(position + i, gene)
+        for i, intergene in enumerate(new_intergene_segment_2):
+            chromosome.intergenes.insert(position + i, intergene)
+
+
+        # We adjust the new intergenes lengths and record the TandemDup:
+
         if d == LEFT:
             leftlengths, rightlengths = rightlengths, leftlengths
             dup = TandemDup(int2, int1, c2, c1, specificlen, totallen, lineage, time)
@@ -1957,17 +1961,7 @@ class GenomeSimulator():
         assert scar1.length == len(dup.afterC)
         assert scar2.length == len(dup.afterR)
         chromosome.event_history.append(dup)
-
-        chromosome.obtain_flankings()
-        assert scar1.specific_flanking[0] == dup.afterC.sc1, \
-               f'{scar1.specific_flanking[0]} != {dup.afterC.sc1} {specificlen}'
-        assert scar1.specific_flanking[1] == dup.afterC.sc2, \
-               f'{scar1.specific_flanking[1]} != {dup.afterC.sc2} {specificlen}'
-        assert scar2.specific_flanking[0] == dup.afterR.sc1, \
-               f'{scar2.specific_flanking[0]} != {dup.afterR.sc1} {specificlen}'
-        assert scar2.specific_flanking[1] == dup.afterR.sc2, \
-               f'{scar2.specific_flanking[1]} != {dup.afterR.sc2} {specificlen}'
-
+        self._dupAssert(dup, scar1, scar2, chromosome)
 
         for i, gene in enumerate(segment):
             nodes = [gene.species,
@@ -1985,6 +1979,26 @@ class GenomeSimulator():
             self.all_gene_families[gene_family].genes.append(new_segment_2[i])
 
             self.all_gene_families[gene.gene_family].register_event(time, "D", ";".join(map(str, nodes)))
+
+    def _dupAssert(self, dup: TandemDup, icenter: Intergene, iright: Intergene,
+                   chromosome: Chromosome):
+        chromosome.obtain_flankings()
+        assert icenter.specific_flanking[0] == dup.afterC.sc1, \
+               f'{icenter.specific_flanking[0]} != {dup.afterC.sc1} ' + \
+               f'{icenter.specific_flanking} {iright.specific_flanking}\n' + \
+               f'gene0: {chromosome.genes[0].specific_flanking}'
+        assert icenter.specific_flanking[1] == dup.afterC.sc2, \
+               f'{icenter.specific_flanking[1]} != {dup.afterC.sc2} ' + \
+               f'{icenter.specific_flanking} {iright.specific_flanking}\n' + \
+               f'gene0: {chromosome.genes[0].specific_flanking}'
+        assert iright.specific_flanking[0] == dup.afterR.sc1, \
+               f'{iright.specific_flanking[0]} != {dup.afterR.sc1}' + \
+               f'{icenter.specific_flanking} {iright.specific_flanking}\n' + \
+               f'gene0: {chromosome.genes[0].specific_flanking}'
+        assert iright.specific_flanking[1] == dup.afterR.sc2, \
+               f'{iright.specific_flanking[1]} != {dup.afterR.sc2}' + \
+               f'{icenter.specific_flanking} {iright.specific_flanking}\n' + \
+               f'gene0: {chromosome.genes[0].specific_flanking}'
 
 
     def choose_assortative_recipient(self, time, possible_recipients, donor):

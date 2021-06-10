@@ -832,7 +832,7 @@ class CircularChromosome(Chromosome):
         for gene in segment:
             self.genes.remove(gene)
 
-    def remove_intersegment(self, intersegment):
+    def remove_intersegment(self, intersegment: List[Intergene]):
 
         for intergene in intersegment:
             self.intergenes.remove(intergene)
