@@ -30,7 +30,7 @@ class Interval:
         the specific breakpoint coordinate
     """
     def __init__(self, tc1: int, tc2: int, sc1: int, sc2: int, index: int,
-                 itype: str, total=0, specific=0):
+                 itype: str, total=-1, specific=-1):
         """
         Create a new Interval that may or may not contain breakpoint
         coordinates.
@@ -66,11 +66,11 @@ class Interval:
 
             #Sanity checks:
         assert tc2 - tc1 == sc2 - sc1, print(f'{tc2-tc1} != {sc2-sc1}')
-        if total:
+        if total >= 0:
             assert tc1 <= total <= tc2
-        if specific:
+        if specific >= 0:
             assert sc1 <= specific <= sc2
-            if total:
+            if total >= 0:
                 assert tc2 - total == sc2 - specific
 
     def asTuple(self) -> Tuple[int, int, int, int, int, str]:
