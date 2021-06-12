@@ -1919,12 +1919,12 @@ class GenomeSimulator():
         new_intergene_segment_1 = [copy.deepcopy(chromosome.intergenes[x]) for x in intergenepositions[1:]]
         new_intergene_segment_2 = [copy.deepcopy(chromosome.intergenes[x]) for x in intergenepositions[1:]]
 
+        scar0 = chromosome.intergenes[intergenepositions[0]]
         scar1 = new_intergene_segment_1[-1]
         scar2 = new_intergene_segment_2[-1]
 
         ###
         ###
-
 
             # Get old lengths from last intergene before modifying chromosome.
         specificlen = chromosome.intergenes[-1].specific_flanking[1]
@@ -1946,7 +1946,6 @@ class GenomeSimulator():
         for i, intergene in enumerate(new_intergene_segment_2):
             chromosome.intergenes.insert(position + i, intergene)
 
-
         # We adjust the new intergenes lengths and record the TandemDup:
 
         if d == LEFT:
@@ -1961,7 +1960,7 @@ class GenomeSimulator():
         assert scar1.length == len(dup.afterC)
         assert scar2.length == len(dup.afterR)
         chromosome.event_history.append(dup)
-        self._dupAssert(dup, scar1, scar2, chromosome)
+        self._dupAssert(dup, scar0, scar1, scar2, chromosome)   #Temporary check
 
         for i, gene in enumerate(segment):
             nodes = [gene.species,
@@ -1980,8 +1979,8 @@ class GenomeSimulator():
 
             self.all_gene_families[gene.gene_family].register_event(time, "D", ";".join(map(str, nodes)))
 
-    def _dupAssert(self, dup: TandemDup, icenter: Intergene, iright: Intergene,
-                   chromosome: Chromosome):
+    def _dupAssert(self, dup: TandemDup, ileft: Intergene, icenter: Intergene,
+                   iright: Intergene, chromosome: Chromosome):
         """
         Do sanity checks on the TandemDup by comparing it to the given center
         and right intergenes on the give `chromosome`.
@@ -1990,6 +1989,8 @@ class GenomeSimulator():
         ----------
         dup : TandemDup
             the duplication
+        ileft : Intergene
+            the new left breakpoint from the chromosome
         icenter : Intergene
             the new center breakpoint from the chromosome
         iright : Intergene
@@ -1997,9 +1998,16 @@ class GenomeSimulator():
         chromosome : Chromosome
             the chromosome that was modified
         """
+        first, second = ileft.specific_flanking
         chromosome.obtain_flankings()
 
             #Specific coordinate asserts:
+        assert ileft.specific_flanking[0] == dup.afterL.sc1, \
+               f'{ileft.specific_flanking[0]} != {dup.afterL.sc1} ' + \
+               f'{ileft.specific_flanking} {icenter.specific_flanking}'
+        assert ileft.specific_flanking[1] == dup.afterL.sc2, \
+               f'{ileft.specific_flanking[1]} != {dup.afterL.sc2} ' + \
+               f'{icenter.specific_flanking} {iright.specific_flanking}'
         assert icenter.specific_flanking[0] == dup.afterC.sc1, \
                f'{icenter.specific_flanking[0]} != {dup.afterC.sc1} ' + \
                f'{icenter.specific_flanking} {iright.specific_flanking}'
@@ -2014,6 +2022,12 @@ class GenomeSimulator():
                f'{icenter.specific_flanking} {iright.specific_flanking}'
 
             #Total coordinate asserts:
+        assert ileft.total_flanking[0] == dup.afterL.tc1, \
+               f'{ileft.total_flanking[0]} != {dup.afterL.tc1} ' + \
+               f'{ileft.total_flanking} {icenter.total_flanking}'
+        assert ileft.total_flanking[1] == dup.afterL.tc2, \
+               f'{ileft.total_flanking[1]} != {dup.afterL.tc2} ' + \
+               f'{icenter.total_flanking} {iright.total_flanking}'
         assert icenter.total_flanking[0] == dup.afterC.tc1, \
                f'{icenter.total_flanking[0]} != {dup.afterC.tc1} ' + \
                f'{icenter.total_flanking} {iright.total_flanking}'

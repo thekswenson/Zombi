@@ -1,3 +1,4 @@
+import copy
 from .Interval import Interval
 
 # Types:
@@ -205,7 +206,7 @@ class TandemDup(EventTwoCuts):
 
             I0 I1 S J0 I1 S J0 J1
         """
-        self.afterL = self.beforeL
+        self.afterL = copy.deepcopy(self.beforeL)
 
         lenI1 = self.beforeL.sc2 - self.scL #number of (intergene) muclotides
         lenJ0 = self.scR - self.beforeR.sc1 #number of (intergene) muclotides
@@ -218,6 +219,12 @@ class TandemDup(EventTwoCuts):
         else:
             lenSs = self.beforeR.sc1 - self.beforeL.sc2
             lenSt = self.beforeR.tc1 - self.beforeL.tc2
+
+        if self.wraps():
+            self.afterL.sc1 += lenI1 + lenSs + lenJ0
+            self.afterL.sc2 += lenI1 + lenSs + lenJ0
+            self.afterL.tc1 += lenI1 + lenSt + lenJ0
+            self.afterL.tc2 += lenI1 + lenSt + lenJ0
 
         scenterstart = self.beforeR.sc1
         scenterend = scenterstart + lenJ0 + lenI1
