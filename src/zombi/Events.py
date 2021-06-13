@@ -214,17 +214,17 @@ class TandemDup(EventTwoCuts):
             #lenS will the be number of intergene nucleotides plus the number
             #of genes in the region S:
         if self.wraps():    #beforeL is not to the left if we wrap
-            lenSs = (self.swraplen - self.beforeL.sc2) + self.beforeR.sc1 + 1
-            lenSt = (self.twraplen - self.beforeL.tc2) + self.beforeR.tc1
+            self.lenSs = (self.swraplen - self.beforeL.sc2) + self.beforeR.sc1 + 1
+            self.lenSt = (self.twraplen - self.beforeL.tc2) + self.beforeR.tc1
         else:
-            lenSs = self.beforeR.sc1 - self.beforeL.sc2
-            lenSt = self.beforeR.tc1 - self.beforeL.tc2
+            self.lenSs = self.beforeR.sc1 - self.beforeL.sc2
+            self.lenSt = self.beforeR.tc1 - self.beforeL.tc2
 
         if self.wraps():
-            self.afterL.sc1 += lenI1 + lenSs + lenJ0
-            self.afterL.sc2 += lenI1 + lenSs + lenJ0
-            self.afterL.tc1 += lenI1 + lenSt + lenJ0
-            self.afterL.tc2 += lenI1 + lenSt + lenJ0
+            self.afterL.sc1 += lenI1 + self.lenSs + lenJ0
+            self.afterL.sc2 += lenI1 + self.lenSs + lenJ0
+            self.afterL.tc1 += lenI1 + self.lenSt + lenJ0
+            self.afterL.tc2 += lenI1 + self.lenSt + lenJ0
 
         scenterstart = self.beforeR.sc1
         scenterend = scenterstart + lenJ0 + lenI1
@@ -233,9 +233,9 @@ class TandemDup(EventTwoCuts):
         tcenterend = tcenterstart + lenJ0 + lenI1
         tcenterbreak = tcenterstart + lenJ0
 
-        srightstart = scenterend + lenSs
+        srightstart = scenterend + self.lenSs
         srightend = srightstart + lenJ0 + lenJ1
-        trightstart = tcenterend + lenSt
+        trightstart = tcenterend + self.lenSt
         trightend = trightstart + lenJ0 + lenJ1
     
         position = self.beforeL.position
@@ -256,17 +256,19 @@ class TandemDup(EventTwoCuts):
         The breakpoint between J0 and I1 is the only ambiguous breakpoint. We
         arbitarily map to the left breakpoint I0 I1 (rather than J0 J1).
         """
-        if self.afterL.inSpecific(sc):          # I0 I1
+        if self.afterL.inSpecific(sc):                  # I0 I1
             return self.beforeL.sc1 + (sc - self.afterL.sc1)
         elif self.afterC.inSpecific(sc):
-            if sc < self.afterC.s_breakpoint:   # J0
+            if sc < self.afterC.s_breakpoint:           # J0
                 return self.beforeR.sc1 + (sc - self.afterC.sc1)
-            else:                               # I1
+            else:                                       # I1
                 return self.beforeL.sc2 - (self.afterC.sc2 - sc)
-        elif self.afterR.inSpecific(sc):        # J0 J1
+        elif self.afterR.inSpecific(sc):                # J0 J1
             return self.beforeR.sc1 + (sc - self.afterR.sc1)
-        else:
-            raise(Exception('Given coordinate not in the after interavals.'))
+        elif sc > self.afterC.sc2:                      # to the right
+            return sc - self.lenSs - self.afterC.specificLen()
+        else:                                           # to the left
+            return sc
 
     def afterToBeforeT(self, tc: int) -> int:
         """
@@ -279,17 +281,19 @@ class TandemDup(EventTwoCuts):
         The breakpoint between J0 and I1 is the only ambiguous breakpoint. We
         arbitarily map to the left breakpoint I0 I1 (rather than J0 J1).
         """
-        if self.afterL.inSpecific(tc):          # I0 I1
+        if self.afterL.inTotal(tc):             # I0 I1
             return self.beforeL.tc1 + (tc - self.afterL.tc1)
-        elif self.afterC.inSpecific(tc):
-            if tc < self.afterC.s_breakpoint:   # J0
+        elif self.afterC.inTotal(tc):
+            if tc < self.afterC.t_breakpoint:   # J0
                 return self.beforeR.tc1 + (tc - self.afterC.tc1)
             else:                               # I1
                 return self.beforeL.tc2 - (self.afterC.tc2 - tc)
-        elif self.afterR.inSpecific(tc):        # J0 J1
+        elif self.afterR.inTotal(tc):           # J0 J1
             return self.beforeR.tc1 + (tc - self.afterR.tc1)
-        else:
-            raise(Exception('Given coordinate not in the after interavals.'))
+        elif tc > self.afterC.tc2:                      # to the right
+            return tc - self.lenSt - self.afterC.totalLen()
+        else:                                           # to the left
+            return tc
 
     def getTotalStr(self):
         return f'{self.beforeL.tc1, self.beforeL.tc2} S ' + \

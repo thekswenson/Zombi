@@ -4,9 +4,10 @@ from . import T_PAIR
 
 class Interval:
     """
+    The breakpoint interval of a gene or an intergene.
     A Gene or Intergene interval holding both total and specific coordinates, 
     along with possibly a breakpoint coordinate contained inside it. Total
-    coordinates are with repect to all nucleotides (Gene or Intergene), whereas
+    coordinates are with respect to all nucleotides (Gene or Intergene), whereas
     specific coordinates consider only the nucleotides from `itype`, ignoring
     the others.
 
@@ -95,6 +96,18 @@ class Interval:
 
     def inSpecific(self, s_coord:int) -> bool:
         return self.sc1 <= s_coord <= self.sc2
+
+    def specificLen(self) -> int:
+        """
+        Return the number of specific breakpoint coordinates in this interval.
+        """
+        return self.sc2 - self.sc1 + 1
+
+    def totalLen(self) -> int:
+        """
+        Return the number of total breakpoint coordinates in this interval.
+        """
+        return self.tc2 - self.tc1 + 1
 
     def isIntergenic(self) -> bool:
         return self.itype == 'I'
