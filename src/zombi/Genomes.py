@@ -435,7 +435,7 @@ class Gene():
 
     def __str__(self):
 
-        myname = "_".join(map(str, (self.species, self.gene_family, self.gene_id)))
+        myname = "_".join(map(str, (self.species, self.gene_family, self.gene_id, self.length)))
         #myname = "_".join(map(str, (self.gene_family, self.orientation)))
         #myname = str(self.gene_family) + "_" + str(self.gene_id)
         #myname = "_".join(map(str, (self.gene_family, self.length)))
@@ -472,9 +472,9 @@ class Intergene():
 
     def __str__(self):
 
-        return "(" + str(self.length) + ")"
+        #return "(" + str(self.length) + ")"
         #return "I_" + str(self.length)
-        #return "I_" + str(self.id) + "_" + str(self.length)
+        return "I_" + str(self.id) + "_" + str(self.length)
 
 
 class Chromosome():
@@ -798,7 +798,7 @@ class Chromosome():
         if self.has_intergenes == True:
 
             #return ";".join(["CHROMOSOME"] + [str(self.genes[i])+";"+str(self.intergenes[i]) for i in range(len(self.genes))])
-            return "".join(["CHROMOSOME: "] + [str(self.genes[i])+str(self.intergenes[i]) for i in range(len(self.genes))])
+            return ";".join([str(self.genes[i]) + ";" + str(self.intergenes[i]) for i in range(len(self.genes))])
 
         else:
 

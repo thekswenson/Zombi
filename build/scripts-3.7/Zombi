@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!python
 from Bio.SeqRecord import SeqRecord
 from zombi.SpeciesTreeSimulator import SpeciesTreeGenerator
 from zombi.GenomeSimulator import GenomeSimulator
@@ -169,15 +169,12 @@ class Zombi():
         # We write the output
 
         print("Writing Genomes")
-        
+
         if advanced_mode == "f":
             gss.write_genomes(genomes_folder, intergenic_sequences=True)
             gss.write_gene_family_lengths(genome_folder)
-
             if root_genome:
                 gss.write_gene_family_info(genome_folder)
-
-            gss.write_coordinates(genome_folder)
 
         else:
             gss.write_genomes(genomes_folder, intergenic_sequences=False)
@@ -191,7 +188,7 @@ class Zombi():
             gss.write_family_rates(genome_folder)
         
         print("Writing Gene Families")
-       
+
         gss.write_gene_family_events(gene_families_folder)
 
         if parameters["PROFILES"] == 1:
