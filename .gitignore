@@ -1,0 +1,8 @@
+src/zombi/__pycache__/
+src/zombi.egg-info/
+Output/
+*_output/
+data/
+Validations/
+build/
+dist/
