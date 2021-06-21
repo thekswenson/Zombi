@@ -2684,7 +2684,9 @@ class GenomeSimulator():
             if d == LEFT:
                 r3, r4 = r4, r3
 
-            inv = Inversion(etype="I", lineage=lineage, time=time, int1=int1, int2=int2, sc1=c1, sc2=c2, swraplen=0,twraplen=0)
+            inv = Inversion(etype="I", lineage=lineage, time=time, int1=int1, int2=int2, sc1=c1, sc2=c2, swraplen=0,twraplen=0) # Need to provide swraplen and twraplen?
+
+            chromosome.event_history.append(inv)
             
             scar1 = chromosome.intergenes[r2[0]]
             scar2 = chromosome.intergenes[r2[-1]]
