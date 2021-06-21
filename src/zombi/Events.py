@@ -82,7 +82,8 @@ class Inversion(EventTwoCuts):
     """
     An Inversion event.
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self, int1: Interval, int2: Interval, sc1: int, sc2: int,
+                 swraplen: int, twraplen: int, lineage: str, time: float):
         """
         Create an Inversion event.  When instantiating this you must also
         provide the arguments for EventTwoCuts and GenomeEvent.
@@ -90,15 +91,24 @@ class Inversion(EventTwoCuts):
         Parameters
         ----------
         int1 : Interval
-            the old intergene at the left
+            the intergene to be broken at the left
         int2 : Interval
-            the old intergene at the right
+            the intergene to be broken at the right
         sc1 : int
-            the specific coordinate where the first interval is to be cut
+            the specific coordinate where the first intergene is to be cut
         sc2 : int
-            the specific coordinate where the second interval is to be cut
+            the specific coordinate where the second intergene is to be cut
+        twraplen: int
+            the total length of the chromosome
+        swraplen: int
+            the intergene specific length of the chromosome
+        lineage: str
+            the lineage on which the event happened (pendant node name)
+        time: float
+            the time at which it happened
         """
-        super().__init__(*args, **kwargs)
+        super().__init__(int1, int2, sc1, sc2, swraplen, twraplen, INV,
+                         lineage, time)
         self.afterL: Interval = None
         self.afterR: Interval = None
 
@@ -125,22 +135,29 @@ class Inversion(EventTwoCuts):
         lenI1 = self.beforeL.sc2 - self.scL
         lenJ0 = self.scR - self.beforeR.sc1
         lenJ1 = self.beforeR.sc2 - self.scR
+            #lenSs will the be number of intergene nucleotides plus the number
+            #of genes in the region S:
+        if self.wraps():
+            lenSs = (self.swraplen - self.beforeL.sc2) + self.beforeR.sc1 + 1
+            lenSt = (self.twraplen - self.beforeL.tc2) + self.beforeR.tc1
+        else:
+            lenSs = self.beforeR.sc1 - self.beforeL.sc2
+            lenSt = self.beforeR.tc1 - self.beforeL.tc2
 
         sleftstart = self.beforeL.sc1
         sleftend = sleftstart + lenI0 + lenJ0
         tleftstart = self.beforeL.tc1
         tleftend = tleftstart + lenI0 + lenJ0
 
-        srightstart = self.beforeR.sc1
+        srightstart = sleftend + lenSs
         srightend = srightstart + lenI1 + lenJ1
-        trightstart = self.beforeR.tc1
+        trightstart = tleftend + lenSt
         trightend = trightstart + lenI1 + lenJ1
 
-        position = self.beforeL.position
         self.afterL = Interval(tleftstart, tleftend,
-                               sleftstart, sleftend, position, 'I')
+                               sleftstart, sleftend, self.beforeL.position, 'I')
         self.afterR = Interval(trightstart, trightend,
-                               srightstart, srightend, position+1, 'I')
+                               srightstart, srightend, self.beforeR.position, 'I')
 
 class TandemDup(EventTwoCuts):
     """
@@ -180,7 +197,8 @@ class TandemDup(EventTwoCuts):
         time: float
             the time at which it happened
         """
-        super().__init__(int1, int2, sc1, sc2, swraplen, twraplen, TDUP, lineage, time)
+        super().__init__(int1, int2, sc1, sc2, swraplen, twraplen, TDUP,
+                         lineage, time)
         self.afterL: Interval = None
         self.afterC: Interval = None
         self.afterR: Interval = None
@@ -211,7 +229,7 @@ class TandemDup(EventTwoCuts):
         lenI1 = self.beforeL.sc2 - self.scL #number of (intergene) muclotides
         lenJ0 = self.scR - self.beforeR.sc1 #number of (intergene) muclotides
         lenJ1 = self.beforeR.sc2 - self.scR #number of (intergene) muclotides
-            #lenS will the be number of intergene nucleotides plus the number
+            #lenSs will the be number of intergene nucleotides plus the number
             #of genes in the region S:
         if self.wraps():    #beforeL is not to the left if we wrap
             self.lenSs = (self.swraplen - self.beforeL.sc2) + self.beforeR.sc1 + 1
@@ -308,3 +326,7 @@ class TandemDup(EventTwoCuts):
                f'{self.afterL.sc1, self.afterL.sc2} S ' + \
                f'{self.afterC.sc1, self.afterC.sc2} S ' + \
                f'{self.afterR.sc1, self.afterR.sc2}'
+
+    def __repr__(self):
+        return f'{repr(self.int1)} {repr(self.int2)} {self.twraplen} ' +\
+               f'{self.swraplen} {self.twraplen} {self.lineage} {self.time}'

@@ -842,7 +842,25 @@ class CircularChromosome(Chromosome):
         for i, x in enumerate(segment):
             self.genes.insert(position + i, x)
 
-    def invert_segment(self, affected_genes):
+    def invert_segment(self, affected_genes: List[int]):
+        """
+        Invert the genes in `self.genes`.
+
+        Parameters
+        ----------
+        affected_genes : List[int]
+            the indices of genes to be inverted
+
+        Returns
+        -------
+        Tuple[int, int]
+            if the inversion wraps around (`affected_genes` contains indices
+            at the beginning and end of the sequence) then return the 
+
+        Notes
+        -----
+        `self.intergenes` is not affected
+        """
 
         segment = [self.genes[x] for x in affected_genes]
 
@@ -854,6 +872,68 @@ class CircularChromosome(Chromosome):
         for i,x in enumerate(affected_genes):
             self.genes[x] = reversed_segment[i]
 
+    def inversion_wrap_lengths(self, affected_genes: List[int]
+                               ) -> Tuple[int, int, int, int]:
+        """
+        An inversion breaks two breakpoints (B1 and B2), replacing the gene and
+        intergenes in-place so that, when and inversion wraps around, the number
+        of genes and intergenes at the end and beginning are not modified.
+        For example, if we have
+
+        G3 I3 B2 ... B1 G1 I1 G2 I2
+
+        then the result is
+
+        G1 I1 B2 ... B1 G3 I3 G2 I2
+
+        We return the lengths of the segments G1 I1 and G3 I3 G2 I2.
+
+        Notes
+        -----
+        Assumes the first intergene `self.intergenes[0]` is after the first
+        gene `self.genes[0]`.
+
+        Parameters
+        ----------
+        affected_genes : List[int]
+            the indices of the genes affected by an inversion
+
+        Returns
+        -------
+        Tuple[int, int, int, int]
+            (sfirstlen, ssecondlen, tfirstlen, tsecondlen) where sfirstlen
+            is the intergene-specific length of the right-most sequence
+            (not including the B1), tfirstlen is the total length for the same
+            segment. The "second" variables are the same values for left-most
+            sequence (not including B2).
+        """
+        assert affected_genes[0] > affected_genes[-1]   #it wraps
+
+        sfirstlen = 0
+        tfirstlen = 0
+        ssecondlen = 0
+        tsecondlen = 0
+
+            #Visit genes and intergenes as pairs 
+        igenei = -1
+        infirst = True
+        for i in range(len(affected_genes)):
+            irev = len(affected_genes) - i - 1 
+            genei = affected_genes[irev]
+            igenei = affected_genes[irev-1]
+            if affected_genes[i] == 0:
+                infirst = False     # We've wrapped to the beginning
+            
+            if infirst:
+                sfirstlen += self.intergenes[igenei].length
+                tfirstlen += self.genes[genei].length + self.intergenes[igenei].length
+            else:
+                tsecondlen += self.genes[genei].length
+                if irev != 0:       # Skip last intergene (it has the breakpoint)
+                    ssecondlen += self.intergenes[igenei].length
+                    tsecondlen += self.intergenes[igenei].length
+
+        return sfirstlen, ssecondlen, tfirstlen, tsecondlen
 
     def cut_and_paste(self, affected_genes):
 

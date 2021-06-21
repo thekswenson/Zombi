@@ -2676,23 +2676,24 @@ class GenomeSimulator():
 
         else:
 
-            r1, r2, r3, r4, int1, int2 = r
+            gpositions, igpositions, leftlengths, rightlengths, int1, int2 = r
 
-            segment = chromosome.obtain_segment(r1)
-            chromosome.invert_segment(r1)
+            segment = chromosome.obtain_segment(gpositions)
+            chromosome.invert_segment(gpositions)
 
             if d == LEFT:
-                r3, r4 = r4, r3
+                leftlengths, rightlengths = rightlengths, leftlengths
 
+            #sleftlen, srightlen, tleftlen, trightlen = chromosome.inversion_wrap_lengths(gpositions)
             inv = Inversion(etype="I", lineage=lineage, time=time, int1=int1, int2=int2, sc1=c1, sc2=c2, swraplen=0,twraplen=0) # Need to provide swraplen and twraplen?
 
             chromosome.event_history.append(inv)
-            
-            scar1 = chromosome.intergenes[r2[0]]
-            scar2 = chromosome.intergenes[r2[-1]]
 
-            scar1.length = r3[0] + r4[0]
-            scar2.length = r4[1] + r3[1]
+            scar1 = chromosome.intergenes[igpositions[0]]
+            scar2 = chromosome.intergenes[igpositions[-1]]
+
+            scar1.length = leftlengths[0] + rightlengths[0]
+            scar2.length = rightlengths[1] + leftlengths[1]
 
             assert scar1.length == len(inv.afterL)
             assert scar2.length == len(inv.afterR)      
