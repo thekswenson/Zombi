@@ -9,7 +9,7 @@ import networkx as nx
 from typing import Tuple, Set, Dict
 
 from . import AuxiliarFunctions as af
-from .Events import TandemDup
+from .Events import TandemDup, Inversion
 from .Genomes import Chromosome, CircularChromosome, Gene, GeneFamily, Genome
 from .Genomes import T_DIR, LEFT, RIGHT, Intergene, LinearChromosome
 
@@ -147,6 +147,7 @@ class GenomeSimulator():
                     line = "\t".join([gene_family_name, str(gene_family.gff_id)]) + "\n"
                     f.write(line)
     
+        
     def write_coordinates(self, genome_folder:str, filename="Coordinates.tsv"):
 
         """
@@ -1977,8 +1978,7 @@ class GenomeSimulator():
 
         if d == LEFT:
             leftlengths, rightlengths = rightlengths, leftlengths
-            dup = TandemDup(int2, int1, c2, c1, specificlen, totallen, lineage, time)
-            
+            dup = TandemDup(int2, int1, c2, c1, specificlen, totallen, lineage, time)            
             self.event_coordinates.append((repr(int2), repr(int1), c2, c1, specificlen, totallen, lineage, time))            
 
         else:
@@ -2618,8 +2618,6 @@ class GenomeSimulator():
 
             interactome.remove_node(str(gene))
 
-
-
     def make_inversion(self, p, lineage, time):
 
         chromosome = self.all_genomes[lineage].select_random_chromosome()
@@ -2630,7 +2628,44 @@ class GenomeSimulator():
         for gene in segment:
             self.all_gene_families[gene.gene_family].register_event(str(time), "I", ";".join(map(str,[lineage, gene.gene_id])))
 
-    def make_inversion_intergenic(self, c1, c2, d: T_DIR, lineage, time):
+    
+    def make_inversion_intergenic(self, c1: int, c2: int, d: T_DIR, lineage: str, time: float):
+        
+        """
+        Do an inversion that acts on the given pair of intergene specific
+        breakpoint coordinates. Consider intergene I and J such that c1 lands in
+        intergene I and c2 lands in intergene J, with gene-intergene-gene segment G1-I1-G2
+        between the two. Then we have sequence
+
+            I G1-I1-G2 J
+
+        where I is split at `c1` into I0 I1 and J is split at `c2` into J0 J1.
+        Then we get
+
+            I0 I1 G1-I1-G2 J0 J1
+
+        and the inversion produces
+
+            I0 I1 G2-I1-G1 J0 J1.
+
+        Parameters
+        ----------
+        c1 : int
+            the first intergene specific breakpoint coordinate
+        c2 : int
+            the second intergene specific breakpoint coordinate
+        d : T_DIR
+            the direction, either left or right
+        lineage : str
+            the linege, which is name of the pendnt node
+        time : float
+            the time stamp of the event
+
+        Returns
+        -------
+        [type]
+            [description]
+        """
         
         chromosome = self.all_genomes[lineage].select_random_chromosome()
         r = chromosome.return_affected_region(c1, c2, d)
@@ -2638,6 +2673,7 @@ class GenomeSimulator():
         if r == None:
 
             return None
+
         else:
 
             r1, r2, r3, r4, int1, int2 = r
@@ -2648,11 +2684,16 @@ class GenomeSimulator():
             if d == LEFT:
                 r3, r4 = r4, r3
 
+            inv = Inversion(etype="I", lineage=lineage, time=time, int1=int1, int2=int2, sc1=c1, sc2=c2, swraplen=0,twraplen=0)
+            
             scar1 = chromosome.intergenes[r2[0]]
             scar2 = chromosome.intergenes[r2[-1]]
 
             scar1.length = r3[0] + r4[0]
             scar2.length = r4[1] + r3[1]
+
+            assert scar1.length == len(inv.afterL)
+            assert scar2.length == len(inv.afterR)      
 
             for gene in segment:
                 self.all_gene_families[gene.gene_family].register_event(str(time), "I", ";".join(map(str,[lineage, gene.gene_id])))
