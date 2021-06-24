@@ -178,6 +178,14 @@ class Inversion(EventTwoCuts):
         lenJ0 = self.scR - self.beforeR.sc1
         self.lenJ0 = lenJ0
         lenJ1 = self.beforeR.sc2 - self.scR
+            #lenSs will the be number of intergene nucleotides plus the number
+            #of genes in the region S:
+        if self.wraps():
+            lenSs = (self.swraplen - self.beforeL.sc2) + self.beforeR.sc1 + 1
+            lenSt = (self.twraplen - self.beforeL.tc2) + self.beforeR.tc1
+        else:
+            lenSs = self.beforeR.sc1 - self.beforeL.sc2
+            lenSt = self.beforeR.tc1 - self.beforeL.tc2
 
         if self.wraps():    # [secondlen] -I1 J1 ... I0 -J0 [firstlen]
             self.sshift = self.ssecondlen + lenI1 - self.beforeR.s_breakpoint

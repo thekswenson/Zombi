@@ -177,6 +177,8 @@ class Zombi():
         if advanced_mode == "f":
             gss.write_genomes(genomes_folder, intergenic_sequences=True)
             gss.write_gene_family_lengths(genome_folder)
+            gss.get_clusters()
+            gss.write_clusters(genome_folder)
 
             if root_genome:
                 gss.write_gene_family_info(genome_folder)
