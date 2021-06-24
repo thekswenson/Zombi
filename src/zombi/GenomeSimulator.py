@@ -100,6 +100,22 @@ class GenomeSimulator():
                             f.write(line)
                             i += 1
 
+    def write_clusters(self, genome_folder:str,
+                               filename="Clusters.tsv"):
+        """
+        Write a TSV file containing the information about every cluster,
+        i.e. every section of the intergenes that must be independently simulated
+
+        Parameters
+        ----------
+        genome_folder : str
+            [description]
+        filename : str, optional
+            [description], by default "Clusters.tsv"
+        """
+        with open(os.path.join(genome_folder, filename), "w") as f:
+            header = ["Cluster#", "Length"]
+            f.write("\t".join(map(str, header)) + "\n")
 
     def write_gene_family_info(self, genome_folder:str,
                                filename="GeneFamily_info.tsv"):
@@ -2902,3 +2918,9 @@ class GenomeSimulator():
                 success = False
 
         return None
+
+    def get_clusters(self):
+        # First iterate the all extant leaves
+        pass
+
+        
