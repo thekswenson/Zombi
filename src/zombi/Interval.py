@@ -56,17 +56,17 @@ class Interval:
         specific : int, optional
             specific coordinate in the interval corresponding to `total`, by default 0
         """
-        self.tc1 = tc1
-        self.tc2 = tc2
-        self.sc1 = sc1
-        self.sc2 = sc2
-        self.position = index
-        self.itype = itype
-        self.t_breakpoint = total
-        self.s_breakpoint = specific
+        self.tc1: int = tc1
+        self.tc2: int = tc2
+        self.sc1: int = sc1
+        self.sc2: int = sc2
+        self.position: int = index
+        self.itype: str = itype
+        self.t_breakpoint: int = total
+        self.s_breakpoint: int = specific
 
             #Sanity checks:
-        assert tc2 - tc1 == sc2 - sc1, print(f'{tc2-tc1} != {sc2-sc1}')
+        assert tc2 - tc1 == sc2 - sc1, f'{tc2-tc1} != {sc2-sc1}'
         if total >= 0:
             assert tc1 <= total <= tc2
         if specific >= 0:
@@ -131,4 +131,4 @@ class Interval:
         return f'{self.tc1} {self.tc2} {self.sc1} {self.sc2} {self.position} {self.itype}'
 
     def __repr__(self):
-        return str(self)
+        return f'{self.tc1} {self.tc2} {self.sc1} {self.sc2} {self.s_breakpoint}'

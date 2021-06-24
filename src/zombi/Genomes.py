@@ -1,7 +1,7 @@
 import random
 import ete3
 from functools import reduce
-from typing import List, Tuple
+from typing import List, Tuple, Optional, TypeVar
 
 import numpy
 
@@ -447,7 +447,7 @@ class Intergene():
     Attributes
     ----------
     length: int
-        the length of the intergene
+        the length of the intergene (in nucleotides, not breakpoints)
     total_flanking: T_PAIR
         these are the coordinates of the breakpoints at either end of the
         intergene.  (i, j) where i is the total number of breakpoints before
@@ -502,8 +502,8 @@ class Chromosome():
         self.intergenes: List[Intergene] = list()
         self.genes: List[Gene] = list()
         self.shape = ""
-        self.length = 0
-        self.num_nucleotides = num_nucleotides
+        self.length = 0                         # length in genes?
+        self.num_nucleotides = num_nucleotides  # length in nucleotides
 
         self.map_of_locations: List[Interval] = []
 
@@ -602,6 +602,10 @@ class Chromosome():
             if r.inSpecific(c):
                 distance_to_lower_bound = c - r.sc1
                 tc = r.tc1 + distance_to_lower_bound
+
+        if tc is None:
+            raise(Exception('Given specific coordinate {c} not found!'))
+
         return tc
 
     def return_specific_coordinate_from_total_coordinate(self, c, debug = False):
@@ -619,6 +623,9 @@ class Chromosome():
                 if debug == True:
                     print("PRINTING R")
                     print(r)
+
+        if sc is None:
+            raise(Exception('Given total coordinate {c} not found!'))
 
         return sc
 
@@ -655,11 +662,14 @@ class Chromosome():
                                     self.return_total_coordinate_from_specific_coordinate(c),
                                     c)
 
+        raise(Exception(f'no gene or intergene found for coordinate {c}!'))
+
     def return_affected_region(self, c1: int, c2: int, direction: T_DIR
-                               ) -> Tuple[List[int], List[int], T_PAIR, T_PAIR,
-                                          Interval, Interval]:
+                               ) -> Optional[Tuple[List[int], List[int],
+                                             T_PAIR, T_PAIR, Interval, Interval]]:
         """
-        Return 
+        Return information about the genes and intergenes between the given
+        coordinates.
 
         Parameters
         ----------
@@ -809,7 +819,19 @@ class Chromosome():
         for x in self.genes:
             yield x
 
+    def obtain_segment(self, gpositions):
+        raise(NotImplementedError)
 
+    def invert_segment(self, gpositions):
+        raise(NotImplementedError)
+
+    def obtain_intergenic_segment(self, affected_intergenes):
+        raise(NotImplementedError)
+
+    def remove_segment(self, segment):
+        raise(NotImplementedError)
+
+ChromosomeType = TypeVar('ChromosomeType', bound=Chromosome)
 class CircularChromosome(Chromosome):
 
     def __init__(self, *args, **kwargs):
@@ -842,7 +864,25 @@ class CircularChromosome(Chromosome):
         for i, x in enumerate(segment):
             self.genes.insert(position + i, x)
 
-    def invert_segment(self, affected_genes):
+    def invert_segment(self, affected_genes: List[int]):
+        """
+        Invert the genes in `self.genes`.
+
+        Parameters
+        ----------
+        affected_genes : List[int]
+            the indices of genes to be inverted
+
+        Returns
+        -------
+        Tuple[int, int]
+            if the inversion wraps around (`affected_genes` contains indices
+            at the beginning and end of the sequence) then return the 
+
+        Notes
+        -----
+        `self.intergenes` is not affected
+        """
 
         segment = [self.genes[x] for x in affected_genes]
 
@@ -854,6 +894,74 @@ class CircularChromosome(Chromosome):
         for i,x in enumerate(affected_genes):
             self.genes[x] = reversed_segment[i]
 
+    def inversion_wrap_lengths(self, affected_genes: List[int]
+                               ) -> Tuple[int, int, int, int]:
+        """
+        An inversion breaks two breakpoints (in intergenes B1 and B2), replacing
+        the gene and intergenes in-place so that, when and inversion wraps
+        around, the number of genes and intergenes at the end and beginning are
+        not modified.  For example, if we have
+
+        G3 I3 B2 ... B1 G1 I1 G2 I2
+
+        then the result is
+
+        G1 I1 B2 ... B1 G3 I3 G2 I2
+
+        We return the lengths (in breakpoints) of the segments G3 I3 G2 I2 and
+        G1 I1. These are the lengths of the segments (at the first part and
+        second part) that were inverted, not counting the intergene breakpoints
+        in the breakpoint intergenes.
+
+        Notes
+        -----
+        Assumes the first intergene `self.intergenes[0]` is after the first
+        gene `self.genes[0]`.
+
+        Parameters
+        ----------
+        affected_genes : List[int]
+            the indices of the genes affected by an inversion
+
+        Returns
+        -------
+        Tuple[int, int, int, int]
+            (sfirstlen, ssecondlen, tfirstlen, tsecondlen) where sfirstlen
+            is the intergene-specific length (in breakpoints) of the right-most
+            sequence (not including the B1 intergene), tfirstlen is the total
+            length for the same segment. The "second" variables are the same
+            values for left-most sequence (not including B2).
+        """
+        assert affected_genes[0] > affected_genes[-1]   #it wraps
+
+        sfirstlen = 0
+        tfirstlen = 0
+        ssecondlen = 0
+        tsecondlen = 0
+
+            #Visit genes and intergenes as pairs 
+        igenei = -1
+        infirst = True
+        for i in range(len(affected_genes)):
+            irev = len(affected_genes) - i - 1 
+            genei = affected_genes[irev]
+            igenei = affected_genes[irev-1]
+            if affected_genes[i] == 0:
+                infirst = False     # We've wrapped to the beginning
+            
+            if infirst:
+                sfirstlen += self.intergenes[igenei].length + 1
+                tfirstlen += self.genes[genei].length + self.intergenes[igenei].length + 1
+            else:
+                tsecondlen += self.genes[genei].length - 1
+                if irev != 0:       # Skip last intergene (it has the breakpoint)
+                    ssecondlen += self.intergenes[igenei].length + 1
+                    tsecondlen += self.intergenes[igenei].length + 1
+
+        tsecondlen += 1     # Gene breakpoint at index 0 is counted despite
+                            # being the same as the intergene breakpoint at -1.
+        assert sfirstlen <= tfirstlen and ssecondlen <= tsecondlen
+        return sfirstlen, ssecondlen, tfirstlen, tsecondlen
 
     def cut_and_paste(self, affected_genes):
 
@@ -1116,8 +1224,9 @@ class CircularChromosome(Chromosome):
 
 class LinearChromosome(Chromosome):
 
-    def __init__(self):
+    def __init__(self, size):
         raise(NotImplementedError)
+
 
 class Genome():
     """
@@ -1130,7 +1239,7 @@ class Genome():
     def __init__(self):
 
         self.species = ""
-        self.chromosomes: List[Chromosome] = list()
+        self.chromosomes: List[ChromosomeType] = list()
 
     def start_genome(self, input):
 
@@ -1141,7 +1250,7 @@ class Genome():
             elif shape == "C":
                 self.chromosomes.append(CircularChromosome(size))
 
-    def select_random_chromosome(self) -> CircularChromosome:
+    def select_random_chromosome(self) -> ChromosomeType:
 
         # I have to weight by the length of each chromosome
 

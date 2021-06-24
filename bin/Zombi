@@ -45,9 +45,11 @@ class Zombi():
             complete_tree, extant_tree, collapsed_nodes = stg.generate_newick_trees()
 
             with open(complete_tree_file, "w") as f:
+                assert complete_tree is not None
                 f.write(complete_tree)
 
             with open(extant_tree_file, "w") as f:
+                assert extant_tree is not None
                 f.write(extant_tree)
 
             with open(collapsed_nodes_file, "w") as f:
@@ -98,9 +100,11 @@ class Zombi():
         
         
         with open(complete_tree_file, "w") as f:
+            assert complete_tree is not None
             f.write(complete_tree)
 
         with open(extant_tree_file, "w") as f:
+            assert extant_tree is not None
             f.write(extant_tree)
 
         with open(collapsed_nodes_file, "w") as f:
@@ -454,7 +458,7 @@ if __name__ == "__main__":
         advanced_mode = mode[1]
 
     else:
-        print ("Incorrect value for mode")
+        raise(Exception("Incorrect value for mode"))
 
     Z = Zombi()
 

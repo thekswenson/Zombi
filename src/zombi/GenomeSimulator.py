@@ -6,10 +6,10 @@ import copy
 import random
 import os
 import networkx as nx
-from typing import Tuple, Set, Dict
+from typing import Tuple, Set, Dict, Union
 
 from . import AuxiliarFunctions as af
-from .Events import TandemDup
+from .Events import TandemDup, Inversion
 from .Genomes import Chromosome, CircularChromosome, Gene, GeneFamily, Genome
 from .Genomes import T_DIR, LEFT, RIGHT, Intergene, LinearChromosome
 
@@ -58,7 +58,7 @@ class GenomeSimulator():
 
         # A list to keep track of all the event coordinates
 
-        self.event_coordinates = list()
+        self.event_coordinates = list()         #NOTE: remove this
 
     def write_genomes(self, genome_folder, intergenic_sequences = False):
 
@@ -159,10 +159,9 @@ class GenomeSimulator():
 
         with open(os.path.join(genome_folder, filename), "w" ) as f:
 
-            for coordinate in self.event_coordinates:
+            for coordinate in self.event_coordinates:   #NOTE: get events from chromosomes
 
-                line = list(map(str, coordinate))
-                line = "\t".join(line) + "\n"
+                line = "\t".join(list(map(str, coordinate))) + "\n"
                 
                 f.write(line)
                 
@@ -553,8 +552,9 @@ class GenomeSimulator():
 
             #Create a chromosome of the appropriate shape:
         shape = "C"
+        chromosome: Union[LinearChromosome, CircularChromosome]
         if shape == "L":
-            chromosome: Chromosome = LinearChromosome()
+            chromosome = LinearChromosome(chrom_len)
             chromosome.shape = "L"
         elif shape == "C":
             chromosome = CircularChromosome(num_nucleotides=chrom_len)
@@ -1921,7 +1921,7 @@ class GenomeSimulator():
             the time stamp of the event
         """
 
-        chromosome = self.all_genomes[lineage].select_random_chromosome()
+        chromosome: CircularChromosome = self.all_genomes[lineage].select_random_chromosome()
         r = chromosome.return_affected_region(c1, c2, d)
 
         if r == None:
@@ -1977,13 +1977,11 @@ class GenomeSimulator():
 
         if d == LEFT:
             leftlengths, rightlengths = rightlengths, leftlengths
-            dup = TandemDup(int2, int1, c2, c1, specificlen, totallen, lineage, time)
-            
-            self.event_coordinates.append((repr(int2), repr(int1), c2, c1, specificlen, totallen, lineage, time))            
+            int1, int2 = int2, int1
+            c1, c2 = c2, c1
 
-        else:
-            dup = TandemDup(int1, int2, c1, c2, specificlen, totallen, lineage, time)
-            self.event_coordinates.append((repr(int1), repr(int2), c1, c2, specificlen, totallen, lineage, time))        
+        dup = TandemDup(int1, int2, c1, c2, specificlen, totallen, lineage, time)
+        #self.event_coordinates.append((repr(int1), repr(int2), c1, c2, specificlen, totallen, lineage, time))
             
             
         scar1.length = leftlengths[1] + rightlengths[0]
@@ -2410,7 +2408,7 @@ class GenomeSimulator():
 
     def make_transfer_intergenic(self, c1, c2, d: T_DIR, donor, recipient, time):
 
-        chromosome1 = self.all_genomes[donor].select_random_chromosome()
+        chromosome1: CircularChromosome = self.all_genomes[donor].select_random_chromosome()
         r = chromosome1.return_affected_region(c1, c2, d)
 
         if r == None:
@@ -2446,7 +2444,7 @@ class GenomeSimulator():
 
         # Normal transfer
 
-        chromosome2 = self.all_genomes[recipient].select_random_chromosome()
+        chromosome2: CircularChromosome = self.all_genomes[recipient].select_random_chromosome()
         chromosome2.obtain_locations()
         intergene_coordinate = chromosome2.select_random_coordinate_in_intergenic_regions()
         l = chromosome2.return_location_by_coordinate(intergene_coordinate, within_intergene=True)
@@ -2526,7 +2524,7 @@ class GenomeSimulator():
 
     def make_loss_intergenic(self, c1, c2, d: T_DIR, lineage, time, pseudo=False):
 
-        chromosome = self.all_genomes[lineage].select_random_chromosome()
+        chromosome: CircularChromosome = self.all_genomes[lineage].select_random_chromosome()
         r = chromosome.return_affected_region(c1, c2, d)
 
         if r == None:
@@ -2618,8 +2616,6 @@ class GenomeSimulator():
 
             interactome.remove_node(str(gene))
 
-
-
     def make_inversion(self, p, lineage, time):
 
         chromosome = self.all_genomes[lineage].select_random_chromosome()
@@ -2630,29 +2626,80 @@ class GenomeSimulator():
         for gene in segment:
             self.all_gene_families[gene.gene_family].register_event(str(time), "I", ";".join(map(str,[lineage, gene.gene_id])))
 
-    def make_inversion_intergenic(self, c1, c2, d: T_DIR, lineage, time):
+    
+    def make_inversion_intergenic(self, c1: int, c2: int, d: T_DIR, lineage: str, time: float):
         
-        chromosome = self.all_genomes[lineage].select_random_chromosome()
+        """
+        Do an inversion that acts on the given pair of intergene specific
+        breakpoint coordinates. Consider intergene I and J such that c1 lands in
+        intergene I and c2 lands in intergene J, with gene-intergene-gene segment G1-I1-G2
+        between the two. Then we have sequence
+
+            I G1-I1-G2 J
+
+        where I is split at `c1` into I0 I1 and J is split at `c2` into J0 J1.
+        Then we get
+
+            I0 I1 G1-I1-G2 J0 J1
+
+        and the inversion produces
+
+            I0 I1 G2-I1-G1 J0 J1.
+
+        Parameters
+        ----------
+        c1 : int
+            the first intergene specific breakpoint coordinate
+        c2 : int
+            the second intergene specific breakpoint coordinate
+        d : T_DIR
+            the direction, either left or right
+        lineage : str
+            the linege, which is name of the pendnt node
+        time : float
+            the time stamp of the event
+        """
+        chromosome: CircularChromosome = self.all_genomes[lineage].select_random_chromosome()
         r = chromosome.return_affected_region(c1, c2, d)
 
         if r == None:
 
             return None
+
         else:
 
-            r1, r2, r3, r4, int1, int2 = r
+            gpositions, igpositions, leftlengths, rightlengths, int1, int2 = r
 
-            segment = chromosome.obtain_segment(r1)
-            chromosome.invert_segment(r1)
+                # Get lengths from last intergene before modifying chromosome.
+            specificlen = chromosome.intergenes[-1].specific_flanking[1]
+            totallen = chromosome.intergenes[-1].total_flanking[1]
+
+            segment = chromosome.obtain_segment(gpositions)
+            chromosome.invert_segment(gpositions)
 
             if d == LEFT:
-                r3, r4 = r4, r3
+                leftlengths, rightlengths = rightlengths, leftlengths
+                int1, int2 = int2, int1
+                c1, c2 = c2, c1
 
-            scar1 = chromosome.intergenes[r2[0]]
-            scar2 = chromosome.intergenes[r2[-1]]
+            sleftlen, srightlen, tleftlen, trightlen = 0, 0, 0, 0
+            if gpositions[0] > gpositions[-1]:      #The inversion wraps:
+                sleftlen, srightlen, tleftlen, trightlen = \
+                     chromosome.inversion_wrap_lengths(gpositions)
 
-            scar1.length = r3[0] + r4[0]
-            scar2.length = r4[1] + r3[1]
+            inv = Inversion(int1, int2, c1, c2, specificlen, totallen, sleftlen,
+                            tleftlen, srightlen, trightlen, lineage, time)
+
+            chromosome.event_history.append(inv)
+
+            scar1 = chromosome.intergenes[igpositions[0]]
+            scar2 = chromosome.intergenes[igpositions[-1]]
+
+            scar1.length = leftlengths[0] + rightlengths[0]
+            scar2.length = rightlengths[1] + leftlengths[1]
+
+            assert scar1.length == len(inv.afterL)
+            assert scar2.length == len(inv.afterR)      
 
             for gene in segment:
                 self.all_gene_families[gene.gene_family].register_event(str(time), "I", ";".join(map(str,[lineage, gene.gene_id])))
@@ -2669,7 +2716,7 @@ class GenomeSimulator():
 
     def make_transposition_intergenic(self, c1, c2, d: T_DIR, lineage, time):
 
-        chromosome = self.all_genomes[lineage].select_random_chromosome()
+        chromosome: CircularChromosome = self.all_genomes[lineage].select_random_chromosome()
         r = chromosome.return_affected_region(c1, c2, d)
 
         if r == None:
@@ -2813,7 +2860,7 @@ class GenomeSimulator():
             breakpoint coordinates, meant to be breakpoints, and direction is
             one of {LEFT, RIGHT} indicating if sc2 is left or right of sc1.
         """
-        chromosome = self.all_genomes[lineage].select_random_chromosome()
+        chromosome: CircularChromosome = self.all_genomes[lineage].select_random_chromosome()
             #The total number of intergenic nucleotides can be retrieved from
             #the last intergenic location:
         assert chromosome.map_of_locations[-1].isIntergenic()

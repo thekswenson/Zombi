@@ -1,4 +1,4 @@
-src/zombi/__pycache__/
+__pycache__
 src/zombi.egg-info/
 Output/
 *_output/

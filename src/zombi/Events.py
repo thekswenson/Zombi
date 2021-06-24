@@ -1,4 +1,7 @@
 import copy
+import abc
+
+from Bio.SeqFeature import BeforePosition
 from .Interval import Interval
 
 # Types:
@@ -30,6 +33,22 @@ class GenomeEvent:
         self.lineage: str = lineage
         self.time: float = time
 
+    @abc.abstractmethod
+    def afterToBeforeS(self, sc: int) -> int:
+        """
+        Given a specific breakpoint coordinate after this event, return the
+        same one before.
+        """
+        pass
+
+    @abc.abstractmethod
+    def afterToBeforeT(self, sc: int) -> int:
+        """
+        Given a specific breakpoint coordinate after this event, return the
+        same one before.
+        """
+        pass
+
 class EventTwoCuts(GenomeEvent):
     """
     An event with two cuts. Meant to be used as a base class.
@@ -43,9 +62,9 @@ class EventTwoCuts(GenomeEvent):
     ATTRIBUTES
     ----------
     beforeL: Interval
-        the first intergenic interval to be cut (leftmost unless wraps)
+        the first intergenic interval to be cut (Leftmost unless wraps)
     beforeR: Interval
-        the second intergenic interval to be cut
+        the second intergenic interval to be cut (Rightmost unless wraps)
     scL: int
         the first cut
     scR: int
@@ -82,7 +101,9 @@ class Inversion(EventTwoCuts):
     """
     An Inversion event.
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self, int1: Interval, int2: Interval, sc1: int, sc2: int,
+                 swraplen: int, twraplen: int, sfirstlen:int, tfirstlen:int,
+                 ssecondlen: int, tsecondlen: int, lineage: str, time: float):
         """
         Create an Inversion event.  When instantiating this you must also
         provide the arguments for EventTwoCuts and GenomeEvent.
@@ -90,17 +111,47 @@ class Inversion(EventTwoCuts):
         Parameters
         ----------
         int1 : Interval
-            the old intergene at the left
+            the intergene to be broken at the left
         int2 : Interval
-            the old intergene at the right
+            the intergene to be broken at the right
         sc1 : int
-            the specific coordinate where the first interval is to be cut
+            the specific coordinate where the first intergene is to be cut
         sc2 : int
-            the specific coordinate where the second interval is to be cut
+            the specific coordinate where the second intergene is to be cut
+        twraplen: int
+            the total length of the chromosome
+        swraplen: int
+            the intergene specific length of the chromosome
+        sfirstlen: int
+            if this inversion wraps, then this is the specific length of the
+            gene and intergenes that will end up at the end of the genome
+            after the inversion.
+            (retrieved using `CircularChromosome.inversion_wrap_lengths()`)
+        tfirstlen: int
+            if this inversion wraps, then this is the total length of the
+            gene and intergenes that will end up at the end of the genome
+            after the inversion.
+        ssecondlen: int
+            if this inversion wraps, then this is the specific length of the
+            gene and intergenes that will end up at the begining of the genome
+            after the inversion.
+        tsecondlen: int
+            if this inversion wraps, then this is the total length of the
+            gene and intergenes that will end up at the beginning of the genome
+            after the inversion.
+        lineage: str
+            the lineage on which the event happened (pendant node name)
+        time: float
+            the time at which it happened
         """
-        super().__init__(*args, **kwargs)
+        super().__init__(int1, int2, sc1, sc2, swraplen, twraplen, INV,
+                         lineage, time)
         self.afterL: Interval = None
         self.afterR: Interval = None
+        self.sfirstlen = sfirstlen
+        self.tfirstlen = tfirstlen
+        self.ssecondlen = ssecondlen
+        self.tsecondlen = tsecondlen
 
         self.setAfter()
 
@@ -123,24 +174,126 @@ class Inversion(EventTwoCuts):
         """
         lenI0 = self.scL - self.beforeL.sc1
         lenI1 = self.beforeL.sc2 - self.scL
+        self.lenI1 = lenI1
         lenJ0 = self.scR - self.beforeR.sc1
+        self.lenJ0 = lenJ0
         lenJ1 = self.beforeR.sc2 - self.scR
 
-        sleftstart = self.beforeL.sc1
-        sleftend = sleftstart + lenI0 + lenJ0
-        tleftstart = self.beforeL.tc1
-        tleftend = tleftstart + lenI0 + lenJ0
+        if self.wraps():    # [secondlen] -I1 J1 ... I0 -J0 [firstlen]
+            self.sshift = self.ssecondlen + lenI1 - self.beforeR.s_breakpoint
+            self.tshift = self.tsecondlen + lenI1 - self.beforeR.t_breakpoint
 
-        srightstart = self.beforeR.sc1
-        srightend = srightstart + lenI1 + lenJ1
-        trightstart = self.beforeR.tc1
-        trightend = trightstart + lenI1 + lenJ1
+            sleftstart = self.beforeL.sc1 + self.sshift
+            sleftend = sleftstart + lenI0 + lenJ0
+            tleftstart = self.beforeL.tc1 + self.tshift
+            tleftend = tleftstart + lenI0 + lenJ0
 
-        position = self.beforeL.position
-        self.afterL = Interval(tleftstart, tleftend,
-                               sleftstart, sleftend, position, 'I')
-        self.afterR = Interval(trightstart, trightend,
-                               srightstart, srightend, position+1, 'I')
+            srightstart = self.ssecondlen
+            srightend = srightstart + lenI1 + lenJ1
+            trightstart = self.tsecondlen
+            trightend = trightstart + lenI1 + lenJ1
+
+            sbreakL = self.beforeL.s_breakpoint + self.sshift
+            tbreakL = self.beforeL.t_breakpoint + self.tshift
+            sbreakR = self.beforeR.s_breakpoint + self.sshift
+            tbreakR = self.beforeR.t_breakpoint + self.tshift
+        else:
+            sleftstart = self.beforeL.sc1
+            sleftend = sleftstart + lenI0 + lenJ0
+            tleftstart = self.beforeL.tc1
+            tleftend = tleftstart + lenI0 + lenJ0
+
+            lenSs = self.beforeR.sc1 - self.beforeL.sc2
+            lenSt = self.beforeR.tc1 - self.beforeL.tc2
+
+            srightstart = sleftend + lenSs
+            srightend = srightstart + lenI1 + lenJ1
+            trightstart = tleftend + lenSt
+            trightend = trightstart + lenI1 + lenJ1
+
+            sbreakL = self.beforeL.s_breakpoint
+            tbreakL = self.beforeL.t_breakpoint
+            sbreakR = self.beforeR.s_breakpoint
+            tbreakR = self.beforeR.t_breakpoint
+
+        self.afterL = Interval(tleftstart, tleftend, sleftstart, sleftend,
+                               self.beforeL.position, INV, tbreakL, sbreakL)
+        self.afterR = Interval(trightstart, trightend, srightstart, srightend,
+                               self.beforeR.position, INV, tbreakR, sbreakR)
+
+    def afterToBeforeS(self, sc: int) -> int:
+        """
+        Given a specific breakpoint coordinate after this Inversion, return the
+        same one before.
+
+            I0 I1 S J0 J1 became
+            I0 -J0 -S -I1 J1
+
+            or
+
+            S1 J0 J1 ... I0 I1 S0 became
+            -S2 -I1 J1 ... I0 -J0 -S3  (e.g. -S2 could have parts of S0 and S1)
+        """
+        if self.wraps():
+            if sc > self.afterL.s_breakpoint:   # sc in -J0 -S3
+                right_of_bp = sc - self.afterL.s_breakpoint
+                if right_of_bp <= self.beforeR.s_breakpoint:
+                    return self.beforeR.s_breakpoint - right_of_bp
+                else:
+                    return self.swraplen - (right_of_bp - self.beforeR.s_breakpoint - 1)
+
+            elif sc >= self.afterR.s_breakpoint:
+                return sc -self.sshift
+
+            else:                               # sc in -S2 -I1
+                left_of_bp = self.afterR.s_breakpoint - sc
+                if left_of_bp <= self.swraplen - self.beforeL.s_breakpoint:
+                    return self.beforeL.s_breakpoint + left_of_bp
+                else:
+                    return left_of_bp - (self.swraplen - self.beforeL.s_breakpoint) - 1
+
+        else:
+            if sc <= self.beforeL.s_breakpoint or sc >= self.beforeR.s_breakpoint:
+                return sc
+            else:
+                return self.beforeL.s_breakpoint + (self.beforeR.s_breakpoint - sc)
+
+    def afterToBeforeT(self, tc: int) -> int:
+        """
+        Given a total breakpoint coordinate after this Inversion, return the
+        same one before.
+
+            I0 I1 S J0 J1 became
+            I0 -J0 -S -I1 J1
+
+            or
+
+            S1 J0 J1 ... I0 I1 S0 became
+            -S2 -I1 J1 ... I0 -J0 -S3  (e.g. -S2 could have parts of S0 and S1)
+        """
+        if self.wraps():
+            if tc > self.afterL.t_breakpoint:   # tc in -J0 -S3
+                right_of_bp = tc - self.afterL.t_breakpoint
+                if right_of_bp <= self.beforeR.t_breakpoint:
+                    return self.beforeR.t_breakpoint - right_of_bp
+                else:
+                    return self.twraplen - (right_of_bp - self.beforeR.t_breakpoint)
+
+            elif tc >= self.afterR.t_breakpoint:
+                return tc -self.tshift
+
+            else:                               # tc in -S2 -I1
+                left_of_bp = self.afterR.t_breakpoint - tc
+                if left_of_bp <= self.twraplen - self.beforeL.t_breakpoint:
+                    return self.beforeL.t_breakpoint + left_of_bp
+                else:
+                    return left_of_bp - (self.twraplen - self.beforeL.t_breakpoint)
+
+        else:
+            if tc <= self.beforeL.t_breakpoint or tc >= self.beforeR.t_breakpoint:
+                return tc
+            else:
+                return self.beforeL.t_breakpoint + (self.beforeR.t_breakpoint - tc)
 
 class TandemDup(EventTwoCuts):
     """
@@ -180,7 +333,8 @@ class TandemDup(EventTwoCuts):
         time: float
             the time at which it happened
         """
-        super().__init__(int1, int2, sc1, sc2, swraplen, twraplen, TDUP, lineage, time)
+        super().__init__(int1, int2, sc1, sc2, swraplen, twraplen, TDUP,
+                         lineage, time)
         self.afterL: Interval = None
         self.afterC: Interval = None
         self.afterR: Interval = None
@@ -211,7 +365,7 @@ class TandemDup(EventTwoCuts):
         lenI1 = self.beforeL.sc2 - self.scL #number of (intergene) muclotides
         lenJ0 = self.scR - self.beforeR.sc1 #number of (intergene) muclotides
         lenJ1 = self.beforeR.sc2 - self.scR #number of (intergene) muclotides
-            #lenS will the be number of intergene nucleotides plus the number
+            #lenSs will the be number of intergene nucleotides plus the number
             #of genes in the region S:
         if self.wraps():    #beforeL is not to the left if we wrap
             self.lenSs = (self.swraplen - self.beforeL.sc2) + self.beforeR.sc1 + 1
@@ -290,9 +444,9 @@ class TandemDup(EventTwoCuts):
                 return self.beforeL.tc2 - (self.afterC.tc2 - tc)
         elif self.afterR.inTotal(tc):           # J0 J1
             return self.beforeR.tc1 + (tc - self.afterR.tc1)
-        elif tc > self.afterC.tc2:                      # to the right
+        elif tc > self.afterC.tc2:              # to the right
             return tc - self.lenSt - self.afterC.totalLen()
-        else:                                           # to the left
+        else:                                   # to the left
             return tc
 
     def getTotalStr(self):
@@ -308,3 +462,7 @@ class TandemDup(EventTwoCuts):
                f'{self.afterL.sc1, self.afterL.sc2} S ' + \
                f'{self.afterC.sc1, self.afterC.sc2} S ' + \
                f'{self.afterR.sc1, self.afterR.sc2}'
+
+    def __repr__(self):
+        return f'{repr(self.beforeL)} {repr(self.beforeR)} {self.twraplen} ' +\
+               f'{self.swraplen} {self.twraplen} {self.lineage} {self.time}'
