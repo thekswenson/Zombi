@@ -242,6 +242,8 @@ class Inversion(EventTwoCuts):
             S1 J0 J1 ... I0 I1 S0 became
             -S2 -I1 J1 ... I0 -J0 -S3  (e.g. -S2 could have parts of S0 and S1)
         """
+        assert sc <= self.swraplen
+
         if self.wraps():
             if sc > self.afterL.s_breakpoint:   # sc in -J0 -S3
                 right_of_bp = sc - self.afterL.s_breakpoint
@@ -279,6 +281,8 @@ class Inversion(EventTwoCuts):
             S1 J0 J1 ... I0 I1 S0 became
             -S2 -I1 J1 ... I0 -J0 -S3  (e.g. -S2 could have parts of S0 and S1)
         """
+        assert tc <= self.twraplen
+
         if self.wraps():
             if tc > self.afterL.t_breakpoint:   # tc in -J0 -S3
                 right_of_bp = tc - self.afterL.t_breakpoint
@@ -315,6 +319,10 @@ class TandemDup(EventTwoCuts):
         the second intergenic interval after the event (J0 I1)
     afterR: Interval
         the third intergenic interval after the event (J0 J1)
+    lenSs: int
+        number of intergene-specific bases between the broken intergenes
+    lenSt: int
+        total number of bases between the broken intergenes
     """
     def __init__(self, int1: Interval, int2: Interval, sc1: int, sc2: int,
                  swraplen: int, twraplen: int, lineage: str, time: float):
@@ -418,17 +426,19 @@ class TandemDup(EventTwoCuts):
         The breakpoint between J0 and I1 is the only ambiguous breakpoint. We
         arbitarily map to the left breakpoint I0 I1 (rather than J0 J1).
         """
+        assert sc <= self.swraplen
+
         if self.afterL.inSpecific(sc):                  # I0 I1
             return self.beforeL.sc1 + (sc - self.afterL.sc1)
         elif self.afterC.inSpecific(sc):
-            if sc < self.afterC.s_breakpoint:           # J0
+            if sc <= self.afterC.s_breakpoint:          # J0
                 return self.beforeR.sc1 + (sc - self.afterC.sc1)
             else:                                       # I1
                 return self.beforeL.sc2 - (self.afterC.sc2 - sc)
         elif self.afterR.inSpecific(sc):                # J0 J1
             return self.beforeR.sc1 + (sc - self.afterR.sc1)
         elif sc > self.afterC.sc2:                      # to the right
-            return sc - self.lenSs - self.afterC.specificLen()
+            return sc - (self.lenSs - 1) - self.afterC.specificLen()
         else:                                           # to the left
             return sc
 
@@ -443,17 +453,19 @@ class TandemDup(EventTwoCuts):
         The breakpoint between J0 and I1 is the only ambiguous breakpoint. We
         arbitarily map to the left breakpoint I0 I1 (rather than J0 J1).
         """
+        assert tc <= self.twraplen
+
         if self.afterL.inTotal(tc):             # I0 I1
             return self.beforeL.tc1 + (tc - self.afterL.tc1)
         elif self.afterC.inTotal(tc):
-            if tc < self.afterC.t_breakpoint:   # J0
+            if tc <= self.afterC.t_breakpoint:  # J0
                 return self.beforeR.tc1 + (tc - self.afterC.tc1)
             else:                               # I1
                 return self.beforeL.tc2 - (self.afterC.tc2 - tc)
         elif self.afterR.inTotal(tc):           # J0 J1
             return self.beforeR.tc1 + (tc - self.afterR.tc1)
         elif tc > self.afterC.tc2:              # to the right
-            return tc - self.lenSt - self.afterC.totalLen()
+            return tc - (self.lenSt - 1) - self.afterC.totalLen()
         else:                                   # to the left
             return tc
 

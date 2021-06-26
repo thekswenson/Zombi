@@ -4,7 +4,7 @@ Unittests for testing the GenomeEvents and how they map coordinates.
 
 import os
 import unittest
-from zombi.Events import Inversion
+from zombi.Events import Inversion, TandemDup
 from zombi.GenomeSimulator import GenomeSimulator
 from zombi.Genomes import LEFT, RIGHT
 import zombi.AuxiliarFunctions as af
@@ -17,7 +17,7 @@ TEST_GENOME_30_6 = 'test/30_6.gff'  #30 bases, 5 * length-3 genomic/intergenomic
 
 class TestEvent(unittest.TestCase):
 
-  def setUp(self, genome_file=TEST_GENOME_30_10):
+  def setUp(self, genome_file=TEST_GENOME_30_6):
     params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
     events_file = os.path.join(TEST_FOLDER, 'T/Events.tsv')
 
@@ -28,6 +28,8 @@ class TestEvent(unittest.TestCase):
     self.gss.all_genomes["Root"] = self.genome
 
   def test_inversion_0(self):
+    self.setUp(TEST_GENOME_30_10)
+
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_inversion_intergenic(0, 6, RIGHT, lineage, 0.0)
@@ -71,6 +73,8 @@ class TestEvent(unittest.TestCase):
                      'intergene breakpoint mismap')
 
   def test_inversion_1RIGHT(self):
+    self.setUp(TEST_GENOME_30_10)
+
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_inversion_intergenic(3, 10, RIGHT, lineage, 0.0)
@@ -111,6 +115,8 @@ class TestEvent(unittest.TestCase):
     """
     This test wraps.
     """
+    self.setUp(TEST_GENOME_30_10)
+
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_inversion_intergenic(3, 10, LEFT, lineage, 0.0)
@@ -161,8 +167,6 @@ class TestEvent(unittest.TestCase):
     """
     This test wraps.
     """
-    self.setUp(TEST_GENOME_30_6)
-
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_inversion_intergenic(9, 5, RIGHT, lineage, 0.0)
@@ -213,8 +217,6 @@ class TestEvent(unittest.TestCase):
     """
     This test wraps.
     """
-    self.setUp(TEST_GENOME_30_6)
-
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_inversion_intergenic(13, 8, RIGHT, lineage, 0.0)
@@ -261,6 +263,34 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(inversion.afterToBeforeT(25), 14,
                      'intergene breakpoint mismap')
     self.assertEqual(inversion.afterToBeforeT(30), 9,
+                     'intergene breakpoint mismap')
+
+  def test_tandemdup_1(self):
+    ch = self.genome.chromosomes[0]
+    lineage = self.genome.species
+    self.gss.make_duplication_within_intergene(3, 9, RIGHT, lineage, 0.0)
+    tdup: TandemDup = ch.event_history[0]
+
+    self.assertEqual(ch.intergenes[0].length, 3,
+                     'first intergene length mismatch after tandemdup')
+    self.assertEqual(ch.intergenes[2].length, 1,
+                     'second intergene length mismatch after tandemdup')
+    self.assertEqual(ch.intergenes[4].length, 3,
+                     'third intergene length mismatch after tandemdup')
+
+    self.assertEqual(tdup.afterToBeforeS(3), 3,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(8), 8,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(9), 9,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(10), 4,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(14), 8,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(15), 9,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(17), 11,
                      'intergene breakpoint mismap')
 
 if __name__ == '__main__':
