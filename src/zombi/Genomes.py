@@ -442,6 +442,28 @@ class Gene():
         return myname
 
 
+class Division():
+    """
+    A class that represents all the subdivisions of an intergene
+    
+    Attributes
+    ----------
+    events: list
+        a list with all the events affecting this division
+    """
+    def __init__(self, division_family: str, total_flanking: T_PAIR = None, specific_flanking: T_PAIR = None):
+
+        self.division_family = division_family # The name of the division family
+
+        self.total_flanking: T_PAIR = total_flanking      #: not pythonic (both inclusive)
+        self.specific_flanking: T_PAIR = specific_flanking   #: not pythonic (both inclusive)
+
+        self.division_family = division_family
+        
+    def __str__(self):
+        return str(self.total_flanking)
+
+
 class Intergene():
     """
     Attributes
@@ -469,13 +491,44 @@ class Intergene():
         self.total_flanking: T_PAIR = None      #: not pythonic (both inclusive)
         self.specific_flanking: T_PAIR = None   #: not pythonic (both inclusive)
         self.id = 0 # Only for debugging purposes
+        self.divisions = list() # List containing all the divisions
+    
+    def create_division(self, division_family="0"):
+        """
+        """
+        division = Division("0", self.total_flanking, self.specific_flanking)
+        self.divisions.append(division)
+
 
     def __str__(self):
 
         #return "(" + str(self.length) + ")"
         #return "I_" + str(self.length)
         return "I_" + str(self.id) + "_" + str(self.length)
+    
+    def __iter__(self):
 
+        for x in self.divisions:
+            yield x
+
+class DivisionFamily():
+    """
+    A division family is akin to a GeneFamily. It stores all the events in an esenmble of homologous
+    divisions
+
+    Attributes
+    ----------
+
+
+    """
+    def __init__(self, id = str):
+        self.id = id
+        self.events = list()
+
+    def register_event(self, time, event, genes):
+        self.events.append((time, event, genes))
+    
+  
 
 class Chromosome():
     """
@@ -760,7 +813,9 @@ class Chromosome():
         return (affected_genes, affected_intergenes,
                 c1_lengths, c2_lengths, l1, l2)
                 
-
+    def iter_intergenes(self):
+        for x in self.intergenes:
+            yield x
 
     def select_random_length(self, p):
 
