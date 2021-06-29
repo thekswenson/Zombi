@@ -1954,10 +1954,9 @@ class GenomeSimulator():
         if r == None:
             return None
 
-        else:
-            genepositions, intergenepositions, leftlengths, rightlengths, int1, int2 = r
-            segment = chromosome.obtain_segment(genepositions)
-            intergene_segment = chromosome.obtain_intergenic_segment(intergenepositions[1:])
+        genepositions, intergenepositions, leftlengths, rightlengths, int1, int2 = r
+        segment = chromosome.obtain_segment(genepositions)
+        intergene_segment = chromosome.obtain_intergenic_segment(intergenepositions[1:])
 
         new_identifiers1 = self.return_new_identifiers_for_segment(segment)
         new_identifiers2 = self.return_new_identifiers_for_segment(segment)

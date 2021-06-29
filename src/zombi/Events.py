@@ -242,8 +242,6 @@ class Inversion(EventTwoCuts):
             S1 J0 J1 ... I0 I1 S0 became
             -S2 -I1 J1 ... I0 -J0 -S3  (e.g. -S2 could have parts of S0 and S1)
         """
-        assert sc <= self.swraplen
-
         if self.wraps():
             if sc > self.afterL.s_breakpoint:   # sc in -J0 -S3
                 right_of_bp = sc - self.afterL.s_breakpoint
@@ -281,8 +279,6 @@ class Inversion(EventTwoCuts):
             S1 J0 J1 ... I0 I1 S0 became
             -S2 -I1 J1 ... I0 -J0 -S3  (e.g. -S2 could have parts of S0 and S1)
         """
-        assert tc <= self.twraplen
-
         if self.wraps():
             if tc > self.afterL.t_breakpoint:   # tc in -J0 -S3
                 right_of_bp = tc - self.afterL.t_breakpoint
@@ -426,8 +422,6 @@ class TandemDup(EventTwoCuts):
         The breakpoint between J0 and I1 is the only ambiguous breakpoint. We
         arbitarily map to the left breakpoint I0 I1 (rather than J0 J1).
         """
-        assert sc <= self.swraplen
-
         if self.afterL.inSpecific(sc):                  # I0 I1
             return self.beforeL.sc1 + (sc - self.afterL.sc1)
         elif self.afterC.inSpecific(sc):
@@ -438,7 +432,11 @@ class TandemDup(EventTwoCuts):
         elif self.afterR.inSpecific(sc):                # J0 J1
             return self.beforeR.sc1 + (sc - self.afterR.sc1)
         elif sc > self.afterC.sc2:                      # to the right
-            return sc - (self.lenSs - 1) - self.afterC.specificLen()
+            offset = sc - self.afterC.s_breakpoint
+            if self.wraps() and offset > self.swraplen - self.beforeL.s_breakpoint:
+                return sc - (self.lenSs - 1) - self.afterC.specificLen()
+            else:
+                return self.beforeL.s_breakpoint + offset 
         else:                                           # to the left
             return sc
 
@@ -453,8 +451,6 @@ class TandemDup(EventTwoCuts):
         The breakpoint between J0 and I1 is the only ambiguous breakpoint. We
         arbitarily map to the left breakpoint I0 I1 (rather than J0 J1).
         """
-        assert tc <= self.twraplen
-
         if self.afterL.inTotal(tc):             # I0 I1
             return self.beforeL.tc1 + (tc - self.afterL.tc1)
         elif self.afterC.inTotal(tc):
@@ -465,7 +461,11 @@ class TandemDup(EventTwoCuts):
         elif self.afterR.inTotal(tc):           # J0 J1
             return self.beforeR.tc1 + (tc - self.afterR.tc1)
         elif tc > self.afterC.tc2:              # to the right
-            return tc - (self.lenSt - 1) - self.afterC.totalLen()
+            offset = tc - self.afterC.t_breakpoint
+            if self.wraps() and offset > self.twraplen - self.beforeL.t_breakpoint:
+                return tc - (self.lenSt - 1) - self.afterC.specificLen()
+            else:
+                return self.beforeL.t_breakpoint + offset 
         else:                                   # to the left
             return tc
 
@@ -485,4 +485,4 @@ class TandemDup(EventTwoCuts):
 
     def __repr__(self):
         return f'{repr(self.beforeL)} {repr(self.beforeR)} {self.twraplen} ' +\
-               f'{self.swraplen} {self.twraplen} {self.lineage} {self.time}'
+               f'{self.swraplen} {self.lineage} {self.time}'

@@ -11,9 +11,10 @@ import zombi.AuxiliarFunctions as af
 
 
 GENOME_PARAMS = 'Parameters/GenomeParameters.tsv'
-TEST_FOLDER = 'test/small_output/'
+TEST_FOLDER = 'test/test_output/'
 TEST_GENOME_30_10 = 'test/30_10.gff'  #30 bases, 3 * length-5 genomic/intergenomic pairs
 TEST_GENOME_30_6 = 'test/30_6.gff'  #30 bases, 5 * length-3 genomic/intergenomic pairs
+TEST_GENOME_18_6 = 'test/18_6.gff'  #18 bases, 3 * length-3 genomic/intergenomic pairs
 
 class TestEvent(unittest.TestCase):
 
@@ -293,5 +294,143 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(tdup.afterToBeforeS(17), 11,
                      'intergene breakpoint mismap')
 
+  def test_tandemdup_2RIGHT(self):
+    self.setUp(TEST_GENOME_18_6)
+
+    ch = self.genome.chromosomes[0]
+    lineage = self.genome.species
+    self.gss.make_duplication_within_intergene(9, 2, RIGHT, lineage, 0.0)
+    tdup: TandemDup = ch.event_history[0]
+
+    self.assertEqual(ch.intergenes[0].length, 4,
+                     'first intergene length mismatch after tandemdup')
+    self.assertEqual(ch.intergenes[1].length, 3,
+                     'second intergene length mismatch after tandemdup')
+    self.assertEqual(ch.intergenes[3].length, 3,
+                     'fourth intergene length mismatch after tandemdup')
+
+    self.assertEqual(tdup.afterToBeforeS(2), 2,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(3), 10,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(4), 11,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(5), 0,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(6), 1,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(8), 3,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(12), 7,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(14), 9,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(16), 11,
+                     'intergene breakpoint mismap')
+
+    self.assertEqual(tdup.afterToBeforeT(0), 0,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeT(5), 5,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeT(6), 17,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeT(7), 18,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeT(8), 1,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeT(12), 5,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeT(23), 16,
+                     'intergene breakpoint mismap')
+
+  def test_tandemdup_2LEFT(self):
+    self.setUp(TEST_GENOME_18_6)
+
+    ch = self.genome.chromosomes[0]
+    lineage = self.genome.species
+    self.gss.make_duplication_within_intergene(2, 9, LEFT, lineage, 0.0)
+    tdup: TandemDup = ch.event_history[0]
+
+
+    self.assertEqual(ch.intergenes[0].length, 4,
+                     'first intergene length mismatch after tandemdup')
+    self.assertEqual(ch.intergenes[1].length, 3,
+                     'second intergene length mismatch after tandemdup')
+    self.assertEqual(ch.intergenes[3].length, 3,
+                     'fourth intergene length mismatch after tandemdup')
+
+    self.assertEqual(tdup.afterToBeforeS(2), 2,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(3), 10,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(4), 11,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(5), 0,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(6), 1,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(8), 3,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(12), 7,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(14), 9,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(16), 11,
+                     'intergene breakpoint mismap')
+
+  def test_tandemdup_3(self):
+    ch = self.genome.chromosomes[0]
+    lineage = self.genome.species
+    self.gss.make_duplication_within_intergene(13, 8, RIGHT, lineage, 0.0)
+    tdup: TandemDup = ch.event_history[0]
+
+
+    self.assertEqual(ch.intergenes[2].length, 2,
+                     'third intergene length mismatch after tandemdup')
+    self.assertEqual(ch.intergenes[6].length, 3,
+                     'seventh intergene length mismatch after tandemdup')
+    self.assertEqual(ch.intergenes[7].length, 3,
+                     'eigth intergene length mismatch after tandemdup')
+
+    self.assertEqual(tdup.afterToBeforeS(8), 8,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(9), 14,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(14), 19,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(15), 0,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(22), 7,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(23), 8,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(27), 12,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(30), 15,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(34), 19,
+                     'intergene breakpoint mismap')
+
+    self.assertEqual(tdup.afterToBeforeT(0), 0,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeT(7), 7,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeT(16), 23,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeT(23), 30,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeT(24), 1,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeT(38), 15,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeT(42), 19,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeT(45), 22,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeT(48), 25,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeT(53), 30,
+                     'intergene breakpoint mismap')
+ 
 if __name__ == '__main__':
     unittest.main()
