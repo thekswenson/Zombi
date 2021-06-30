@@ -25,9 +25,9 @@ class Interval:
         the position of the Gene or Intergene in its list
     itype: str
         one of 'G' or 'I' for Gene or Intergene
-    t_breakpoint: int
+    t_bp: int
         the total breakpoint coordinate
-    s_breakpoint: int
+    s_bp: int
         the specific breakpoint coordinate
     """
     def __init__(self, tc1: int, tc2: int, sc1: int, sc2: int, index: int,
@@ -62,17 +62,17 @@ class Interval:
         self.sc2: int = sc2
         self.position: int = index
         self.itype: str = itype
-        self.t_breakpoint: int = total
-        self.s_breakpoint: int = specific
+        self.t_bp: int = total
+        self.s_bp: int = specific
 
             #Sanity checks:
         assert tc2 - tc1 == sc2 - sc1, f'{tc2-tc1} != {sc2-sc1}'
         if total >= 0:
-            assert tc1 <= total <= tc2
+            assert tc1 <= total <= tc2, 'total breakpoint outside of range'
         if specific >= 0:
-            assert sc1 <= specific <= sc2
+            assert sc1 <= specific <= sc2, 'specific breakpoint outside of range'
             if total >= 0:
-                assert tc2 - total == sc2 - specific
+                assert tc2 - total == sc2 - specific, 'breakpoint mismatch'
 
     def asTuple(self) -> Tuple[int, int, int, int, int, str]:
         """
@@ -114,15 +114,15 @@ class Interval:
 
     def splitSpecific(self) -> Tuple[T_PAIR, T_PAIR]:
         """
-        Get the halves of the specific interval split by `s_breakpoint`.
+        Get the halves of the specific interval split by `s_bp`.
         """
-        return (self.sc1, self.s_breakpoint), (self.s_breakpoint, self.sc2)
+        return (self.sc1, self.s_bp), (self.s_bp, self.sc2)
 
     def splitTotal(self) -> Tuple[T_PAIR, T_PAIR]:
         """
-        Get the halves of the specific interval split by `t_breakpoint`.
+        Get the halves of the specific interval split by `t_bp`.
         """
-        return (self.tc1, self.t_breakpoint), (self.t_breakpoint, self.tc2)
+        return (self.tc1, self.t_bp), (self.t_bp, self.tc2)
 
     def __len__(self):
         return self.sc2 - self.sc1
@@ -131,4 +131,4 @@ class Interval:
         return f'{self.tc1} {self.tc2} {self.sc1} {self.sc2} {self.position} {self.itype}'
 
     def __repr__(self):
-        return f'{self.tc1} {self.tc2} {self.sc1} {self.sc2} {self.s_breakpoint}'
+        return f'{self.tc1} {self.tc2} {self.sc1} {self.sc2} {self.s_bp}'

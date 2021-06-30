@@ -9,7 +9,7 @@ import networkx as nx
 from typing import Tuple, Set, Dict, Union
 
 from . import AuxiliarFunctions as af
-from .Events import TandemDup, Inversion
+from .Events import Loss, TandemDup, Inversion
 from .Genomes import Chromosome, CircularChromosome, Gene, GeneFamily, Genome, Division, DivisionFamily, Intergene
 from .Genomes import T_DIR, LEFT, RIGHT, Intergene, LinearChromosome
 
@@ -2006,7 +2006,8 @@ class GenomeSimulator():
             int1, int2 = int2, int1
             c1, c2 = c2, c1
 
-        dup = TandemDup(int1, int2, c1, c2, specificlen, totallen, lineage, time)
+        dup = TandemDup(int1, int2, c1, c2, len(new_intergene_segment_1),
+                        specificlen, totallen, lineage, time)
             
         scar1.length = leftlengths[1] + rightlengths[0]
         scar2.length = rightlengths[1] + rightlengths[0]
@@ -2568,38 +2569,48 @@ class GenomeSimulator():
         if r == None:
             return None
 
+        gpositions, igpositions, leftlengths, rightlengths, int1, int2 = r
+
+        segment = chromosome.obtain_segment(gpositions)
+        intergene_segment = chromosome.obtain_intergenic_segment(igpositions[1:])
+
+        scar1 = chromosome.intergenes[igpositions[0]]
+
+            # Get old lengths from last intergene before modifying chromosome.
+        specificlen = chromosome.intergenes[-1].specific_flanking[1]
+        totallen = chromosome.intergenes[-1].total_flanking[1]
+
+        # Now we remove the genes
+
+        for gene in segment:
+            chromosome.genes.remove(gene)
+
+        # Now we remove the intergenes
+
+        for intergene in intergene_segment:
+            chromosome.intergenes.remove(intergene)
+
+        # We modify the length of the scar:
+
+        if d == LEFT:
+            leftlengths, rightlengths = rightlengths, leftlengths
+            int1, int2 = int2, int1
+            c1, c2 = c2, c1
+
+        loss = Loss(int1, int2, c1, c2, pseudo, specificlen, totallen,
+                    lineage, time)
+
+        chromosome.event_history.append(loss)
+
+        if pseudo:
+
+            # We need to add the length of the genes removed
+            scar1.length = sum(leftlengths) + sum(rightlengths) \
+                           + sum([x.length for x in segment]) \
+                           + sum([x.length for x in intergene_segment[:-1]])
         else:
-            r1, r2, r3, r4, int1, int2 = r
 
-            segment = chromosome.obtain_segment(r1)
-            intergene_segment = chromosome.obtain_intergenic_segment(r2[1:])
-
-            scar1 = chromosome.intergenes[r2[0]]
-
-            # Now we remove the genes
-
-            for gene in segment:
-                chromosome.genes.remove(gene)
-
-            # Now we remove the intergenes
-
-            for intergene in intergene_segment:
-                chromosome.intergenes.remove(intergene)
-
-            # We modify the length of the scar:
-
-            if d == LEFT:
-                r3, r4 = r4, r3
-
-            if pseudo == True:
-
-                # We need to add the lenght of the genes removed
-                scar1.length = sum(r3) + sum(r4) \
-                               + sum([x.length for x in segment]) \
-                               + sum([x.length for x in intergene_segment[:-1]])
-            else:
-
-                scar1.length = r3[0] + r4[1]
+            scar1.length = leftlengths[0] + rightlengths[1]
 
         # We have to register in the affected gene families that there has been as loss
         # All genes affected must be returned
@@ -2701,46 +2712,43 @@ class GenomeSimulator():
         r = chromosome.return_affected_region(c1, c2, d)
 
         if r == None:
-
             return None
 
-        else:
+        gpositions, igpositions, leftlengths, rightlengths, int1, int2 = r
 
-            gpositions, igpositions, leftlengths, rightlengths, int1, int2 = r
+            # Get lengths from last intergene before modifying chromosome.
+        specificlen = chromosome.intergenes[-1].specific_flanking[1]
+        totallen = chromosome.intergenes[-1].total_flanking[1]
 
-                # Get lengths from last intergene before modifying chromosome.
-            specificlen = chromosome.intergenes[-1].specific_flanking[1]
-            totallen = chromosome.intergenes[-1].total_flanking[1]
+        segment = chromosome.obtain_segment(gpositions)
+        chromosome.invert_segment(gpositions)
 
-            segment = chromosome.obtain_segment(gpositions)
-            chromosome.invert_segment(gpositions)
+        if d == LEFT:
+            leftlengths, rightlengths = rightlengths, leftlengths
+            int1, int2 = int2, int1
+            c1, c2 = c2, c1
 
-            if d == LEFT:
-                leftlengths, rightlengths = rightlengths, leftlengths
-                int1, int2 = int2, int1
-                c1, c2 = c2, c1
+        sleftlen, srightlen, tleftlen, trightlen = 0, 0, 0, 0
+        if gpositions[0] > gpositions[-1]:      #The inversion wraps:
+            sleftlen, srightlen, tleftlen, trightlen = \
+                 chromosome.inversion_wrap_lengths(gpositions)
 
-            sleftlen, srightlen, tleftlen, trightlen = 0, 0, 0, 0
-            if gpositions[0] > gpositions[-1]:      #The inversion wraps:
-                sleftlen, srightlen, tleftlen, trightlen = \
-                     chromosome.inversion_wrap_lengths(gpositions)
+        inv = Inversion(int1, int2, c1, c2, specificlen, totallen, sleftlen,
+                        tleftlen, srightlen, trightlen, lineage, time)
 
-            inv = Inversion(int1, int2, c1, c2, specificlen, totallen, sleftlen,
-                            tleftlen, srightlen, trightlen, lineage, time)
+        chromosome.event_history.append(inv)
 
-            chromosome.event_history.append(inv)
+        scar1 = chromosome.intergenes[igpositions[0]]
+        scar2 = chromosome.intergenes[igpositions[-1]]
 
-            scar1 = chromosome.intergenes[igpositions[0]]
-            scar2 = chromosome.intergenes[igpositions[-1]]
+        scar1.length = leftlengths[0] + rightlengths[0]
+        scar2.length = rightlengths[1] + leftlengths[1]
 
-            scar1.length = leftlengths[0] + rightlengths[0]
-            scar2.length = rightlengths[1] + leftlengths[1]
+        assert scar1.length == len(inv.afterL)
+        assert scar2.length == len(inv.afterR)      
 
-            assert scar1.length == len(inv.afterL)
-            assert scar2.length == len(inv.afterR)      
-
-            for gene in segment:
-                self.all_gene_families[gene.gene_family].register_event(str(time), "I", ";".join(map(str,[lineage, gene.gene_id])))
+        for gene in segment:
+            self.all_gene_families[gene.gene_family].register_event(str(time), "I", ";".join(map(str,[lineage, gene.gene_id])))
 
     def make_transposition(self, p, lineage, time):
 

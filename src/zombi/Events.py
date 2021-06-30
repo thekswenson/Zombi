@@ -1,7 +1,6 @@
 import copy
 import abc
 
-from Bio.SeqFeature import BeforePosition
 from .Interval import Interval
 
 # Types:
@@ -49,44 +48,63 @@ class GenomeEvent:
         """
         pass
 
+class EventOneCut(GenomeEvent):
+    """
+    An event with one cut. Meant to be used as a base class.
+
+    ATTRIBUTES
+    ----------
+    before: Interval
+        the intergenic interval to be cut
+    """
+    pass
+
 class EventTwoCuts(GenomeEvent):
     """
     An event with two cuts. Meant to be used as a base class.
 
     NOTES
     -----
-        `before1` and 'sc1' are always considered to be to the left of `before2`
-        and `sc2`, so if the event wraps around the indices of `before1` will
-        be greater than the indices of `before2`.
+        `before1` and 'sbp1' are always considered to be to the left of
+        `before2` and `sbp2`, so if the event wraps around the indices of
+        `before1` will be greater than the indices of `before2`.
 
     ATTRIBUTES
     ----------
     beforeL: Interval
-        the first intergenic interval to be cut (Leftmost unless wraps)
+        the first intergenic interval to be cut (Leftmost unless wraps). This
+        contains information about the interval and breakpoint within it.
     beforeR: Interval
         the second intergenic interval to be cut (Rightmost unless wraps)
-    scL: int
-        the first cut
-    scR: int
-        the second cut
+    sbpL: int
+        the first (specific) cut
+    sbpR: int
+        the second (specific) cut
+    tbpL: int
+        the first (total) cut
+    tbpR: int
+        the second (total) cut
     twraplen: int
         the total length of the chromosome
     swraplen: int
         the intergene specific length of the chromosome
     """
-    def __init__(self, int1: Interval, int2: Interval, sc1: int, sc2: int,
+    def __init__(self, int1: Interval, int2: Interval, sbp1: int, sbp2: int,
                  swraplen: int, twraplen: int, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.beforeL: Interval = int1
         self.beforeR: Interval = int2
-        self.scL: int = sc1
-        self.scR: int = sc2
+        self.sbpL: int = sbp1           #: specific break-point on Left
+        self.sbpR: int = sbp2           #: specific break-point on Right
+        self.tbpL: int = int1.tc1 + (sbp1 - int1.sc1)
+        self.tbpR: int = int2.tc1 + (sbp2 - int2.sc1)
         self.swraplen: int = swraplen   #: specific wrap length
         self.twraplen: int = twraplen   #: total wrap length
 
     def wraps(self) -> bool:
         """
-        Does this event wrap right (`before1` occurs after `before2`)?
+        Does this event wrap around to the right (`before1` occurs after
+        `before2`)?
 
         NOTES
         -----
@@ -94,14 +112,258 @@ class EventTwoCuts(GenomeEvent):
         """
         return self.beforeL.tc1 > self.beforeR.tc1
 
+    def assertS(self, sc: int) -> int:
+        """
+        Return the given value after checking it is within the bounds.
+        """
+        assert 0 <= sc <= self.swraplen
+        return sc
+
+    def assertT(self, tc: int) -> int:
+        """
+        Return the given value after checking it is within the bounds.
+        """
+        assert 0 <= tc <= self.twraplen
+        return tc
+
+#-- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - --
 class Origination(GenomeEvent):
     pass
 
+#-- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - --
+class Loss(EventTwoCuts):
+    """
+    A loss event.
+
+    ATTRIBUTES
+    ----------
+    after:
+        the intergenic interval after the cut
+    pseudogenize:
+        is the region turned into a big intergene (rather than cut out)?
+    after_sbptL:
+        the specific breakpoint (on the left) after a pseudogenization
+    after_sbptR:
+        the specific breakpoint (on the right) after a pseudogenization
+    after_tbptL:
+        the total breakpoint (on the left) after a pseudogenization
+    after_tbptR:
+        the total breakpoint (on the right) after a pseudogenization
+    """
+    def __init__(self, int1: Interval, int2: Interval, sbp1: int, sbp2: int,
+                 pseudogenize: bool, swraplen: int, twraplen: int,
+                 lineage: str, time: float):
+        """
+        Create a Loss event. Either cut out everything between `sbp1` and
+        `sbp2`, or turn everything in that region into a big intergene,
+        depending on the value `pseudogenize`.
+
+        Parameters
+        ----------
+        int1: Interval
+            the left intergenic interval to be cut
+        int2: Interval
+            the second intergenic interval to be cut
+        sbp1: int
+            the first cut
+        sbp2: int
+            the second cut
+        pseudogenize: int
+            turn everything into one big intergene
+        twraplen: int
+            the total length of the chromosome
+        swraplen: int
+            the intergene specific length of the chromosome
+        lineage: str
+            the lineage on which the event happened (pendant node name)
+        time: float
+            the time at which it happened
+        """
+        super().__init__(int1, int2, sbp1, sbp2, swraplen, twraplen, LOSS,
+                         lineage, time)
+        self.after: Interval = None
+        self.pseudogenize = pseudogenize
+
+        self.after_sbpL: int = -1
+        self.after_sbpR: int = -1
+        self.after_tbpL: int = -1
+        self.after_tbpR: int = -1
+
+        self.setAfter()
+
+    def setAfter(self):
+        """
+        Compute the resulting intergenic interval after the cut.
+
+        Consider intergenic regions I = `before1` and J = `before2` on either
+        side of segement S:
+
+            I S J
+
+        I is split at `sbpL` into I0 I1 and J is split at `sbpR` into J0 J1.
+        Then we have
+
+            I0 I1 S J0 J1
+
+        and the loss produces
+
+            I0 J1
+        """
+        lenI0 = self.sbpL - self.beforeL.sc1
+        lenJ1 = self.beforeR.sc2 - self.sbpR
+
+        sstart = self.beforeL.sc1
+        tstart = self.beforeL.tc1
+
+        position = self.beforeL.position
+        newsbp = self.sbpL
+        newtbp = self.tbpL
+        if self.pseudogenize:
+            if self.wraps():
+                position -= self.beforeR.position + 1
+
+                sstart -= self.beforeR.sc2 + 1
+                tstart -= self.beforeR.tc2
+                send = sstart + self.beforeR.tc2 + (self.twraplen - self.beforeL.tc1)
+                tend = self.twraplen
+
+                newsbp -= self.beforeR.sc2 + 1
+                newtbp -= self.beforeR.tc2
+
+                self.after_sbpL = self.sbpL - self.beforeR.sc2
+                self.after_sbpR = send - (self.beforeR.sc2 - self.sbpR)
+                self.after_tbpL = self.tbpL - self.beforeR.tc2
+                self.after_tbpR = tend - (self.beforeR.tc2 - self.tbpR)
+            else:
+                send = sstart + (self.beforeR.tc2 - tstart)
+                tend = tstart + (self.beforeR.tc2 - tstart)
+
+                genebps = ((self.beforeR.tc1 - self.beforeL.tc2) -
+                           (self.beforeR.sc1 - self.beforeL.sc2))
+
+                self.after_sbpL = self.sbpL
+                self.after_sbpR = self.sbpR + genebps
+                self.after_tbpL = self.tbpL
+                self.after_tbpR = self.tbpR
+        else:
+            if self.wraps():
+                position -= self.beforeR.position + 1
+                newsbp -= self.beforeR.sc2 + 1
+                newtbp -= self.beforeR.tc2
+                sstart -= self.beforeR.sc2 + 1
+                tstart -= self.beforeR.tc2
+
+            send = sstart + lenI0 + lenJ1
+            tend = tstart + lenI0 + lenJ1
+
+        self.after = Interval(tstart, tend, sstart, send,
+                              position, LOSS, newtbp, newsbp)
+
+    def afterToBeforeS(self, sc: int) -> int:
+        """
+        Given a specific breakpoint coordinate after this Loss, return the
+        same one before.
+
+            .. I0 I1 S J0 J1 .. became
+            .. I0 J1 ..
+
+            or
+
+            S1 J0 J1 .. I0 I1 S0 became
+            .. I0 J1
+
+        (with no pseudogenization)
+        """
+        if self.pseudogenize:
+            if self.wraps():
+                if sc <= self.after_sbpL:                   # in I0 or before
+                    return self.assertS(sc + self.beforeR.sc2 + 1)
+                
+                elif sc >= self.after_sbpR:                 # in J1
+                    return self.assertS(self.beforeR.s_bp + (sc - self.after_sbpR))
+                else:
+                    raise(MapPseudogeneError(f'specific coordinate {sc} inside pseudogenized region'))
+            else:
+                genebps = ((self.beforeR.tc1 - self.beforeL.tc2) -
+                           (self.beforeR.sc1 - self.beforeL.sc2))
+
+                if sc >= self.after_sbpR:                   # in J1 or to right
+                    return self.assertS(sc - genebps)
+
+                elif sc <= self.after_sbpL:                 # in I0 or to left
+                    return self.assertS(sc)
+                else:
+                    raise(MapPseudogeneError(f'specific coordinate {sc} inside pseudogenized region'))
+        else:
+            if self.wraps():
+                if sc > self.after.s_bp:                # in J1
+                    return self.assertS(self.beforeR.s_bp + (sc - self.after.s_bp))
+                else:                                   # in I0 or to left
+                    return self.assertS(sc + self.beforeR.sc2 + 1)
+            else:
+                if sc > self.after.s_bp:                # in J1 or to right
+                    return self.assertS(sc + self.beforeR.s_bp - self.beforeL.s_bp)
+                else:                                   # in I0 or to left
+                    return self.assertS(sc)
+
+    def afterToBeforeT(self, tc: int) -> int:
+        """
+        Given a total breakpoint coordinate after this Loss, return the
+        same one before.
+
+            .. I0 I1 S J0 J1 .. became
+            .. I0 J1 ..
+
+            or
+
+            S1 J0 J1 .. I0 I1 S0 became
+            .. I0 J1
+
+        (with no pseudogenization)
+        """
+        if self.pseudogenize:
+            if self.wraps():
+                if tc <= self.after_tbpL:                   # in I0 or before
+                    return self.assertT(tc + self.beforeR.tc2)
+                
+                elif tc >= self.after_tbpR:                 # in J1
+                    return self.assertT(self.beforeR.t_bp + (tc - self.after_tbpR))
+                else:
+                    raise(MapPseudogeneError(f'total coordinate {tc} inside pseudogenized region'))
+            else:
+                if tc >= self.after_tbpR or tc <= self.after_tbpL:
+                    return self.assertT(tc)
+                else:
+                    raise(MapPseudogeneError(f'total coordinate {tc} inside pseudogenized region'))
+        else:
+            if self.wraps():
+                if tc > self.after.t_bp:                # in J1
+                    return self.assertT(self.beforeR.t_bp + (tc - self.after.t_bp))
+                else:                                   # in I0 or to left
+                    return self.assertT(tc + self.beforeR.tc2)
+            else:
+                if tc > self.after.t_bp:                # in J1 or to right
+                    return self.assertT(tc + self.beforeR.t_bp - self.beforeL.t_bp)
+                else:                                   # in I0 or to left
+                    return self.assertT(tc)
+
+class MapPseudogeneError(Exception):
+    def __init__(self, message):
+        self.message = message
+
+#-- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - --
 class Inversion(EventTwoCuts):
     """
     An Inversion event.
+
+    ATTRIBUTES
+    ----------
+    afterL: Interval
+        the first intergenic interval after the event (I0 -J0, see `setAfter()`)
+    afterR: Interval
+        the second intergenic interval after the event (-I1 J1)
     """
-    def __init__(self, int1: Interval, int2: Interval, sc1: int, sc2: int,
+    def __init__(self, int1: Interval, int2: Interval, sbp1: int, sbp2: int,
                  swraplen: int, twraplen: int, sfirstlen:int, tfirstlen:int,
                  ssecondlen: int, tsecondlen: int, lineage: str, time: float):
         """
@@ -114,9 +376,9 @@ class Inversion(EventTwoCuts):
             the intergene to be broken at the left
         int2 : Interval
             the intergene to be broken at the right
-        sc1 : int
+        sbp1 : int
             the specific coordinate where the first intergene is to be cut
-        sc2 : int
+        sbp2 : int
             the specific coordinate where the second intergene is to be cut
         twraplen: int
             the total length of the chromosome
@@ -144,7 +406,7 @@ class Inversion(EventTwoCuts):
         time: float
             the time at which it happened
         """
-        super().__init__(int1, int2, sc1, sc2, swraplen, twraplen, INV,
+        super().__init__(int1, int2, sbp1, sbp2, swraplen, twraplen, INV,
                          lineage, time)
         self.afterL: Interval = None
         self.afterR: Interval = None
@@ -163,8 +425,8 @@ class Inversion(EventTwoCuts):
 
             I S J
 
-        I is split at `c1` into I0 I1 and J is split at `c2` into J0 J1. Then
-        we get
+        I is split at `sbpL` into I0 I1 and J is split at `sbpR` into J0 J1.
+        Then we have
 
             I0 I1 S J0 J1
 
@@ -172,12 +434,10 @@ class Inversion(EventTwoCuts):
 
             I0 -J0 -S -I1 J1
         """
-        lenI0 = self.scL - self.beforeL.sc1
-        lenI1 = self.beforeL.sc2 - self.scL
-        self.lenI1 = lenI1
-        lenJ0 = self.scR - self.beforeR.sc1
-        self.lenJ0 = lenJ0
-        lenJ1 = self.beforeR.sc2 - self.scR
+        lenI0 = self.sbpL - self.beforeL.sc1
+        lenI1 = self.beforeL.sc2 - self.sbpL
+        lenJ0 = self.sbpR - self.beforeR.sc1
+        lenJ1 = self.beforeR.sc2 - self.sbpR
             #lenSs will the be number of intergene nucleotides plus the number
             #of genes in the region S:
         if self.wraps():
@@ -188,8 +448,8 @@ class Inversion(EventTwoCuts):
             lenSt = self.beforeR.tc1 - self.beforeL.tc2
 
         if self.wraps():    # [secondlen] -I1 J1 ... I0 -J0 [firstlen]
-            self.sshift = self.ssecondlen + lenI1 - self.beforeR.s_breakpoint
-            self.tshift = self.tsecondlen + lenI1 - self.beforeR.t_breakpoint
+            self.sshift = self.ssecondlen + lenI1 - self.sbpR
+            self.tshift = self.tsecondlen + lenI1 - self.tbpR
 
             sleftstart = self.beforeL.sc1 + self.sshift
             sleftend = sleftstart + lenI0 + lenJ0
@@ -201,10 +461,10 @@ class Inversion(EventTwoCuts):
             trightstart = self.tsecondlen
             trightend = trightstart + lenI1 + lenJ1
 
-            sbreakL = self.beforeL.s_breakpoint + self.sshift
-            tbreakL = self.beforeL.t_breakpoint + self.tshift
-            sbreakR = self.beforeR.s_breakpoint + self.sshift
-            tbreakR = self.beforeR.t_breakpoint + self.tshift
+            sbreakL = self.sbpL + self.sshift
+            tbreakL = self.tbpL + self.tshift
+            sbreakR = self.sbpR + self.sshift
+            tbreakR = self.tbpR + self.tshift
         else:
             sleftstart = self.beforeL.sc1
             sleftend = sleftstart + lenI0 + lenJ0
@@ -219,10 +479,10 @@ class Inversion(EventTwoCuts):
             trightstart = tleftend + lenSt
             trightend = trightstart + lenI1 + lenJ1
 
-            sbreakL = self.beforeL.s_breakpoint
-            tbreakL = self.beforeL.t_breakpoint
-            sbreakR = self.beforeR.s_breakpoint
-            tbreakR = self.beforeR.t_breakpoint
+            sbreakL = self.sbpL
+            tbreakL = self.tbpL
+            sbreakR = self.sbpR
+            tbreakR = self.tbpR
 
         self.afterL = Interval(tleftstart, tleftend, sleftstart, sleftend,
                                self.beforeL.position, INV, tbreakL, sbreakL)
@@ -243,28 +503,28 @@ class Inversion(EventTwoCuts):
             -S2 -I1 J1 ... I0 -J0 -S3  (e.g. -S2 could have parts of S0 and S1)
         """
         if self.wraps():
-            if sc > self.afterL.s_breakpoint:   # sc in -J0 -S3
-                right_of_bp = sc - self.afterL.s_breakpoint
-                if right_of_bp <= self.beforeR.s_breakpoint:
-                    return self.beforeR.s_breakpoint - right_of_bp
+            if sc > self.afterL.s_bp:   # sc in -J0 -S3
+                right_of_bp = sc - self.afterL.s_bp
+                if right_of_bp <= self.sbpR:
+                    return self.assertS(self.sbpR - right_of_bp)
                 else:
-                    return self.swraplen - (right_of_bp - self.beforeR.s_breakpoint - 1)
+                    return self.assertS(self.swraplen - (right_of_bp - self.sbpR - 1))
 
-            elif sc >= self.afterR.s_breakpoint:
-                return sc -self.sshift
+            elif sc >= self.afterR.s_bp:
+                return self.assertS(sc -self.sshift)
 
             else:                               # sc in -S2 -I1
-                left_of_bp = self.afterR.s_breakpoint - sc
-                if left_of_bp <= self.swraplen - self.beforeL.s_breakpoint:
-                    return self.beforeL.s_breakpoint + left_of_bp
+                left_of_bp = self.afterR.s_bp - sc
+                if left_of_bp <= self.swraplen - self.sbpL:
+                    return self.assertS(self.sbpL + left_of_bp)
                 else:
-                    return left_of_bp - (self.swraplen - self.beforeL.s_breakpoint) - 1
+                    return self.assertS(left_of_bp - (self.swraplen - self.sbpL) - 1)
 
         else:
-            if sc <= self.beforeL.s_breakpoint or sc >= self.beforeR.s_breakpoint:
-                return sc
+            if sc <= self.sbpL or sc >= self.sbpR:
+                return self.assertS(sc)
             else:
-                return self.beforeL.s_breakpoint + (self.beforeR.s_breakpoint - sc)
+                return self.assertS(self.sbpL + (self.sbpR - sc))
 
     def afterToBeforeT(self, tc: int) -> int:
         """
@@ -280,29 +540,30 @@ class Inversion(EventTwoCuts):
             -S2 -I1 J1 ... I0 -J0 -S3  (e.g. -S2 could have parts of S0 and S1)
         """
         if self.wraps():
-            if tc > self.afterL.t_breakpoint:   # tc in -J0 -S3
-                right_of_bp = tc - self.afterL.t_breakpoint
-                if right_of_bp <= self.beforeR.t_breakpoint:
-                    return self.beforeR.t_breakpoint - right_of_bp
+            if tc > self.afterL.t_bp:   # tc in -J0 -S3
+                right_of_bp = tc - self.afterL.t_bp
+                if right_of_bp <= self.tbpR:
+                    return self.assertT(self.tbpR - right_of_bp)
                 else:
-                    return self.twraplen - (right_of_bp - self.beforeR.t_breakpoint)
+                    return self.assertT(self.twraplen - (right_of_bp - self.tbpR))
 
-            elif tc >= self.afterR.t_breakpoint:
-                return tc -self.tshift
+            elif tc >= self.afterR.t_bp:
+                return self.assertT(tc -self.tshift)
 
             else:                               # tc in -S2 -I1
-                left_of_bp = self.afterR.t_breakpoint - tc
-                if left_of_bp <= self.twraplen - self.beforeL.t_breakpoint:
-                    return self.beforeL.t_breakpoint + left_of_bp
+                left_of_bp = self.afterR.t_bp - tc
+                if left_of_bp <= self.twraplen - self.tbpL:
+                    return self.assertT(self.tbpL + left_of_bp)
                 else:
-                    return left_of_bp - (self.twraplen - self.beforeL.t_breakpoint)
+                    return self.assertT(left_of_bp - (self.twraplen - self.tbpL))
 
         else:
-            if tc <= self.beforeL.t_breakpoint or tc >= self.beforeR.t_breakpoint:
-                return tc
+            if tc <= self.tbpL or tc >= self.tbpR:
+                return self.assertT(tc)
             else:
-                return self.beforeL.t_breakpoint + (self.beforeR.t_breakpoint - tc)
+                return self.assertT(self.tbpL + (self.tbpR - tc))
 
+#-- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - --
 class TandemDup(EventTwoCuts):
     """
     A tandem duplication event. See the description of `setAfter()` for details.
@@ -319,12 +580,14 @@ class TandemDup(EventTwoCuts):
         number of intergene-specific bases between the broken intergenes
     lenSt: int
         total number of bases between the broken intergenes
+    numintergenes: int
+        number of intergenes that are being duplicated
     """
-    def __init__(self, int1: Interval, int2: Interval, sc1: int, sc2: int,
-                 swraplen: int, twraplen: int, lineage: str, time: float):
+    def __init__(self, int1: Interval, int2: Interval, sbp1: int, sbp2: int,
+                 numintergenes: int, swraplen: int, twraplen: int,
+                 lineage: str, time: float):
         """
-        Create a TandemDuplication event.  When instantiating this you must
-        provide the arguments for EventTwoCuts and GenomeEvent.
+        Create a tandem duplication event.
 
         Parameters
         ----------
@@ -332,10 +595,12 @@ class TandemDup(EventTwoCuts):
             the left intergenic interval to be cut
         int2: Interval
             the second intergenic interval to be cut
-        sc1: int
+        sbp1: int
             the first cut
-        sc2: int
+        sbp2: int
             the second cut
+        numintergenes: int
+            the number of intergenes that are being duplicated
         twraplen: int
             the total length of the chromosome
         swraplen: int
@@ -345,11 +610,13 @@ class TandemDup(EventTwoCuts):
         time: float
             the time at which it happened
         """
-        super().__init__(int1, int2, sc1, sc2, swraplen, twraplen, TDUP,
+        super().__init__(int1, int2, sbp1, sbp2, swraplen, twraplen, TDUP,
                          lineage, time)
         self.afterL: Interval = None
         self.afterC: Interval = None
         self.afterR: Interval = None
+
+        self.numintergenes: int = numintergenes
 
         self.setAfter()
 
@@ -363,8 +630,8 @@ class TandemDup(EventTwoCuts):
 
             I S J
 
-        I is split at `c1` into I0 I1 and J is split at `c2` into J0 J1. Then
-        we get
+        I is split at `sbpL` into I0 I1 and J is split at `sbpR` into J0 J1.
+        Then we have
 
             I0 I1 S J0 J1
 
@@ -374,9 +641,9 @@ class TandemDup(EventTwoCuts):
         """
         self.afterL = copy.deepcopy(self.beforeL)
 
-        lenI1 = self.beforeL.sc2 - self.scL #number of (intergene) muclotides
-        lenJ0 = self.scR - self.beforeR.sc1 #number of (intergene) muclotides
-        lenJ1 = self.beforeR.sc2 - self.scR #number of (intergene) muclotides
+        lenI1 = self.beforeL.sc2 - self.sbpL #number of (intergene) muclotides
+        lenJ0 = self.sbpR - self.beforeR.sc1 #number of (intergene) muclotides
+        lenJ1 = self.beforeR.sc2 - self.sbpR #number of (intergene) muclotides
             #lenSs will the be number of intergene nucleotides plus the number
             #of genes in the region S:
         if self.wraps():    #beforeL is not to the left if we wrap
@@ -404,12 +671,13 @@ class TandemDup(EventTwoCuts):
         trightstart = tcenterend + self.lenSt
         trightend = trightstart + lenJ0 + lenJ1
     
-        position = self.beforeL.position
+        position = self.beforeL.position + self.numintergenes + 1
         self.afterC = Interval(tcenterstart, tcenterend,
-                               scenterstart, scenterend, position+1, 'I',
+                               scenterstart, scenterend, position, INV,
                                tcenterbreak, scenterbreak)
+        position += self.numintergenes + 1
         self.afterR = Interval(trightstart, trightend,
-                               srightstart, srightend, position+2, 'I')
+                               srightstart, srightend, position, INV)
 
     def afterToBeforeS(self, sc: int) -> int:
         """
@@ -423,22 +691,25 @@ class TandemDup(EventTwoCuts):
         arbitarily map to the left breakpoint I0 I1 (rather than J0 J1).
         """
         if self.afterL.inSpecific(sc):                  # I0 I1
-            return self.beforeL.sc1 + (sc - self.afterL.sc1)
+            return self.assertS(self.beforeL.sc1 + (sc - self.afterL.sc1))
+
         elif self.afterC.inSpecific(sc):
-            if sc <= self.afterC.s_breakpoint:          # J0
-                return self.beforeR.sc1 + (sc - self.afterC.sc1)
+            if sc <= self.afterC.s_bp:                  # J0
+                return self.assertS(self.beforeR.sc1 + (sc - self.afterC.sc1))
             else:                                       # I1
-                return self.beforeL.sc2 - (self.afterC.sc2 - sc)
+                return self.assertS(self.beforeL.sc2 - (self.afterC.sc2 - sc))
+
         elif self.afterR.inSpecific(sc):                # J0 J1
-            return self.beforeR.sc1 + (sc - self.afterR.sc1)
+            return self.assertS(self.beforeR.sc1 + (sc - self.afterR.sc1))
+
         elif sc > self.afterC.sc2:                      # to the right
-            offset = sc - self.afterC.s_breakpoint
-            if self.wraps() and offset > self.swraplen - self.beforeL.s_breakpoint:
-                return sc - (self.lenSs - 1) - self.afterC.specificLen()
+            offset = sc - self.afterC.s_bp
+            if self.wraps() and offset > self.swraplen - self.sbpL:
+                return self.assertS(sc - (self.lenSs - 1) - self.afterC.specificLen())
             else:
-                return self.beforeL.s_breakpoint + offset 
+                return self.assertS(self.sbpL + offset)
         else:                                           # to the left
-            return sc
+            return self.assertS(sc)
 
     def afterToBeforeT(self, tc: int) -> int:
         """
@@ -452,22 +723,25 @@ class TandemDup(EventTwoCuts):
         arbitarily map to the left breakpoint I0 I1 (rather than J0 J1).
         """
         if self.afterL.inTotal(tc):             # I0 I1
-            return self.beforeL.tc1 + (tc - self.afterL.tc1)
+            return self.assertT(self.beforeL.tc1 + (tc - self.afterL.tc1))
+
         elif self.afterC.inTotal(tc):
-            if tc <= self.afterC.t_breakpoint:  # J0
-                return self.beforeR.tc1 + (tc - self.afterC.tc1)
+            if tc <= self.afterC.t_bp:          # J0
+                return self.assertT(self.beforeR.tc1 + (tc - self.afterC.tc1))
             else:                               # I1
-                return self.beforeL.tc2 - (self.afterC.tc2 - tc)
+                return self.assertT(self.beforeL.tc2 - (self.afterC.tc2 - tc))
+
         elif self.afterR.inTotal(tc):           # J0 J1
-            return self.beforeR.tc1 + (tc - self.afterR.tc1)
+            return self.assertT(self.beforeR.tc1 + (tc - self.afterR.tc1))
+
         elif tc > self.afterC.tc2:              # to the right
-            offset = tc - self.afterC.t_breakpoint
-            if self.wraps() and offset > self.twraplen - self.beforeL.t_breakpoint:
-                return tc - (self.lenSt - 1) - self.afterC.specificLen()
+            offset = tc - self.afterC.t_bp
+            if self.wraps() and offset > self.twraplen - self.tbpL:
+                return self.assertT(tc - (self.lenSt - 1) - self.afterC.specificLen())
             else:
-                return self.beforeL.t_breakpoint + offset 
+                return self.assertT(self.tbpL + offset)
         else:                                   # to the left
-            return tc
+            return self.assertT(tc)
 
     def getTotalStr(self):
         return f'{self.beforeL.tc1, self.beforeL.tc2} S ' + \
