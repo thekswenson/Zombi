@@ -2597,9 +2597,12 @@ class GenomeSimulator():
             int1, int2 = int2, int1
             c1, c2 = c2, c1
 
-        loss = Loss(int1, int2, c1, c2, pseudo, specificlen, totallen,
-                    lineage, time)
+        pseudo_intergenes = []
+        if pseudo:
+            pseudo_intergenes = intergene_segment
 
+        loss = Loss(int1, int2, c1, c2, specificlen, totallen, lineage, time,
+                    pseudo, pseudo_intergenes)
         chromosome.event_history.append(loss)
 
         if pseudo:

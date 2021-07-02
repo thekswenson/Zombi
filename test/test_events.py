@@ -4,7 +4,7 @@ Unittests for testing the GenomeEvents and how they map coordinates.
 
 import os
 import unittest
-from zombi.Events import Inversion, LOSS, TandemDup
+from zombi.Events import Inversion, LOSS, MapPseudogeneError, TandemDup
 from zombi.GenomeSimulator import GenomeSimulator
 from zombi.Genomes import LEFT, RIGHT
 import zombi.AuxiliarFunctions as af
@@ -45,6 +45,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(ch.intergenes[1].length, inversion.afterR.specificLen()-1,
                      'second intergene length mismatch after inversion')
 
+      #Specific coordinate mapping:
     self.assertEqual(inversion.afterToBeforeS(0), 0,
                      'intergene breakpoint mismap')
     self.assertEqual(inversion.afterToBeforeS(1), 5,
@@ -56,6 +57,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(inversion.afterToBeforeS(10), 10,
                      'intergene breakpoint mismap')
 
+      #Total coordinate mapping:
     self.assertEqual(inversion.afterToBeforeT(0), 0,
                      'intergene breakpoint mismap')
     self.assertEqual(inversion.afterToBeforeT(5), 5,
@@ -86,6 +88,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(ch.intergenes[1].length, 3,
                      'second intergene length mismatch after inversion')
 
+      #Specific coordinate mapping:
     self.assertEqual(inversion.afterToBeforeS(0), 0,
                      'intergene breakpoint mismap')
     self.assertEqual(inversion.afterToBeforeS(3), 3,
@@ -99,6 +102,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(inversion.afterToBeforeS(13), 13,
                      'intergene breakpoint mismap')
 
+      #Total coordinate mapping:
     self.assertEqual(inversion.afterToBeforeT(8), 8,
                      'intergene breakpoint mismap')
     self.assertEqual(inversion.afterToBeforeT(9), 18,
@@ -128,6 +132,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(ch.intergenes[1].length, 7,
                      'second intergene length mismatch after inversion')
 
+      #Specific coordinate mapping:
     self.assertEqual(inversion.afterToBeforeS(0), 11,
                      'intergene breakpoint mismap')
     self.assertEqual(inversion.afterToBeforeS(1), 3,
@@ -147,6 +152,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(inversion.afterToBeforeS(14), 15,
                      'intergene breakpoint mismap')
 
+      #Total coordinate mapping:
     self.assertEqual(inversion.afterToBeforeT(0), 25,
                      'intergene breakpoint mismap')
     self.assertEqual(inversion.afterToBeforeT(5), 20,
@@ -178,6 +184,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(ch.intergenes[2].length, 2,
                      'second intergene length mismatch after inversion')
 
+      #Specific coordinate mapping:
     self.assertEqual(inversion.afterToBeforeS(0), 15,
                      'intergene breakpoint mismap')
     self.assertEqual(inversion.afterToBeforeS(5), 10,
@@ -197,6 +204,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(inversion.afterToBeforeS(19), 16,
                      'intergene breakpoint mismap')
 
+      #Total coordinate mapping:
     self.assertEqual(inversion.afterToBeforeT(0), 27,
                      'intergene breakpoint mismap')
     self.assertEqual(inversion.afterToBeforeT(5), 22,
@@ -228,6 +236,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(ch.intergenes[3].length, 1,
                      'second intergene length mismatch after inversion')
 
+      #Specific coordinate mapping:
     self.assertEqual(inversion.afterToBeforeS(0), 3,
                      'intergene breakpoint mismap')
     self.assertEqual(inversion.afterToBeforeS(4), 19,
@@ -243,6 +252,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(inversion.afterToBeforeS(16), 7,
                      'intergene breakpoint mismap')
 
+      #Total coordinate mapping:
     self.assertEqual(inversion.afterToBeforeT(0), 9,
                      'intergene breakpoint mismap')
     self.assertEqual(inversion.afterToBeforeT(6), 3,
@@ -279,6 +289,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(ch.intergenes[4].length, 3,
                      'third intergene length mismatch after tandemdup')
 
+      #Specific coordinate mapping:
     self.assertEqual(tdup.afterToBeforeS(3), 3,
                      'intergene breakpoint mismap')
     self.assertEqual(tdup.afterToBeforeS(8), 8,
@@ -309,6 +320,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(ch.intergenes[3].length, 3,
                      'fourth intergene length mismatch after tandemdup')
 
+      #Specific coordinate mapping:
     self.assertEqual(tdup.afterToBeforeS(2), 2,
                      'intergene breakpoint mismap')
     self.assertEqual(tdup.afterToBeforeS(3), 10,
@@ -328,6 +340,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(tdup.afterToBeforeS(16), 11,
                      'intergene breakpoint mismap')
 
+      #Total coordinate mapping:
     self.assertEqual(tdup.afterToBeforeT(0), 0,
                      'intergene breakpoint mismap')
     self.assertEqual(tdup.afterToBeforeT(5), 5,
@@ -359,6 +372,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(ch.intergenes[3].length, 3,
                      'fourth intergene length mismatch after tandemdup')
 
+      #Specific coordinate mapping:
     self.assertEqual(tdup.afterToBeforeS(2), 2,
                      'intergene breakpoint mismap')
     self.assertEqual(tdup.afterToBeforeS(3), 10,
@@ -392,6 +406,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(ch.intergenes[7].length, 3,
                      'eigth intergene length mismatch after tandemdup')
 
+      #Specific coordinate mapping:
     self.assertEqual(tdup.afterToBeforeS(8), 8,
                      'intergene breakpoint mismap')
     self.assertEqual(tdup.afterToBeforeS(9), 14,
@@ -411,6 +426,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(tdup.afterToBeforeS(34), 19,
                      'intergene breakpoint mismap')
 
+      #Total coordinate mapping:
     self.assertEqual(tdup.afterToBeforeT(0), 0,
                      'intergene breakpoint mismap')
     self.assertEqual(tdup.afterToBeforeT(7), 7,
@@ -442,6 +458,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(ch.intergenes[0].length, 4,
                      'first intergene length mismatch after loss')
 
+      #Specific coordinate mapping:
     self.assertEqual(tdup.afterToBeforeS(3), 3,
                      'intergene breakpoint mismap')
     self.assertEqual(tdup.afterToBeforeS(4), 11,
@@ -449,6 +466,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(tdup.afterToBeforeS(12), 19,
                      'intergene breakpoint mismap')
 
+      #Total coordinate mapping:
     self.assertEqual(tdup.afterToBeforeT(6), 6,
                      'intergene breakpoint mismap')
     self.assertEqual(tdup.afterToBeforeT(7), 18,
@@ -468,23 +486,35 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(ch.intergenes[0].length, 15,
                      'first intergene length mismatch after psuedogenization')
 
+      #Specific coordinate mapping:
     self.assertEqual(tdup.afterToBeforeS(3), 3,
                      'intergene breakpoint mismap')
-    self.assertRaises(Exception, tdup.afterToBeforeS, 4,
-                     'breakpoint maps to psuedogenized region')
-    self.assertRaises(Exception, tdup.afterToBeforeS, 13,
-                     'breakpoint maps to psuedogenized region')
+    with self.assertRaises(MapPseudogeneError):
+      tdup.afterToBeforeS(4)
+    self.assertEqual(tdup.afterToBeforeS(6), 4,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(9), 7,
+                     'intergene breakpoint mismap')
+    with self.assertRaises(MapPseudogeneError):
+      tdup.afterToBeforeS(10)
+    with self.assertRaises(MapPseudogeneError):
+      tdup.afterToBeforeS(11)
+    self.assertEqual(tdup.afterToBeforeS(12), 8,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(13), 9,
+                     'intergene breakpoint mismap')
     self.assertEqual(tdup.afterToBeforeS(14), 10,
                      'intergene breakpoint mismap')
     self.assertEqual(tdup.afterToBeforeS(23), 19,
                      'intergene breakpoint mismap')
 
+      #Total coordinate mapping:
     self.assertEqual(tdup.afterToBeforeT(6), 6,
                      'intergene breakpoint mismap')
-    self.assertRaises(Exception, tdup.afterToBeforeT, 7,
-                     'breakpoint maps to psuedogenized region')
-    self.assertRaises(Exception, tdup.afterToBeforeT, 16,
-                     'breakpoint maps to psuedogenized region')
+    with self.assertRaises(NotImplementedError):
+      tdup.afterToBeforeT(7)
+    with self.assertRaises(NotImplementedError):
+      tdup.afterToBeforeT(16)
     self.assertEqual(tdup.afterToBeforeT(17), 17,
                      'intergene breakpoint mismap')
     self.assertEqual(tdup.afterToBeforeT(17), 17,
@@ -528,29 +558,43 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(ch.intergenes[1].length, 21,
                      'second intergene length mismatch after pseudogenization')
 
+      #Specific coordinate mapping:
     self.assertEqual(tdup.afterToBeforeS(0), 8,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(5), 13,
                      'intergene breakpoint mismap')
     self.assertEqual(tdup.afterToBeforeS(6), 14,
                      'intergene breakpoint mismap')
     self.assertEqual(tdup.afterToBeforeS(7), 15,
                      'intergene breakpoint mismap')
-    self.assertRaises(Exception, tdup.afterToBeforeS, 8,
-                     'breakpoint maps to psuedogenized region')
-    self.assertRaises(Exception, tdup.afterToBeforeS, 23,
-                     'breakpoint maps to psuedogenized region')
-    self.assertEqual(tdup.afterToBeforeS(24), 6,
+    with self.assertRaises(MapPseudogeneError):
+      tdup.afterToBeforeS(8)
+    with self.assertRaises(MapPseudogeneError):
+      tdup.afterToBeforeS(9)
+    self.assertEqual(tdup.afterToBeforeS(10), 16,
+                     'intergene breakpoint mismap')
+    self.assertEqual(tdup.afterToBeforeS(13), 19,
+                     'intergene breakpoint mismap')
+    with self.assertRaises(MapPseudogeneError):
+      tdup.afterToBeforeS(14)
+    self.assertEqual(tdup.afterToBeforeS(16), 0,
+                     'intergene breakpoint mismap')
+    with self.assertRaises(MapPseudogeneError):
+      tdup.afterToBeforeS(21)
+    self.assertEqual(tdup.afterToBeforeS(22), 4,
                      'intergene breakpoint mismap')
     self.assertEqual(tdup.afterToBeforeS(25), 7,
                      'intergene breakpoint mismap')
 
+      #Total coordinate mapping:
     self.assertEqual(tdup.afterToBeforeT(0), 12,
                      'intergene breakpoint mismap')
     self.assertEqual(tdup.afterToBeforeT(11), 23,
                      'intergene breakpoint mismap')
-    self.assertRaises(Exception, tdup.afterToBeforeT, 12,
-                     'breakpoint maps to psuedogenized region')
-    self.assertRaises(Exception, tdup.afterToBeforeT, 28,
-                     'breakpoint maps to psuedogenized region')
+    with self.assertRaises(NotImplementedError):
+      tdup.afterToBeforeT(12)
+    with self.assertRaises(NotImplementedError):
+      tdup.afterToBeforeT(28)
     self.assertEqual(tdup.afterToBeforeT(29), 11,
                      'intergene breakpoint mismap')
     self.assertEqual(tdup.afterToBeforeT(30), 12,

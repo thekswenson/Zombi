@@ -91,10 +91,22 @@ class Interval:
     def specificPair(self) -> T_PAIR:
         return self.sc1, self.sc2
 
+    def specificToTotal(self, sc: int) -> int:
+        return self.tc1 + (sc - self.sc1)
+
+    def totalToSpecific(self, tc: int) -> int:
+        return self.sc1 + (tc - self.tc1)
+
     def inTotal(self, t_coord:int) -> bool:
+        """
+        Is the given total coordinate inside this Interval?
+        """
         return self.tc1 <= t_coord <= self.tc2
 
     def inSpecific(self, s_coord:int) -> bool:
+        """
+        Is the given specific coordinate inside this Interval?
+        """
         return self.sc1 <= s_coord <= self.sc2
 
     def specificLen(self) -> int:

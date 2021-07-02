@@ -9,7 +9,6 @@ from . import AuxiliarFunctions as af
 from . import ReconciledTree as RT
 from . import T_PAIR
 from .Interval import Interval
-from .Events import GenomeEvent
 
 
 # Directions:
@@ -492,6 +491,28 @@ class Intergene():
         self.specific_flanking: T_PAIR = None   #: not pythonic (both inclusive)
         self.id = 0 # Only for debugging purposes
         self.divisions = list() # List containing all the divisions
+
+    @property
+    def sc1(self):
+        return self.specific_flanking[0]
+
+    @property
+    def sc2(self):
+        return self.specific_flanking[1]
+
+    @property
+    def tc1(self):
+        return self.total_flanking[0]
+
+    @property
+    def tc2(self):
+        return self.total_flanking[1]
+
+    def inTotal(self, tc:int) -> bool:
+        return self.total_flanking[0] <= tc <= self.total_flanking[1]
+
+    def inSpecific(self, sc:int) -> bool:
+        return self.specific_flanking[0] <= sc <= self.specific_flanking[1]
     
     def create_division(self, division_family="0"):
         """
@@ -562,7 +583,7 @@ class Chromosome():
 
         self.total_rates = 0
 
-        self.event_history: List[GenomeEvent] = []
+        self.event_history: List = []
 
     def obtain_total_itergenic_length(self):
 
