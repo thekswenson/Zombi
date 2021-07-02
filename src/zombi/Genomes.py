@@ -658,12 +658,64 @@ class Chromosome():
             self.map_of_locations.append(Interval(tc1, tc2, sc1, sc2, i, "I"))
 
 
-    def select_random_coordinate_in_intergenic_regions(self):
+    def select_random_coordinate_in_intergenic_regions(self,
+                                                       exclude: List[int] = None
+                                                      ) -> int:
+        """
+        Return a random intergene specific breakpoint coordinate.
 
-        # We weight the position by the length of the region
+        Parameters
+        ----------
+        exclude : List[int]
+            list of indices into `self.intergenes`, indicating intergenes that
+            should be excluded
+            (assume that the coordinates are listed from left to right and
+             are contiguous)
+        """
+        if exclude:
+            if exclude[0] < exclude[-1]:        # no wrap
+                assert exclude[-1] - exclude[0] == len(exclude) - 1
+                range1 = range2 = (0, 0)
+                if exclude[0]:
+                    range1 = (0, self.intergenes[exclude[0]].sc1 - 1)
+
+                if exclude[-1] != len(self.intergenes) - 1:
+                    range2 = (self.intergenes[exclude[-1]].sc2 + 1,
+                              self.intergenes[-1].sc2)
+
+                r = random.choices([range1, range2],
+                                   weights=[range1[1], range2[1] - range2[0]])
+
+                return random.randint(*r[0])
+            else:                               # wrap around
+                return random.randint(self.intergenes[exclude[-1]].sc2 + 1,
+                                      self.intergenes[exclude[0]].sc1 - 1)
 
         t = sum([x.length for x in self.intergenes]) + len(self.intergenes) - 1
-        return random.randint(0, int(t))
+        return random.randint(0, t)
+
+    def select_random_intergenic_coordinate_excluding(self, c1: int, c2: int,
+                                                      d: T_DIR) -> int:
+        """
+        Return a random intergenic specific coordinate that does not come from
+        the intergenes inside of the interval specified by `c1`, `c2`, and `d`.
+
+        Parameters
+        ----------
+        c1 : int
+            first intergene specific coordinate
+        c2 : int
+            second intergene specific coordinate
+        d : T_DIR
+            the direction {LEFT, RIGHT} to go from `c1`
+        """
+        r = self.return_affected_region(c1, c2, d)
+        if r is None:
+            return None
+
+        igpositions = r[1]
+        c3 = self.select_random_coordinate_in_intergenic_regions(igpositions)
+        return c3
 
     def return_total_coordinate_from_specific_coordinate(self, c, type = "I", debug = False) -> int:
 
@@ -707,7 +759,8 @@ class Chromosome():
                                       within_intergene = False) -> Interval:
         """
         Given a coordinate, return the endpoints of the Gene or Intergene that
-        contains it.
+        contains it. Whether total or specific coordinates are used depends
+        on the value of `within_intergene`.
 
         Parameters
         ----------
@@ -722,7 +775,7 @@ class Chromosome():
         Interval
             Location information for the given coordinate
         """
-        if within_intergene == False:
+        if not within_intergene:
 
             for l in self.map_of_locations:
                 if l.inTotal(c):
@@ -763,9 +816,11 @@ class Chromosome():
              interval1, interval2)
             where
 
-            1. List of the position of the genes affected. ALWAYS FROM LEFT TO RIGHT
+            1. List of the position of the genes affected. ALWAYS FROM LEFT TO
+               RIGHT no matter the `direction`.
 
-            2. List of the position of the intergenes affected. ALWAYS FROM LEFT TO RIGHT
+            2. List of the position of the intergenes affected. ALWAYS FROM LEFT
+               TO RIGHT no matter the `direction`.
                (The intergenes containing c1 and c2 are affected)
 
             3. Pair with left and right lengths (in nucs) of c1 intergene.

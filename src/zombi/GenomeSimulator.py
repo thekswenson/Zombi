@@ -1531,6 +1531,7 @@ class GenomeSimulator():
             else:
                 c1, c2, d = r
                 self.make_inversion_intergenic(c1, c2, d, lineage, time)
+
             return "I", lineage
 
         elif event == "P":
@@ -1538,9 +1539,11 @@ class GenomeSimulator():
             r = self.select_advanced_length(lineage, 1/c_e * multiplier)
             if r == None:
                 return None
-            else:
-                c1, c2, d = r
-                self.make_transposition_intergenic(c1, c2, d, lineage, time)
+
+            c1, c2, d = r
+
+            c3 = chromosome.select_random_intergenic_coordinate_excluding(c1, c2, d)
+            self.make_transposition_intergenic(c1, c2, d, c3, lineage, time)
 
             return "P", lineage
 
@@ -2763,7 +2766,7 @@ class GenomeSimulator():
         for gene in segment:
             self.all_gene_families[gene.gene_family].register_event(str(time), "P", ";".join(map(str,[lineage, gene.gene_id])))
 
-    def make_transposition_intergenic(self, c1, c2, d: T_DIR, lineage, time):
+    def make_transposition_intergenic(self, c1, c2, d: T_DIR, c3, lineage, time):
 
         chromosome: CircularChromosome = self.all_genomes[lineage].select_random_chromosome()
         r = chromosome.return_affected_region(c1, c2, d)
@@ -2771,31 +2774,16 @@ class GenomeSimulator():
         if r == None:
             return None
 
-        else:
-            r1, r2, r3, r4, int1, int2 = r
+        gpositions, igpositions, leftlengths, rightlengths, int1, int2 = r
 
-        success = False
-        counter = 0
-        while success == False and counter < 100:
-            counter += 1
-            c3 = chromosome.select_random_coordinate_in_intergenic_regions()
-            l3 = chromosome.return_location_by_coordinate(c3, within_intergene=True)
+        segment = chromosome.obtain_segment(gpositions)
+        intergene_segment = chromosome.obtain_intergenic_segment(igpositions[1:])
 
-            sc3_1, sc3_2, p = l3.sc1, l3.sc2, l3.position
-            #tc3_1, tc3_2, sc3_1, sc3_2, p = map(int, (tc3_1, tc3_2, sc3_1, sc3_2, p))
+        interval3 = chromosome.return_location_by_coordinate(c3, True)
 
-            if p not in r2:
-                success = True
-
-        if success == False:
-            return None
-
-        segment = chromosome.obtain_segment(r1)
-        intergene_segment = chromosome.obtain_intergenic_segment(r2[1:])
-
-        scar1 = chromosome.intergenes[r2[0]]
-        scar2 = chromosome.intergenes[p]
-        scar3 = chromosome.intergenes[r2[-1]]
+        scar1 = chromosome.intergenes[igpositions[0]]
+        scar2 = chromosome.intergenes[interval3.position]
+        scar3 = chromosome.intergenes[igpositions[-1]]
 
         new_segment = list()
         new_intergene_segment = list()
@@ -2803,7 +2791,7 @@ class GenomeSimulator():
         # If we insert in the intergene i, the gene must occupy the position i - 1
         # We store it for reference
 
-        left_gene = chromosome.genes[p]
+        left_gene = chromosome.genes[interval3.position]
 
         # Now we pop the genes
 
@@ -2821,7 +2809,7 @@ class GenomeSimulator():
 
         # We save the position for insertion
 
-        left_intergene = chromosome.intergenes[p]
+        left_intergene = chromosome.intergenes[interval3.position]
 
         for intergene in intergene_segment:
             new_intergene_segment.append(chromosome.intergenes.pop(chromosome.intergenes.index(intergene)))
@@ -2835,14 +2823,14 @@ class GenomeSimulator():
 
         # Finally, we modify the segments so that they have the right length
 
-        r5 = (c3 - sc3_1, sc3_2 - c3)
+        r5 = (c3 - interval3.sc1, interval3.sc2 - c3)
 
         if d == LEFT:
-            r3, r4 = r4, r3
+            leftlengths, rightlengths = rightlengths, leftlengths
 
-        scar1.length = r3[0] + r4[1]
-        scar2.length = r3[1] + r5[0]
-        scar3.length = r4[0] + r5[1]
+        scar1.length = leftlengths[0] + rightlengths[1]
+        scar2.length = leftlengths[1] + r5[0]
+        scar3.length = rightlengths[0] + r5[1]
 
         for i, gene in enumerate(segment):
             self.all_gene_families[gene.gene_family].register_event(str(time), "P", ";".join(map(str,[lineage, gene.gene_id])))
@@ -2885,7 +2873,7 @@ class GenomeSimulator():
 
 
     def select_advanced_length(self, lineage: str, p: float, reps=100,
-                               ) -> Tuple[int, int, str]:
+                               ) -> Tuple[int, int, T_DIR]:
         """
         Return a pair of specific coordinates for intergenic regions according
         to `p` on a chromosome of `lineage`.

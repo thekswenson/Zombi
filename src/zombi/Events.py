@@ -210,7 +210,7 @@ class Loss(EventTwoCuts):
         Compute the resulting intergenic interval after the cut.
 
         Consider intergenic regions I = `before1` and J = `before2` on either
-        side of segement S:
+        side of segment S:
 
             I S J
 
@@ -425,6 +425,77 @@ class MapPseudogeneError(Exception):
     pass
 
 #-- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - --
+class Transposition(EventTwoCuts):
+    """
+    A transposition genome event.
+
+    ATTRIBUTES
+    ----------
+    afterL: Interval
+        the intergenic interval to the left of the transposed segment
+        (see setAfter())
+    afterR: Interval
+        the intergenic interval to the right of the transposed segment
+    """
+    def __init__(self, int1: Interval, int2: Interval, sbp1: int, sbp2: int,
+                 swraplen: int, twraplen: int, sfirstlen:int, tfirstlen:int,
+                 ssecondlen: int, tsecondlen: int, lineage: str, time: float):
+        """
+        Create a Transposition event.  
+
+        Parameters
+        ----------
+        int1 : Interval
+            the intergene to be broken at the left
+        int2 : Interval
+            the intergene to be broken at the right
+        sbp1 : int
+            the specific coordinate where the first intergene is to be cut
+        sbp2 : int
+            the specific coordinate where the second intergene is to be cut
+        twraplen: int
+            the total length of the chromosome
+        swraplen: int
+            the intergene specific length of the chromosome
+        sfirstlen: int
+            if this inversion wraps, then this is the specific length of the
+            gene and intergenes that will end up at the end of the genome
+            after the inversion.
+            (retrieved using `CircularChromosome.inversion_wrap_lengths()`)
+        tfirstlen: int
+            if this inversion wraps, then this is the total length of the
+            gene and intergenes that will end up at the end of the genome
+            after the inversion.
+        ssecondlen: int
+            if this inversion wraps, then this is the specific length of the
+            gene and intergenes that will end up at the begining of the genome
+            after the inversion.
+        tsecondlen: int
+            if this inversion wraps, then this is the total length of the
+            gene and intergenes that will end up at the beginning of the genome
+            after the inversion.
+        lineage: str
+            the lineage on which the event happened (pendant node name)
+        time: float
+            the time at which it happened
+        """
+        super().__init__(int1, int2, sbp1, sbp2, swraplen, twraplen, INV,
+                         lineage, time)
+        self.afterL: Interval = None
+        self.afterR: Interval = None
+        self.sfirstlen = sfirstlen
+        self.tfirstlen = tfirstlen
+        self.ssecondlen = ssecondlen
+        self.tsecondlen = tsecondlen
+
+        self.setAfter()
+
+    def setAfter(self):
+        """
+        """
+        pass
+
+#-- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - --
 class Inversion(EventTwoCuts):
     """
     An Inversion event.
@@ -440,8 +511,7 @@ class Inversion(EventTwoCuts):
                  swraplen: int, twraplen: int, sfirstlen:int, tfirstlen:int,
                  ssecondlen: int, tsecondlen: int, lineage: str, time: float):
         """
-        Create an Inversion event.  When instantiating this you must also
-        provide the arguments for EventTwoCuts and GenomeEvent.
+        Create an Inversion event.
 
         Parameters
         ----------
@@ -494,7 +564,7 @@ class Inversion(EventTwoCuts):
         """
         Set the two intergenic regions that exist after the inversion.
         Consider intergenic regions I = `before1` and J = `before2` on either
-        side of segement S:
+        side of segment S:
 
             I S J
 
