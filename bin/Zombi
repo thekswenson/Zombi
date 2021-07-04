@@ -177,7 +177,7 @@ class Zombi():
         if advanced_mode == "f":
             gss.write_genomes(genomes_folder, intergenic_sequences=True)
             gss.write_gene_family_lengths(genome_folder)
-            #gss.test_intergenes()
+            gss.test_intergenes()
 
             if root_genome:
                 gss.write_gene_family_info(genome_folder)

@@ -490,10 +490,6 @@ class GenomeSimulator():
                     intergenic_sequence.length = intergene_lengths[i]
                     chromosome.intergenes.append(intergenic_sequence)
 
-                # At first all nucleotides belong to the same Division Family
-
-                self.all_division_families["0"] = DivisionFamily()
-
             for i in range(int(n_genes)):
 
                 # We fill the chromosomes and we create also the gene families
@@ -526,7 +522,6 @@ class GenomeSimulator():
 
             if interactome == True:
                 genome.create_interactome()
-
 
         return genome
 
@@ -984,9 +979,6 @@ class GenomeSimulator():
         c = af.obtain_value(self.parameters["TRANSPOSITION"])
         o = af.obtain_value(self.parameters["ORIGINATION"])
 
-        # We need to keep track of the division families. A division family is the ensemble of intergenes that share
-        # the same (inter)gene tree. 
-
         # First we prepare the root genome
 
         if self.root_genome_file:
@@ -1359,7 +1351,6 @@ class GenomeSimulator():
 
         elif event == "O":
 
-
             if  self.parameters["RATE_FILE"] == "False":
                 gene, gene_family = self.make_origination(lineage, time, family_mode=True)
 
@@ -1440,8 +1431,6 @@ class GenomeSimulator():
         l_e = int(af.obtain_value(self.parameters["LOSS_EXTENSION"]))
         i_e = int(af.obtain_value(self.parameters["INVERSION_EXTENSION"]))
         c_e = int(af.obtain_value(self.parameters["TRANSPOSITION_EXTENSION"]))
-
-        mean_gene_length = int()
 
         distribution  = self.parameters["GENE_LENGTH"].split(":")[0]
 
@@ -1735,8 +1724,6 @@ class GenomeSimulator():
                          ]
 
                 self.all_gene_families[gene.gene_family].register_event(str(time), "S", ";".join(map(str,nodes)))
-            
-            all_divisions = set() # We also get the different divisions across all intergenes affected by the speciation
 
             for intergene in chromosome.intergenes:
 
@@ -1746,13 +1733,6 @@ class GenomeSimulator():
                 new_intergene2.length = intergene.length
                 ch1.intergenes.append(new_intergene1)
                 ch2.intergenes.append(new_intergene2)
-
-                for division in intergene:
-                    all_divisions.add(division.division_family)
-            
-            for division in all_divisions:
-                self.all_division_families[division].register_event(str(time), "S", ";".join(map(str,nodes)))
-
 
         genome1.update_genome_species(c1)
         genome2.update_genome_species(c2)
@@ -2036,20 +2016,6 @@ class GenomeSimulator():
             self.all_gene_families[gene_family].genes.append(new_segment_2[i])
 
             self.all_gene_families[gene.gene_family].register_event(time, "D", ";".join(map(str, nodes)))
-
-
-        # Finally, we need to modify also the intergenes and their divisions
-        #new_division = ""
-        #for i, intergene in enumerate(intergene_segment):
-        #    print(i, intergene)
-        #    nodes = [gene.species
-        #             gene.gene_id
-
-        #    ]
-        #self.all_divisions[new_division].
-
-
-
 
     def _dupAssert(self, dup: TandemDup, ileft: Intergene, icenter: Intergene,
                    iright: Intergene, chromosome: Chromosome):
@@ -2943,65 +2909,59 @@ class GenomeSimulator():
 
         return None
 
-    def test_intergenes(self):
+    def obtain_divisions(self):
+
+        """"
+        Obtain the divisions at the root
+
+        """"
         
-        print(self.all_division_families)
-
-        # First iterate  all extant leaves
-
         for node in self.complete_tree.traverse("postorder"): # Need to traverse in a different way once we simulate transfers
-            
-            genome = self.all_genomes[node.name]
-            
+
+           
+            genome = self.all_genomes[node.name]            
+
             for chromosome in genome:
 
-                # First we obtain all the flakings for every intergene
-
                 chromosome.obtain_flankings()
-                
-                # Second we prepare the divisions
 
-                for i, intergene in enumerate(chromosome.iter_intergenes()):
-
-                    intergene.id = i
-                    intergene.create_division()
-                    for division in intergene:
-                        pass
-                        #print(division.division_family)
-                    
+                cut_set = set()
 
                 for event in chromosome.event_history[::-1]: # We traverse from the end to the beginning
-
-                    # You need to modify: all intergenes covered by the event
-
-                    # We get the affected intergenes
-
-                    s_breakpoint1 = event.beforeL.s_breakpoint
-                    s_breakpoint2 = event.beforeR.s_breakpoint
-
-                    r = chromosome.return_affected_region(s_breakpoint1, s_breakpoint2, RIGHT)
+                
+                    # We get the cuts
                     
-                    #r = chromosome.return_affected_region(10, 56, RIGHT)
-                    genepositions, intergenepositions, leftlengths, rightlengths, int1, int2 = r
-                    intergene_segment = chromosome.obtain_intergenic_segment(intergenepositions[1:])
-                    print(event)
+                    h = str(event).split()
+                    sc1, sc2 = int(h[4]), int(h[9])
+                    
+                    # We translate the cuts to the specific coordinates before the event
 
-                    for intergene in intergene_segment:
-                        pass
-                        #print(intergene, intergene.id - 1, intergene.id + 1) # I think this includes exclusively intergenes completely covered by the event
-                    
-                    #print(event)
-                    
-                    
-                   
-                    
-                    #print(s_breakpoint1, event.afterToBeforeS(s_breakpoint1))
-                    #print(s_breakpoint2, event.afterToBeforeS(s_breakpoint2))
-                    
-                #for intergene in chromosome.iter_intergenes():
-                    #print(intergene)
-                #    pass
+                    b_sc1 = event.afterToBeforeS(sc1)
+                    b_sc2 = event.afterToBeforeS(sc2)
 
+                    # We translate also any preexisting cuts along this brunch
+
+                    new_cut_set = set()
+
+                    for c in cut_set:
+                        b_sc = event.afterToBeforeS(c)
+                        new_cut_set.add(b_sc)
+
+                    # We add the new cuts:
+
+                    new_cut_set.add(b_sc1)
+                    new_cut_set.add(b_sc2)
+
+                    cut_set = new_cut_set
+            
+            node.add_feature("cuts", cut_set)
+
+            if not node.is_leaf():
+                n1,n2 = node.get_children()
+                node.cuts = node.cuts.union(n1.cuts, n2.cuts)
+                
+
+              
         
 
         
