@@ -450,11 +450,10 @@ class Division():
     events: list
         a list with all the events affecting this division
     """
-    def __init__(self, division_family: str, total_flanking: T_PAIR = None, specific_flanking: T_PAIR = None):
+    def __init__(self, division_family: str, specific_flanking: T_PAIR = None):
 
         self.division_family = division_family # The name of the division family
 
-        self.total_flanking: T_PAIR = total_flanking      #: not pythonic (both inclusive)
         self.specific_flanking: T_PAIR = specific_flanking   #: not pythonic (both inclusive)
 
         self.division_family = division_family
@@ -514,10 +513,10 @@ class Intergene():
     def inSpecific(self, sc:int) -> bool:
         return self.specific_flanking[0] <= sc <= self.specific_flanking[1]
     
-    def create_division(self, division_family="0"):
+    def create_division(self, division_family):
         """
         """
-        division = Division("0", self.total_flanking, self.specific_flanking)
+        division = Division(division_family, self.specific_flanking)
         self.divisions.append(division)
 
 
@@ -540,14 +539,18 @@ class DivisionFamily():
     Attributes
     ----------
 
-
     """
-    def __init__(self, id = str):
+    def __init__(self, id = str, initial_specific_flanking  = T_PAIR):
+
         self.id = id
         self.events = list()
+        self.initial_flanking  = initial_specific_flanking
 
     def register_event(self, time, event, genes):
         self.events.append((time, event, genes))
+
+    def __repr__():
+        return str(self.initital_flanking)
     
   
 

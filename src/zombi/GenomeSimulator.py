@@ -2911,10 +2911,9 @@ class GenomeSimulator():
 
     def obtain_divisions(self):
 
-        """"
+        """
         Obtain the divisions at the root
-
-        """"
+        """
         
         for node in self.complete_tree.traverse("postorder"): # Need to traverse in a different way once we simulate transfers
 
@@ -2959,9 +2958,15 @@ class GenomeSimulator():
             if not node.is_leaf():
                 n1,n2 = node.get_children()
                 node.cuts = node.cuts.union(n1.cuts, n2.cuts)
-                
 
-              
-        
+        all_cuts =  sorted(list(self.complete_tree.cuts))
+        initial_specific_flankings = zip(all_cuts, all_cuts[1:] + [all_cuts[0]])
 
+        for fam_id, initial_specific_flanking in enumerate(initial_specific_flankings):
+            division_family = DivisionFamily(str(fam_id), initial_specific_flanking)
+            self.all_division_families[str(fam_id)] = division_family
         
+    def obtain_events_for_divisions(self):
+         """
+         """
+         pass

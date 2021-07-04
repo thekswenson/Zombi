@@ -177,7 +177,8 @@ class Zombi():
         if advanced_mode == "f":
             gss.write_genomes(genomes_folder, intergenic_sequences=True)
             gss.write_gene_family_lengths(genome_folder)
-            gss.test_intergenes()
+            gss.obtain_divisions() # This obtain the divisions at the root,
+            gss.obtain_events_for_divisions() # This runs again the simulation forward
 
             if root_genome:
                 gss.write_gene_family_info(genome_folder)
