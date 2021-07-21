@@ -2916,8 +2916,7 @@ class GenomeSimulator():
         """
         
         for node in self.complete_tree.traverse("postorder"): # Need to traverse in a different way once we simulate transfers
-
-           
+  
             genome = self.all_genomes[node.name]            
 
             for chromosome in genome:
@@ -2931,7 +2930,7 @@ class GenomeSimulator():
                     # We get the cuts
                     
                     h = str(event).split()
-                    sc1, sc2 = int(h[4]), int(h[9])
+                    sc1, sc2 = int(h[4]), int(h[9]) # Fix this line
                     
                     # We translate the cuts to the specific coordinates before the event
 
@@ -2959,14 +2958,53 @@ class GenomeSimulator():
                 n1,n2 = node.get_children()
                 node.cuts = node.cuts.union(n1.cuts, n2.cuts)
 
-        all_cuts =  sorted(list(self.complete_tree.cuts))
+
+        initial_chromosome = self.all_genomes["Initial"].chromosomes[0]   
+
+        all_cuts =  sorted(list(self.complete_tree.cuts)) # These are the cuts from the events
+      
+        for intergene in initial_chromosome.iter_intergenes(): # These are the natural cuts from the intergenes (the limits with the genes)
+            cut1, cut2 = intergene.specific_flanking
+            all_cuts.append(cut1)
+            all_cuts.append(cut2)
+       
+        all_cuts =  sorted(list(set(all_cuts))) # To remove possible repeated values
+
         initial_specific_flankings = zip(all_cuts, all_cuts[1:] + [all_cuts[0]])
 
-        for fam_id, initial_specific_flanking in enumerate(initial_specific_flankings):
-            division_family = DivisionFamily(str(fam_id), initial_specific_flanking)
+        for fam_id, initial_specific_flankings in enumerate(initial_specific_flankings):
+            c1, c2 = initial_specific_flankings
+            intergene = initial_chromosome.return_intergene_by_coordinate(c1)
+            division = intergene.create_division(fam_id, initial_specific_flankings)
+            division_family = DivisionFamily(fam_id, initial_specific_flankings)
             self.all_division_families[str(fam_id)] = division_family
-        
+            
+        for intergene in initial_chromosome.iter_intergenes():
+            for division in intergene:
+                print(intergene, division)
+
+     
     def obtain_events_for_divisions(self):
-         """
-         """
-         pass
+
+        """
+        This function obtain all  the events (at the Species level and at the Genome level) that occur in every division
+        """
+
+        all_events = list()
+
+        all_events += self.tree_events
+        for node in self.complete_tree.traverse(): 
+            
+           genome = self.all_genomes[node.name]            
+
+           for chromosome in genome:
+               for event in chromosome.event_history: 
+                    all_events.append([event.time, event.etype, event.lineage])
+        
+        return None
+        for event in sorted(all_events, key=lambda x: float(x[0])):
+            
+            time, etype, lineage = event
+
+
+            print(event)

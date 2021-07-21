@@ -453,13 +453,11 @@ class Division():
     def __init__(self, division_family: str, specific_flanking: T_PAIR = None):
 
         self.division_family = division_family # The name of the division family
-
         self.specific_flanking: T_PAIR = specific_flanking   #: not pythonic (both inclusive)
-
         self.division_family = division_family
         
     def __str__(self):
-        return str(self.total_flanking)
+        return str(self.specific_flanking)
 
 
 class Intergene():
@@ -513,11 +511,12 @@ class Intergene():
     def inSpecific(self, sc:int) -> bool:
         return self.specific_flanking[0] <= sc <= self.specific_flanking[1]
     
-    def create_division(self, division_family):
+    def create_division(self, division_family, specific_flanking):
         """
         """
-        division = Division(division_family, self.specific_flanking)
+        division = Division(division_family, specific_flanking)
         self.divisions.append(division)
+        
 
 
     def __str__(self):
@@ -792,6 +791,28 @@ class Chromosome():
                                     self.return_total_coordinate_from_specific_coordinate(c),
                                     c)
 
+        raise(Exception(f'no gene or intergene found for coordinate {c}!'))
+
+    def return_intergene_by_coordinate(self, c: int) -> Intergene:
+        """
+        Given a specific coordinate, return the Intergene containing tha coordinate
+
+        Parameters
+        ----------
+        c : int
+            the coordinate
+
+        Returns
+        -------
+        Integene
+            
+        """
+
+        for intergene in self.iter_intergenes():
+            cut1, cut2 = intergene.specific_flanking
+            if c >= cut1 and c <= cut2:
+                return intergene
+        #print(f"Last coordinate is {cut2}")
         raise(Exception(f'no gene or intergene found for coordinate {c}!'))
 
     def return_affected_region(self, c1: int, c2: int, direction: T_DIR
