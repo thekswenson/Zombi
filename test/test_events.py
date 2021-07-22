@@ -4,7 +4,7 @@ Unittests for testing the GenomeEvents and how they map coordinates.
 
 import os
 import unittest
-from zombi.Events import Inversion, LOSS, MapPseudogeneError, TandemDup
+from zombi.Events import Inversion, LOSS, MapPseudogeneError, POS, TandemDup
 from zombi.GenomeSimulator import GenomeSimulator
 from zombi.Genomes import LEFT, RIGHT
 import zombi.AuxiliarFunctions as af
@@ -28,6 +28,7 @@ class TestEvent(unittest.TestCase):
     self.gss.active_genomes.add(self.genome.species)
     self.gss.all_genomes["Root"] = self.genome
 
+  # INVERSIONS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   def test_inversion_0(self):
     self.setUp(TEST_GENOME_30_10)
 
@@ -276,6 +277,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(inversion.afterToBeforeT(30), 9,
                      'intergene breakpoint mismap')
 
+  # TANDEM DUPLICATIONS - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   def test_tandemdup_1(self):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
@@ -448,157 +450,307 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(tdup.afterToBeforeT(53), 30,
                      'intergene breakpoint mismap')
 
+  # LOSSES - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   def test_loss_1(self):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_loss_intergenic(3, 10, RIGHT, lineage, 0.0)
-    tdup: LOSS = ch.event_history[0]
+    loss: LOSS = ch.event_history[0]
 
 
     self.assertEqual(ch.intergenes[0].length, 4,
                      'first intergene length mismatch after loss')
 
       #Specific coordinate mapping:
-    self.assertEqual(tdup.afterToBeforeS(3), 3,
+    self.assertEqual(loss.afterToBeforeS(3), 3,
                      'intergene breakpoint mismap')
-    self.assertEqual(tdup.afterToBeforeS(4), 11,
+    self.assertEqual(loss.afterToBeforeS(4), 11,
                      'intergene breakpoint mismap')
-    self.assertEqual(tdup.afterToBeforeS(12), 19,
+    self.assertEqual(loss.afterToBeforeS(12), 19,
                      'intergene breakpoint mismap')
 
       #Total coordinate mapping:
-    self.assertEqual(tdup.afterToBeforeT(6), 6,
+    self.assertEqual(loss.afterToBeforeT(6), 6,
                      'intergene breakpoint mismap')
-    self.assertEqual(tdup.afterToBeforeT(7), 18,
+    self.assertEqual(loss.afterToBeforeT(7), 18,
                      'intergene breakpoint mismap')
-    self.assertEqual(tdup.afterToBeforeT(15), 26,
+    self.assertEqual(loss.afterToBeforeT(15), 26,
                      'intergene breakpoint mismap')
-    self.assertEqual(tdup.afterToBeforeT(19), 30,
+    self.assertEqual(loss.afterToBeforeT(19), 30,
                      'intergene breakpoint mismap')
 
   def test_loss_1P(self):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_loss_intergenic(3, 10, RIGHT, lineage, 0.0, True)
-    tdup: LOSS = ch.event_history[0]
+    loss: LOSS = ch.event_history[0]
 
 
     self.assertEqual(ch.intergenes[0].length, 15,
                      'first intergene length mismatch after psuedogenization')
 
       #Specific coordinate mapping:
-    self.assertEqual(tdup.afterToBeforeS(3), 3,
+    self.assertEqual(loss.afterToBeforeS(3), 3,
                      'intergene breakpoint mismap')
     with self.assertRaises(MapPseudogeneError):
-      tdup.afterToBeforeS(4)
-    self.assertEqual(tdup.afterToBeforeS(6), 4,
+      loss.afterToBeforeS(4)
+    self.assertEqual(loss.afterToBeforeS(6), 4,
                      'intergene breakpoint mismap')
-    self.assertEqual(tdup.afterToBeforeS(9), 7,
+    self.assertEqual(loss.afterToBeforeS(9), 7,
                      'intergene breakpoint mismap')
     with self.assertRaises(MapPseudogeneError):
-      tdup.afterToBeforeS(10)
+      loss.afterToBeforeS(10)
     with self.assertRaises(MapPseudogeneError):
-      tdup.afterToBeforeS(11)
-    self.assertEqual(tdup.afterToBeforeS(12), 8,
+      loss.afterToBeforeS(11)
+    self.assertEqual(loss.afterToBeforeS(12), 8,
                      'intergene breakpoint mismap')
-    self.assertEqual(tdup.afterToBeforeS(13), 9,
+    self.assertEqual(loss.afterToBeforeS(13), 9,
                      'intergene breakpoint mismap')
-    self.assertEqual(tdup.afterToBeforeS(14), 10,
+    self.assertEqual(loss.afterToBeforeS(14), 10,
                      'intergene breakpoint mismap')
-    self.assertEqual(tdup.afterToBeforeS(23), 19,
+    self.assertEqual(loss.afterToBeforeS(23), 19,
                      'intergene breakpoint mismap')
 
       #Total coordinate mapping:
-    self.assertEqual(tdup.afterToBeforeT(6), 6,
+    self.assertEqual(loss.afterToBeforeT(6), 6,
                      'intergene breakpoint mismap')
     with self.assertRaises(NotImplementedError):
-      tdup.afterToBeforeT(7)
+      loss.afterToBeforeT(7)
     with self.assertRaises(NotImplementedError):
-      tdup.afterToBeforeT(16)
-    self.assertEqual(tdup.afterToBeforeT(17), 17,
+      loss.afterToBeforeT(16)
+    self.assertEqual(loss.afterToBeforeT(17), 17,
                      'intergene breakpoint mismap')
-    self.assertEqual(tdup.afterToBeforeT(17), 17,
+    self.assertEqual(loss.afterToBeforeT(17), 17,
                      'intergene breakpoint mismap')
-    self.assertEqual(tdup.afterToBeforeT(30), 30,
+    self.assertEqual(loss.afterToBeforeT(30), 30,
                      'intergene breakpoint mismap')
 
   def test_loss_2(self):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_loss_intergenic(14, 6, RIGHT, lineage, 0.0)
-    tdup: LOSS = ch.event_history[0]
+    loss: LOSS = ch.event_history[0]
 
 
     self.assertEqual(ch.intergenes[1].length, 3,
                      'second intergene length mismatch after loss')
 
-    self.assertEqual(tdup.afterToBeforeS(0), 8,
+    self.assertEqual(loss.afterToBeforeS(0), 8,
                      'intergene breakpoint mismap')
-    self.assertEqual(tdup.afterToBeforeS(6), 14,
+    self.assertEqual(loss.afterToBeforeS(6), 14,
                      'intergene breakpoint mismap')
-    self.assertEqual(tdup.afterToBeforeS(7), 7,
+    self.assertEqual(loss.afterToBeforeS(7), 7,
                      'intergene breakpoint mismap')
 
-    self.assertEqual(tdup.afterToBeforeT(0), 12,
+    self.assertEqual(loss.afterToBeforeT(0), 12,
                      'intergene breakpoint mismap')
-    self.assertEqual(tdup.afterToBeforeT(3), 15,
+    self.assertEqual(loss.afterToBeforeT(3), 15,
                      'intergene breakpoint mismap')
-    self.assertEqual(tdup.afterToBeforeT(11), 23,
+    self.assertEqual(loss.afterToBeforeT(11), 23,
                      'intergene breakpoint mismap')
-    self.assertEqual(tdup.afterToBeforeT(12), 12,
+    self.assertEqual(loss.afterToBeforeT(12), 12,
                      'intergene breakpoint mismap')
 
   def test_loss_2P(self):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_loss_intergenic(14, 6, RIGHT, lineage, 0.0, True)
-    tdup: LOSS = ch.event_history[0]
+    loss: LOSS = ch.event_history[0]
 
 
     self.assertEqual(ch.intergenes[1].length, 21,
                      'second intergene length mismatch after pseudogenization')
 
       #Specific coordinate mapping:
-    self.assertEqual(tdup.afterToBeforeS(0), 8,
+    self.assertEqual(loss.afterToBeforeS(0), 8,
                      'intergene breakpoint mismap')
-    self.assertEqual(tdup.afterToBeforeS(5), 13,
+    self.assertEqual(loss.afterToBeforeS(5), 13,
                      'intergene breakpoint mismap')
-    self.assertEqual(tdup.afterToBeforeS(6), 14,
+    self.assertEqual(loss.afterToBeforeS(6), 14,
                      'intergene breakpoint mismap')
-    self.assertEqual(tdup.afterToBeforeS(7), 15,
-                     'intergene breakpoint mismap')
-    with self.assertRaises(MapPseudogeneError):
-      tdup.afterToBeforeS(8)
-    with self.assertRaises(MapPseudogeneError):
-      tdup.afterToBeforeS(9)
-    self.assertEqual(tdup.afterToBeforeS(10), 16,
-                     'intergene breakpoint mismap')
-    self.assertEqual(tdup.afterToBeforeS(13), 19,
+    self.assertEqual(loss.afterToBeforeS(7), 15,
                      'intergene breakpoint mismap')
     with self.assertRaises(MapPseudogeneError):
-      tdup.afterToBeforeS(14)
-    self.assertEqual(tdup.afterToBeforeS(16), 0,
+      loss.afterToBeforeS(8)
+    with self.assertRaises(MapPseudogeneError):
+      loss.afterToBeforeS(9)
+    self.assertEqual(loss.afterToBeforeS(10), 16,
+                     'intergene breakpoint mismap')
+    self.assertEqual(loss.afterToBeforeS(13), 19,
                      'intergene breakpoint mismap')
     with self.assertRaises(MapPseudogeneError):
-      tdup.afterToBeforeS(21)
-    self.assertEqual(tdup.afterToBeforeS(22), 4,
+      loss.afterToBeforeS(14)
+    self.assertEqual(loss.afterToBeforeS(16), 0,
                      'intergene breakpoint mismap')
-    self.assertEqual(tdup.afterToBeforeS(25), 7,
+    with self.assertRaises(MapPseudogeneError):
+      loss.afterToBeforeS(21)
+    self.assertEqual(loss.afterToBeforeS(22), 4,
+                     'intergene breakpoint mismap')
+    self.assertEqual(loss.afterToBeforeS(25), 7,
                      'intergene breakpoint mismap')
 
       #Total coordinate mapping:
-    self.assertEqual(tdup.afterToBeforeT(0), 12,
+    self.assertEqual(loss.afterToBeforeT(0), 12,
                      'intergene breakpoint mismap')
-    self.assertEqual(tdup.afterToBeforeT(11), 23,
+    self.assertEqual(loss.afterToBeforeT(11), 23,
                      'intergene breakpoint mismap')
     with self.assertRaises(NotImplementedError):
-      tdup.afterToBeforeT(12)
+      loss.afterToBeforeT(12)
     with self.assertRaises(NotImplementedError):
-      tdup.afterToBeforeT(28)
-    self.assertEqual(tdup.afterToBeforeT(29), 11,
+      loss.afterToBeforeT(28)
+    self.assertEqual(loss.afterToBeforeT(29), 11,
                      'intergene breakpoint mismap')
-    self.assertEqual(tdup.afterToBeforeT(30), 12,
+    self.assertEqual(loss.afterToBeforeT(30), 12,
                      'intergene breakpoint mismap')
- 
+
+  # TRANSPOSITIONS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  def test_transposition1(self):
+    ch = self.genome.chromosomes[0]
+    lineage = self.genome.species
+    self.gss.make_transposition_intergenic(2, 9, RIGHT, 17, lineage, 0.0)
+    trans: POS = ch.event_history[0]
+
+
+    self.assertEqual(ch.intergenes[0].length, 4,
+                     'first intergene length mismatch after loss')
+    self.assertEqual(ch.intergenes[2].length, 2,
+                     'third intergene length mismatch after loss')
+    self.assertEqual(ch.intergenes[4].length, 3,
+                     'fifth intergene length mismatch after loss')
+
+      #Specific coordinate mapping:
+    self.assertEqual(trans.afterToBeforeS(2), 2,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS(3), 10,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS(10), 17,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS(11), 3,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS(14), 6,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS(16), 8,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS(17), 17,
+                     'intergene breakpoint mismap')
+
+      #Total coordinate mapping:
+    self.assertEqual(trans.afterToBeforeT(5), 5,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT(6), 17,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT(17), 28,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT(18), 6,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT(27), 15,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT(28), 28,
+                     'intergene breakpoint mismap')
+
+  def test_transposition2(self):
+    ch = self.genome.chromosomes[0]
+    lineage = self.genome.species
+    self.gss.make_transposition_intergenic(6, 11, RIGHT, 0, lineage, 0.0)
+    trans: POS = ch.event_history[0]
+
+
+    self.assertEqual(ch.intergenes[0].length, 1,
+                     'first intergene length mismatch after loss')
+    self.assertEqual(ch.intergenes[1].length, 6,
+                     'second intergene length mismatch after loss')
+    self.assertEqual(ch.intergenes[2].length, 2,
+                     'third intergene length mismatch after loss')
+
+      #Specific coordinate mapping:
+    self.assertEqual(trans.afterToBeforeS(0), 0,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS(1), 7,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS(4), 10,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS(5), 0,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS(10), 5,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS(11), 11,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS(14), 14,
+                     'intergene breakpoint mismap')
+
+      #Total coordinate mapping:
+    self.assertEqual(trans.afterToBeforeT(3), 3,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT(4), 12,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT(9), 17,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT(10), 3,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT(15), 8,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT(17), 10,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT(18), 18,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT(25), 25,
+                     'intergene breakpoint mismap')
+
+  def test_transposition3(self):
+    ch = self.genome.chromosomes[0]
+    lineage = self.genome.species
+    self.gss.make_transposition_intergenic(14, 1, RIGHT, 10, lineage, 0.0)
+    trans: POS = ch.event_history[0]
+
+
+    self.assertEqual(ch.intergenes[0].length, 3,
+                     'first intergene length mismatch after loss')
+    self.assertEqual(ch.intergenes[1].length, 3,
+                     'second intergene length mismatch after loss')
+    self.assertEqual(ch.intergenes[3].length, 2,
+                     'fourth intergene length mismatch after loss')
+    self.assertEqual(ch.intergenes[4].length, 4,
+                     'fifth intergene length mismatch after loss')
+
+      #Specific coordinate mapping:
+    self.assertEqual(trans.afterToBeforeS(0), 4,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS(6), 10,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS(7), 15,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS(11), 19,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS(12), 0,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS(13), 10,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS(17), 14,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS(18), 2,
+                     'intergene breakpoint mismap')
+
+      #Total coordinate mapping:
+    self.assertEqual(trans.afterToBeforeT(0), 6,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT(11), 17,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT(12), 24,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT(18), 30,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT(19), 1,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT(21), 3,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT(22), 17,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT(28), 23,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT(29), 5,
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT(30), 6,
+                     'intergene breakpoint mismap')
+
 if __name__ == '__main__':
     unittest.main()

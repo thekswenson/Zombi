@@ -9,7 +9,7 @@ import networkx as nx
 from typing import Tuple, Set, Dict, Union
 
 from . import AuxiliarFunctions as af
-from .Events import Loss, TandemDup, Inversion
+from .Events import Loss, TandemDup, Inversion, Transposition
 from .Genomes import Chromosome, CircularChromosome, Gene, GeneFamily, Genome, Division, DivisionFamily, Intergene
 from .Genomes import T_DIR, LEFT, RIGHT, Intergene, LinearChromosome
 
@@ -1998,7 +1998,7 @@ class GenomeSimulator():
         assert scar1.length == len(dup.afterC)
         assert scar2.length == len(dup.afterR)
         chromosome.event_history.append(dup)
-        self._dupAssert(dup, scar0, scar1, scar2, chromosome)   #Temporary check
+        self._dupAssert(dup, scar0, scar1, scar2, chromosome)   #TODO: Temporary
 
         for i, gene in enumerate(segment):
             nodes = [gene.species,
@@ -2754,6 +2754,12 @@ class GenomeSimulator():
         new_segment = list()
         new_intergene_segment = list()
 
+        # Get old lengths from last intergene before modifying chromosome.
+
+        specificlen = chromosome.intergenes[-1].specific_flanking[1]
+        totallen = chromosome.intergenes[-1].total_flanking[1]
+        numintergenes = len(chromosome.intergenes)
+
         # If we insert in the intergene i, the gene must occupy the position i - 1
         # We store it for reference
 
@@ -2793,10 +2799,21 @@ class GenomeSimulator():
 
         if d == LEFT:
             leftlengths, rightlengths = rightlengths, leftlengths
+            int1, int2 = int2, int1
+            c1, c2 = c2, c1
 
         scar1.length = leftlengths[0] + rightlengths[1]
         scar2.length = leftlengths[1] + r5[0]
         scar3.length = rightlengths[0] + r5[1]
+
+        trans = Transposition(int1, int2, c1, c2, interval3, c3, numintergenes,
+                              specificlen, totallen, lineage, time)
+
+        chromosome.event_history.append(trans)
+
+        assert len(trans.afterH) == scar1.length
+        assert len(trans.afterL) == scar2.length
+        assert len(trans.afterR) == scar3.length
 
         for i, gene in enumerate(segment):
             self.all_gene_families[gene.gene_family].register_event(str(time), "P", ";".join(map(str,[lineage, gene.gene_id])))
@@ -2987,7 +3004,7 @@ class GenomeSimulator():
     def obtain_events_for_divisions(self):
 
         """
-        This function obtain all  the events (at the Species level and at the Genome level) that occur in every division
+        This function obtain all the events (at the Species level and at the Genome level) that occur in every division
         """
 
         all_events = list()

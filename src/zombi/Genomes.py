@@ -701,6 +701,8 @@ class Chromosome():
         """
         Return a random intergenic specific coordinate that does not come from
         the intergenes inside of the interval specified by `c1`, `c2`, and `d`.
+        The intergenes that include `c1` and `c2` will not contain the returned
+        coordinate.
 
         Parameters
         ----------
@@ -840,22 +842,22 @@ class Chromosome():
              interval1, interval2)
             where
 
-            1. List of the position of the genes affected. ALWAYS FROM LEFT TO
+            0. List of the position of the genes affected. ALWAYS FROM LEFT TO
                RIGHT no matter the `direction`.
 
-            2. List of the position of the intergenes affected. ALWAYS FROM LEFT
+            1. List of the position of the intergenes affected. ALWAYS FROM LEFT
                TO RIGHT no matter the `direction`.
                (The intergenes containing c1 and c2 are affected)
 
-            3. Pair with left and right lengths (in nucs) of c1 intergene.
+            2. Pair with left and right lengths (in nucs) of c1 intergene.
                Watch out, the fact of calling it left or right can be confusing!
 
-            4. Pair with left and right lengths (in nucs) of c2 intergene.
+            3. Pair with left and right lengths (in nucs) of c2 intergene.
                Same note as above
 
-            5. The intergenic interval containing c1
+            4. The intergenic interval containing c1
 
-            6. The intergenic interval containing c2
+            5. The intergenic interval containing c2
         """
 
         l1 = self.return_location_by_coordinate(c1, within_intergene=True)

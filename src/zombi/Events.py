@@ -431,15 +431,25 @@ class Transposition(EventTwoCuts):
 
     ATTRIBUTES
     ----------
+    beforeH: Interval
+        the copied segment will be place here, in this intergenic region
+    sbpH: int
+        the copied segment will be place here, at this specific breakpoint
+    tbpH: int
+        the copied segment will be place here, at this total breakpoint
     afterL: Interval
         the intergenic interval to the left of the transposed segment
         (see setAfter())
     afterR: Interval
         the intergenic interval to the right of the transposed segment
+    afterH: Interval
+        here is where the segment was moved from (I0 J1)
+    numpositions: int
+        the total number of intergenes in the chromosome
     """
     def __init__(self, int1: Interval, int2: Interval, sbp1: int, sbp2: int,
-                 swraplen: int, twraplen: int, sfirstlen:int, tfirstlen:int,
-                 ssecondlen: int, tsecondlen: int, lineage: str, time: float):
+                 int3: Interval, sbp3: int, numintergenes: int,
+                 swraplen: int, twraplen: int, lineage: str, time: float):
         """
         Create a Transposition event.  
 
@@ -453,27 +463,16 @@ class Transposition(EventTwoCuts):
             the specific coordinate where the first intergene is to be cut
         sbp2 : int
             the specific coordinate where the second intergene is to be cut
+        int3 : Interval
+            the intergene where the segment will be placed
+        sbp3 : int
+            intergene specific breakpoint coordinate where to place the segment
+        numintergenes : int
+            the number of intergene positions in the chromosome
         twraplen: int
             the total length of the chromosome
         swraplen: int
             the intergene specific length of the chromosome
-        sfirstlen: int
-            if this inversion wraps, then this is the specific length of the
-            gene and intergenes that will end up at the end of the genome
-            after the inversion.
-            (retrieved using `CircularChromosome.inversion_wrap_lengths()`)
-        tfirstlen: int
-            if this inversion wraps, then this is the total length of the
-            gene and intergenes that will end up at the end of the genome
-            after the inversion.
-        ssecondlen: int
-            if this inversion wraps, then this is the specific length of the
-            gene and intergenes that will end up at the begining of the genome
-            after the inversion.
-        tsecondlen: int
-            if this inversion wraps, then this is the total length of the
-            gene and intergenes that will end up at the beginning of the genome
-            after the inversion.
         lineage: str
             the lineage on which the event happened (pendant node name)
         time: float
@@ -481,19 +480,241 @@ class Transposition(EventTwoCuts):
         """
         super().__init__(int1, int2, sbp1, sbp2, swraplen, twraplen, INV,
                          lineage, time)
+        self.beforeH: Interval = int3
+        self.sbpH = sbp3
+        self.tbpH: int = int3.tc1 + (sbp3 - int3.sc1)
+
         self.afterL: Interval = None
         self.afterR: Interval = None
-        self.sfirstlen = sfirstlen
-        self.tfirstlen = tfirstlen
-        self.ssecondlen = ssecondlen
-        self.tsecondlen = tsecondlen
+        self.afterH: Interval = None
+
+        self.numintergenes = numintergenes
 
         self.setAfter()
 
     def setAfter(self):
         """
+        Set the three intergenic regions that exist after the Transposition.
+        Consider intergenic regions I = `before1` and J = `before2` on either
+        side of segment S and K = `before3` where the transposed region will
+        land.
+
+            I S J ... K
+
+        I is split at `self.sbpL` into I0 I1 and J is split at `self.sbpR` into
+        J0 J1. K is split at 
+        Then we have
+
+            I0 I1 S J0 J1 ... K0 K1
+            (K0 K1 ... I0 I1 S J0 J1)
+
+        and the transposition produces
+
+            I0 J1 ... K0 I1 S J0 K1
+            (K0 I1 S J0 K1 ... I0 J1).
+
+        When a transposition wraps around it looks like this
+
+            S1 J0 J1 ... K0 K1 ... I0 I1 S0 becomes
+            ... K0 I1 S0 S1 J0 K1 ... I0 J1
         """
-        pass
+        lenI0 = self.sbpL - self.beforeL.sc1
+        lenI1 = self.beforeL.sc2 - self.sbpL
+        lenJ0 = self.sbpR - self.beforeR.sc1
+        lenJ1 = self.beforeR.sc2 - self.sbpR
+        lenK0 = self.sbpH - self.beforeH.sc1
+        lenK1 = self.beforeH.sc2 - self.sbpH
+
+        Spositions = self.beforeR.position - self.beforeL.position - 1
+
+            #lenSs will the be number of intergene nucleotides plus the number
+            #of genes in the region S:
+        if self.wraps():
+            lenS0s = self.swraplen - self.beforeL.sc2
+            lenS1s = self.beforeR.sc1 + 1
+            lenSs = lenS0s + lenS1s
+
+            lenS0t = self.twraplen - self.beforeL.tc2
+            lenS1t = self.beforeR.tc1
+            lenSt =  lenS0t + lenS1t
+
+            self.lenS0s = lenS0s
+            self.lenS1s = lenS1s
+            self.lenS0t = lenS0t
+            self.lenS1t = lenS1t
+        else:
+            lenSs = self.beforeR.sc1 - self.beforeL.sc2
+            lenSt = self.beforeR.tc1 - self.beforeL.tc2
+
+        self.lenI1 = lenI1
+        self.lenJ0 = lenJ0
+        self.lenJ1 = lenJ1
+        self.lenSs = lenSs
+        self.lenSt = lenSt
+
+        if self.wraps():
+            s_herestart = self.beforeL.sc1 + lenI1 + lenS0s - lenJ1
+            s_hereend = s_herestart + lenI0 + lenJ1
+            t_herestart = self.beforeL.tc1 + lenI1 + lenS0t - lenJ1
+            t_hereend = t_herestart + lenI0 + lenJ1
+            assert t_hereend == self.twraplen
+            
+            s_leftstart = self.beforeH.sc1 - (lenS1s + lenJ0 + lenJ1)
+            s_leftend = s_leftstart + (self.beforeH.s_bp - self.beforeH.sc1) + lenI1
+            t_leftstart = self.beforeH.tc1 - (lenS1t + lenJ0 + lenJ1)
+            t_leftend = t_leftstart + (self.beforeH.t_bp - self.beforeH.tc1) + lenI1
+
+            s_rightstart = self.beforeH.s_bp - lenJ1 + lenI1 + lenS0s - lenJ0
+            s_rightend = s_rightstart + (self.beforeH.sc2 - self.beforeH.s_bp) + lenJ0
+            t_rightstart = self.beforeH.t_bp - lenJ1 + lenI1 + lenS0t - lenJ0
+            t_rightend = t_rightstart + (self.beforeH.tc2 - self.beforeH.t_bp) + lenJ0
+
+            leftposition = 0
+            rightposition = self.beforeH.position + (self.numintergenes - self.beforeL.position - 1)
+            hereposition = self.numintergenes - 1
+        else:
+            if self.sbpH > self.sbpR:   # I0 I1 S J0 J1 ... K0 K1
+                s_herestart = self.beforeL.sc1
+                s_hereend = s_herestart + lenI0 + lenJ1
+                t_herestart = self.beforeL.tc1
+                t_hereend = t_herestart + lenI0 + lenJ1
+
+                s_leftstart = self.beforeH.sc1 - (lenSs + lenI1 + lenJ0)
+                s_leftend = s_leftstart + lenK0 + lenI1
+                t_leftstart = self.beforeH.tc1 - (lenSt + lenI1 + lenJ0)
+                t_leftend = t_leftstart + lenK0 + lenI1
+
+                leftposition = self.beforeH.position + Spositions
+                rightposition = self.beforeR.position
+                hereposition = self.beforeL.position
+
+            elif self.sbpH < self.sbpL: # K0 K1 ... I0 I1 S J0 J1
+                s_herestart = self.beforeL.sc1 + lenI1 + lenJ0 + lenSs
+                s_hereend = s_herestart + lenI0 + lenJ1
+                t_herestart = self.beforeL.tc1 + lenI1 + lenJ0 + lenSt
+                t_hereend = t_herestart + lenI0 + lenJ1
+
+                s_leftstart = self.beforeH.sc1
+                s_leftend = s_leftstart + lenK0 + lenI1
+                t_leftstart = self.beforeH.tc1
+                t_leftend = t_leftstart + lenK0 + lenI1
+
+                leftposition = self.beforeH.position
+                rightposition = leftposition + Spositions
+                hereposition = self.beforeR.position
+
+            else:
+                raise(Exception('unexpected relationship between bp coordinates'))
+
+            s_rightstart = s_leftend + lenSs
+            s_rightend = s_rightstart + lenJ0 + lenK1
+            t_rightstart = t_leftend + lenSt
+            t_rightend = t_rightstart + lenJ0 + lenK1
+
+        sbreakL = s_leftstart + lenK0
+        sbreakR = s_rightstart + lenJ0
+        sbreakH = s_herestart + lenI0
+        tbreakL = t_leftstart + lenK0
+        tbreakR = t_rightstart + lenJ0
+        tbreakH = t_herestart + lenI0
+
+        self.afterH = Interval(t_herestart, t_hereend, s_herestart, s_hereend,
+                               hereposition, POS, tbreakH, sbreakH)
+        self.afterL = Interval(t_leftstart, t_leftend, s_leftstart, s_leftend,
+                               leftposition, POS, tbreakL, sbreakL)
+        self.afterR = Interval(t_rightstart, t_rightend, s_rightstart, s_rightend,
+                               rightposition, POS, tbreakR, sbreakR)
+
+    def afterToBeforeS(self, sc: int) -> int:
+        """
+        Given a specific breakpoint coordinate after this Transposition, return
+        the same one before.
+
+            I0 I1 S J0 J1 ... K0 K1
+            I0 J1 ... K0 I1 S J0 K1
+
+            or
+
+            K0 K1 ... I0 I1 S J0 J1
+            K0 I1 S J0 K1 ... I0 J1
+
+            or
+
+            S1 J0 J1 ... K0 K1 ... I0 I1 S0
+            ... K0 I1 S0 S1 J0 K1 ... I0 J1
+
+        """
+        if self.wraps():
+            if sc <= self.afterL.s_bp:                              # ... K0
+                return sc + self.lenS1s + self.lenJ0 + self.lenJ1
+            elif sc <= self.afterL.s_bp + self.lenI1 + self.lenS0s: # I1 S0
+                return self.beforeL.s_bp + (sc - self.afterL.s_bp)
+            elif sc < self.afterR.s_bp:                             # S1 J0
+                return sc - (self.afterL.s_bp + self.lenI1 + self.lenS0s) - 1
+            elif sc <= self.afterH.s_bp:                            # K1 ... I0
+                return sc - (self.lenI1 + self.lenS0s) + self.lenJ1
+            else:                                                   # J1
+                return (sc - self.afterH.s_bp) + self.lenS1s + self.lenJ0 - 1
+        else:
+            if self.sbpH > self.sbpR:               # I0 J1 ... K0 I1 S J0 K1
+                if self.afterH.s_bp < sc <= self.afterL.s_bp:       # J1 ... K0
+                    return sc + self.lenI1 + self.lenSs + self.lenJ0
+                elif self.afterL.s_bp < sc < self.afterR.s_bp:      # I1 S J0
+                    return self.afterH.s_bp + (sc - self.afterL.s_bp)
+                else:
+                    return sc
+            else:                                   # K0 I1 S J0 K1 ... I0 J1
+                if self.afterL.s_bp < sc < self.afterR.s_bp:        # I1 S J0
+                    return self.beforeL.s_bp + (sc - self.afterL.s_bp)
+                elif self.afterR.s_bp <= sc < self.afterH.s_bp:     # K1 ... I0
+                    return sc - (self.lenI1 + self.lenSs + self.lenJ0)
+                else:
+                    return sc
+
+    def afterToBeforeT(self, tc: int) -> int:
+        """
+        Given a total breakpoint coordinate after this Transposition, return the
+        same one before.
+
+            I0 I1 S J0 J1 ... K0 K1
+            I0 J1 ... K0 I1 S J0 K1
+
+            or
+
+            K0 K1 ... I0 I1 S J0 J1
+            K0 I1 S J0 K1 ... I0 J1
+
+            or
+
+            S1 J0 J1 ... K0 K1 ... I0 I1 S0
+            ... K0 I1 S0 S1 J0 K1 ... I0 J1
+        """
+        if self.wraps():
+            if tc <= self.afterL.t_bp:                              # ... K0
+                return tc + self.lenS1t + self.lenJ0 + self.lenJ1
+            elif tc <= self.afterL.t_bp + self.lenI1 + self.lenS0t: # I1 S0
+                return self.beforeL.t_bp + (tc - self.afterL.t_bp)
+            elif tc < self.afterR.t_bp:                             # S1 J0
+                return tc - (self.afterL.t_bp + self.lenI1 + self.lenS0t)
+            elif tc <= self.afterH.t_bp:                            # K1 ... I0
+                return tc - (self.lenI1 + self.lenS0t) + self.lenJ1
+            else:                                                   # J1
+                return (tc - self.afterH.t_bp) + self.lenS1t + self.lenJ0
+        else:
+            if self.tbpH > self.tbpR:               # I0 J1 ... K0 I1 S J0 K1
+                if self.afterH.t_bp < tc <= self.afterL.t_bp:       # J1 ... K0
+                    return tc + self.lenI1 + self.lenSt + self.lenJ0
+                elif self.afterL.t_bp < tc < self.afterR.t_bp:      # I1 S J0
+                    return self.afterH.t_bp + (tc - self.afterL.t_bp)
+                else:
+                    return tc
+            else:                                   # K0 I1 S J0 K1 ... I0 J1
+                if self.afterL.t_bp < tc < self.afterR.t_bp:        # I1 S J0
+                    return self.beforeL.t_bp + (tc - self.afterL.t_bp)
+                elif self.afterR.t_bp <= tc < self.afterH.t_bp:     # K1 ... I0
+                    return tc - (self.lenI1 + self.lenSt + self.lenJ0)
+                else:
+                    return tc
 
 #-- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - --
 class Inversion(EventTwoCuts):
