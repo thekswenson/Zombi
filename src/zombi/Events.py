@@ -61,7 +61,11 @@ class EventOneCut(GenomeEvent):
     before: Interval
         the intergenic interval to be cut
     """
-    pass
+    def __init__(self, interval: Interval, sbp: int, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        assert interval.inSpecific(sbp)
+        self.before: Interval = interval
+        self.sbp: int = sbp
 
 class EventTwoCuts(GenomeEvent):
     """
@@ -131,15 +135,99 @@ class EventTwoCuts(GenomeEvent):
         return tc
 
 #-- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - --
-class Origination(GenomeEvent):
-    pass
+class Origination(EventOneCut):
+    """
+    An origination, where a new gene in placed within an intergene.
+
+    Attributes
+    ----------
+    afterL: Interval
+        the left intergenic interval after the cut
+    afterR: Interval
+        the right intergenic interval after the cut
+    """
+    def __init__(self, interval: Interval, sbp: int, genelen:int,
+                 lineage: str, time: float):
+        """
+        Create an Origination event.
+
+        Parameters
+        ----------
+        interval: Interval
+            the intergenic interval to put the new gene in
+        sbp: int
+            the exact spot to put it cut
+        genelen: int
+            the length of the inserted gene
+        lineage: str
+            the lineage on which the event happened (pendant node name)
+        time: float
+            the time at which it happened
+        """
+        super().__init__(interval, sbp, ORIG, lineage, time)
+        self.afterL: Interval = None
+        self.afterR: Interval = None
+        self.genelen = genelen
+
+        self.setAfter()
+
+    def setAfter(self):
+        """
+        Compute the resulting intergenic intervals after the cut.
+
+        Consider intergenic regions I = `before`:
+
+            ... I ...
+
+        I is split at `self.sbp` into I0 I1.  And the origination produces:
+
+            ... I0 G I1 ...
+        """
+        lenI0 = self.sbp - self.before.sc1
+        lenI1 = self.before.sc2 - self.sbp
+        self.afterL = Interval(self.before.tc1, self.before.tc1 + lenI0,
+                               self.before.sc1, self.sbp,
+                               self.before.position, 'I')
+
+        tstart = (self.before.t_bp - lenI1) + self.genelen + 1
+        self.afterR = Interval(tstart, tstart + lenI1,
+                               self.sbp+1, self.sbp+1 + lenI1,
+                               self.before.position+1, 'I')
+
+    def afterToBeforeS(self, sc: int) -> int:
+        """
+        Given a specific breakpoint coordinate after this Origination, return
+        the same one before.
+
+            ... I ...       became
+            ... I0 G I1 ...
+        """
+        if sc > self.afterL.sc2:
+            return sc-1
+        
+        return sc
+
+    def afterToBeforeT(self, tc: int) -> int:
+        """
+        Given a total breakpoint coordinate after this Origination, return
+        the same one before.
+
+            ... I ...       became
+            ... I0 G I1 ...
+        """
+        if self.afterL.tc2 < tc < self.afterR.tc1:
+            raise(MapOriginError('tried to map a gene coordinate'))
+        elif tc >= self.afterR.tc1:
+            return tc - self.genelen
+        
+        return tc
 
 #-- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - --
 class Loss(EventTwoCuts):
     """
     A loss event.
 
-    ATTRIBUTES
+    Attributes
     ----------
     after: Interval
         the intergenic interval after the cut
@@ -271,7 +359,7 @@ class Loss(EventTwoCuts):
             tend = tstart + lenI0 + lenJ1
 
         self.after = Interval(tstart, tend, sstart, send,
-                              position, LOSS, newtbp, newsbp)
+                              position, 'I', newtbp, newsbp)
 
     def afterToBeforeS(self, sc: int) -> int:
         """
@@ -422,6 +510,8 @@ class Loss(EventTwoCuts):
                     return self.assertT(tc)
 
 class MapPseudogeneError(Exception):
+    pass
+class MapOriginError(Exception):
     pass
 
 #-- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - --
@@ -619,11 +709,11 @@ class Transposition(EventTwoCuts):
         tbreakH = t_herestart + lenI0
 
         self.afterH = Interval(t_herestart, t_hereend, s_herestart, s_hereend,
-                               hereposition, POS, tbreakH, sbreakH)
+                               hereposition, 'I', tbreakH, sbreakH)
         self.afterL = Interval(t_leftstart, t_leftend, s_leftstart, s_leftend,
-                               leftposition, POS, tbreakL, sbreakL)
+                               leftposition, 'I', tbreakL, sbreakL)
         self.afterR = Interval(t_rightstart, t_rightend, s_rightstart, s_rightend,
-                               rightposition, POS, tbreakR, sbreakR)
+                               rightposition, 'I', tbreakR, sbreakR)
 
     def afterToBeforeS(self, sc: int) -> int:
         """
@@ -849,9 +939,9 @@ class Inversion(EventTwoCuts):
             tbreakR = self.tbpR
 
         self.afterL = Interval(tleftstart, tleftend, sleftstart, sleftend,
-                               self.beforeL.position, INV, tbreakL, sbreakL)
+                               self.beforeL.position, 'I', tbreakL, sbreakL)
         self.afterR = Interval(trightstart, trightend, srightstart, srightend,
-                               self.beforeR.position, INV, tbreakR, sbreakR)
+                               self.beforeR.position, 'I', tbreakR, sbreakR)
 
     def afterToBeforeS(self, sc: int) -> int:
         """
@@ -1037,11 +1127,11 @@ class TandemDup(EventTwoCuts):
     
         position = self.beforeL.position + self.numintergenes + 1
         self.afterC = Interval(tcenterstart, tcenterend,
-                               scenterstart, scenterend, position, INV,
+                               scenterstart, scenterend, position, 'I',
                                tcenterbreak, scenterbreak)
         position += self.numintergenes + 1
         self.afterR = Interval(trightstart, trightend,
-                               srightstart, srightend, position, INV)
+                               srightstart, srightend, position, 'I')
 
     def afterToBeforeS(self, sc: int) -> int:
         """

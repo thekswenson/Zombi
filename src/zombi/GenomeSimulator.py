@@ -9,7 +9,7 @@ import networkx as nx
 from typing import Tuple, Set, Dict, Union
 
 from . import AuxiliarFunctions as af
-from .Events import Loss, TandemDup, Inversion, Transposition
+from .Events import Loss, Origination, TandemDup, Inversion, Transposition
 from .Genomes import Chromosome, CircularChromosome, Gene, GeneFamily, Genome, Division, DivisionFamily, Intergene
 from .Genomes import T_DIR, LEFT, RIGHT, Intergene, LinearChromosome
 
@@ -1450,9 +1450,9 @@ class GenomeSimulator():
         lineage = random.choice(list(self.active_genomes))
         event = self.choose_event(duplication, transfer, loss, inversion, transposition, origination)
 
-        for chromosome in self.all_genomes[lineage]:
-            chromosome.obtain_flankings()
-            chromosome.obtain_locations()
+        for ch in self.all_genomes[lineage]:
+            ch.obtain_flankings()
+            ch.obtain_locations()
 
         if event == "D":
 
@@ -1460,8 +1460,8 @@ class GenomeSimulator():
             if r == None:
                 return None
             else:
-                c1, c2, d = r
-                self.make_duplication_within_intergene(c1, c2, d, lineage, time)
+                ch, c1, c2, d = r
+                self.make_duplication_within_intergene(ch, c1, c2, d, lineage, time)
 
             return "D", lineage
 
@@ -1488,8 +1488,8 @@ class GenomeSimulator():
                 if r == None:
                     return None
                 else:
-                    c1, c2, d = r
-                    self.make_transfer_intergenic(c1, c2, d, donor, recipient, time)
+                    ch, c1, c2, d = r
+                    self.make_transfer_intergenic(ch, c1, c2, d, donor, recipient, time)
 
                 return "T", donor + "->" + recipient
 
@@ -1503,11 +1503,11 @@ class GenomeSimulator():
             if r == None:
                 return None
             else:
-                c1, c2, d = r
+                ch, c1, c2, d = r
                 pseudo = False
                 if numpy.random.uniform(0,1) <= float(self.parameters["PSEUDOGENIZATION"]):
                     pseudo = True
-                self.make_loss_intergenic(c1, c2, d, lineage, time, pseudo)
+                self.make_loss_intergenic(ch, c1, c2, d, lineage, time, pseudo)
 
             return "L", lineage
 
@@ -1518,8 +1518,8 @@ class GenomeSimulator():
             if r == None:
                 return None
             else:
-                c1, c2, d = r
-                self.make_inversion_intergenic(c1, c2, d, lineage, time)
+                ch, c1, c2, d = r
+                self.make_inversion_intergenic(ch, c1, c2, d, lineage, time)
 
             return "I", lineage
 
@@ -1529,20 +1529,19 @@ class GenomeSimulator():
             if r == None:
                 return None
 
-            c1, c2, d = r
+            ch, c1, c2, d = r
 
-            c3 = chromosome.select_random_intergenic_coordinate_excluding(c1, c2, d)
-            self.make_transposition_intergenic(c1, c2, d, c3, lineage, time)
+            c3 = ch.select_random_intergenic_coordinate_excluding(c1, c2, d)
+            self.make_transposition_intergenic(ch, c1, c2, d, c3, lineage, time)
 
             return "P", lineage
 
         elif event == "O":
-
-            gene, gene_family = self.make_origination(lineage, time)
-            chromosome = self.all_genomes[lineage].select_random_chromosome()
-            intergene_coordinate = chromosome.select_random_coordinate_in_intergenic_regions()
-            location = chromosome.return_location_by_coordinate(intergene_coordinate, within_intergene=True)
-            chromosome.insert_gene_within_intergene(intergene_coordinate, location, gene)
+                
+            ch = self.all_genomes[lineage].select_random_chromosome()
+            intergene_coordinate = ch.select_random_coordinate_in_intergenic_regions()
+            self.make_origination_intergenic(ch, intergene_coordinate,
+                                             lineage, time)
 
             return "O", lineage
 
@@ -1633,6 +1632,20 @@ class GenomeSimulator():
             gene_family.rates["LOSS"] = l
 
         return gene, gene_family
+
+    def make_origination_intergenic(self, chromosome: Chromosome, c: int,
+                                    lineage, time) -> Gene:
+
+        gene, _ = self.make_origination(lineage, time)
+        location = chromosome.return_location_by_coordinate(c, within_intergene=True)
+        chromosome.insert_gene_within_intergene(c, location, gene)
+
+        orig = Origination(location, c, gene.length, lineage, time)
+        chromosome.event_history.append(orig)
+
+        return gene
+
+
 
     def make_speciation(self, sp, c1, c2, time, intergene=False):
 
@@ -1898,7 +1911,8 @@ class GenomeSimulator():
             self.all_genomes[lineage].interactome.add_edges_from(edges_to_add_to_new_node)
 
 
-    def make_duplication_within_intergene(self, c1: int, c2: int, d: T_DIR,
+    def make_duplication_within_intergene(self, chromosome: CircularChromosome,
+                                          c1: int, c2: int, d: T_DIR,
                                           lineage: str, time: float):
         """
         Do a duplication that acts on the given pair of intergene spcific
@@ -2414,9 +2428,9 @@ class GenomeSimulator():
 
 
 
-    def make_transfer_intergenic(self, c1, c2, d: T_DIR, donor, recipient, time):
+    def make_transfer_intergenic(self, chromosome1, c1, c2, d: T_DIR, donor,
+                                 recipient, time):
 
-        chromosome1: CircularChromosome = self.all_genomes[donor].select_random_chromosome()
         r = chromosome1.return_affected_region(c1, c2, d)
 
         if r == None:
@@ -2530,9 +2544,9 @@ class GenomeSimulator():
             gene.active = False
             self.all_gene_families[gene.gene_family].register_event(time, "L", ";".join(map(str,[lineage, gene.gene_id])))
 
-    def make_loss_intergenic(self, c1, c2, d: T_DIR, lineage, time, pseudo=False):
+    def make_loss_intergenic(self, chromosome, c1, c2, d: T_DIR, lineage, time,
+                             pseudo=False):
 
-        chromosome: CircularChromosome = self.all_genomes[lineage].select_random_chromosome()
         r = chromosome.return_affected_region(c1, c2, d)
 
         if r == None:
@@ -2648,7 +2662,8 @@ class GenomeSimulator():
             self.all_gene_families[gene.gene_family].register_event(str(time), "I", ";".join(map(str,[lineage, gene.gene_id])))
 
     
-    def make_inversion_intergenic(self, c1: int, c2: int, d: T_DIR, lineage: str, time: float):
+    def make_inversion_intergenic(self, chromosome, c1: int, c2: int, d: T_DIR,
+                                  lineage: str, time: float):
         
         """
         Do an inversion that acts on the given pair of intergene specific
@@ -2680,7 +2695,6 @@ class GenomeSimulator():
         time : float
             the time stamp of the event
         """
-        chromosome: CircularChromosome = self.all_genomes[lineage].select_random_chromosome()
         r = chromosome.return_affected_region(c1, c2, d)
 
         if r == None:
@@ -2732,9 +2746,9 @@ class GenomeSimulator():
         for gene in segment:
             self.all_gene_families[gene.gene_family].register_event(str(time), "P", ";".join(map(str,[lineage, gene.gene_id])))
 
-    def make_transposition_intergenic(self, c1, c2, d: T_DIR, c3, lineage, time):
+    def make_transposition_intergenic(self, chromosome, c1, c2, d: T_DIR, c3,
+                                      lineage, time):
 
-        chromosome: CircularChromosome = self.all_genomes[lineage].select_random_chromosome()
         r = chromosome.return_affected_region(c1, c2, d)
 
         if r == None:
