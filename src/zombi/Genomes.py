@@ -450,14 +450,17 @@ class Division():
     events: list
         a list with all the events affecting this division
     """
-    def __init__(self, division_family: str, specific_flanking: T_PAIR = None):
+    def __init__(self, identity: int, division_family: str, specific_flanking: T_PAIR = None):
 
+        self.identity = identity # Specific identifier of this division
         self.division_family = division_family # The name of the division family
         self.specific_flanking: T_PAIR = specific_flanking   #: not pythonic (both inclusive)
-        self.division_family = division_family
         
     def __str__(self):
-        return str(self.specific_flanking)
+        return str(self.division_family) + "_" + str(self.identity)
+
+    def __len__(self):
+        return int(abs(self.specific_flanking[1] - self.specific_flanking[0]))
 
 
 class Intergene():
@@ -511,10 +514,10 @@ class Intergene():
     def inSpecific(self, sc:int) -> bool:
         return self.specific_flanking[0] <= sc <= self.specific_flanking[1]
     
-    def create_division(self, division_family, specific_flanking):
+    def create_division(self, identity, division_family, specific_flanking):
         """
         """
-        division = Division(division_family, specific_flanking)
+        division = Division(identity, division_family, specific_flanking)
         self.divisions.append(division)
         
 
@@ -529,6 +532,9 @@ class Intergene():
 
         for x in self.divisions:
             yield x
+   
+    def __len__(self):
+       return self.length
 
 class DivisionFamily():
     """
@@ -543,13 +549,18 @@ class DivisionFamily():
 
         self.id = id
         self.events = list()
+        self.gene_ids_counter = 0
         self.initial_flanking  = initial_specific_flanking
 
-    def register_event(self, time, event, genes):
-        self.events.append((time, event, genes))
+    def register_event(self, time, event, divisions):
+        self.events.append((time, event, divisions))
+    
+    def obtain_new_identifier(self):
+        self.gene_ids_counter += 1
+        return self.gene_ids_counter
 
     def __repr__():
-        return str(self.initital_flanking)
+        return str(self.initial_flanking)
     
   
 
@@ -1422,7 +1433,6 @@ class Genome():
         self.species = species
 
         for ch in self.chromosomes:
-
             for gene in ch:
                 gene.species = species
 

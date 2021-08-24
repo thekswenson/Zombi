@@ -175,10 +175,9 @@ class Zombi():
         print("Writing Genomes")
         
         if advanced_mode == "f":
+            
             gss.write_genomes(genomes_folder, intergenic_sequences=True)
             gss.write_gene_family_lengths(genome_folder)
-            #gss.obtain_divisions() # This obtain the divisions at the root,
-            #gss.obtain_events_for_divisions() # This runs again the simulation forward
 
             if root_genome:
                 gss.write_gene_family_info(genome_folder)
@@ -225,6 +224,10 @@ class Zombi():
             print("Writing Gene Trees")
             gene_trees_folder = os.path.join(genome_folder, "Gene_trees")
             gss.write_gene_trees(gene_trees_folder, reconciliations=True, gene_trees=False)
+
+        if advanced_mode == "f":
+            gss.obtain_divisions() # This obtain the divisions at the root,
+            gss.obtain_events_for_divisions() # This runs again the simulation forward
 
     def S(self, parameters_file, experiment_folder, advanced_mode, num_threads: int, fasta_file: str):
 
@@ -428,7 +431,7 @@ def simulate_sequences_on_tree(tree_file: str, gene_trees_folder: str,
 
 
 if __name__ == "__main__":
-
+    
     parser = argparse.ArgumentParser()
 
     #parser.add_argument("mode", type=str, choices=["T", "Ti", "Tb", "Tp", "G", "Gu", "Gf", "Gi", "S", "Su", "Sf"],
