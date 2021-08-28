@@ -182,8 +182,6 @@ class Zombi():
             if root_genome:
                 gss.write_gene_family_info(genome_folder)
 
-            gss.write_coordinates(genome_folder)
-
         else:
             gss.write_genomes(genomes_folder, intergenic_sequences=False)
 
@@ -230,6 +228,8 @@ class Zombi():
             gss.obtain_events_for_divisions() # This runs again the simulation forward
             division_trees_folder = os.path.join(genome_folder, "Division_trees")
             gss.write_division_trees(division_trees_folder)
+            gss.write_division_coordinates(genomes_folder)
+            
 
     def S(self, parameters_file, experiment_folder, advanced_mode, num_threads: int, fasta_file: str):
 

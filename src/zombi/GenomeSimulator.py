@@ -102,6 +102,33 @@ class GenomeSimulator():
                             line = "\t".join(map(str, line)) + "\n"
                             f.write(line)
                             i += 1
+        
+    def write_division_coordinates(self, genome_folder):
+
+        if not os.path.isdir(genome_folder):
+            os.mkdir(genome_folder)
+
+        for genome_name, genome in self.all_genomes_second.items():
+
+            with open(os.path.join(genome_folder, genome_name + "_DIVISIONS.tsv"), "w") as f:
+
+                header = ["DIVISION_FAMILY", "IDENTITY", "LENGTH", "FLANKING_LEFT_SPECIFIC", "FLANKING_RIGHT_SPECIFIC", "TOTAL_LEFT", "TOTAL_RIGHT"]
+                header = "\t".join(map(str, header)) + "\n"
+                f.write(header)
+
+                for chromosome in genome:
+                    chromosome.obtain_locations()
+                    for intergene in chromosome.iter_intergenes():
+                        for division in intergene:
+
+                            scl = division.specific_flanking[0]
+                            scr = division.specific_flanking[1]
+                            tcl = chromosome.return_total_coordinate_from_specific_coordinate(scl)
+                            tcr = chromosome.return_total_coordinate_from_specific_coordinate(scr)
+
+                            line = "\t".join(list(map(str, [division.division_family, division.identity, len(division), scl, scr, tcl, tcr ]))) + "\n"
+                            f.write(line)
+
 
     def write_gene_family_info(self, genome_folder:str,
                                filename="GeneFamily_info.tsv"):
@@ -148,25 +175,6 @@ class GenomeSimulator():
                 if gene_family.gff_id:
                     line = "\t".join([gene_family_name, str(gene_family.gff_id)]) + "\n"
                     f.write(line)
-    
-        
-    def write_coordinates(self, genome_folder:str, filename="Coordinates.tsv"):
-
-        """
-        Write a TSV file containing the coordinates of every genome
-
-        Args:
-            genome_folder (str): [the genome folder]
-            filename (str, optional): [Name of the coordinate file]. Defaults to "Coordinates".
-        """
-
-        with open(os.path.join(genome_folder, filename), "w" ) as f:
-
-            for coordinate in self.event_coordinates:   #NOTE: get events from chromosomes
-
-                line = "\t".join(list(map(str, coordinate))) + "\n"
-                
-                f.write(line)
                 
             
     def write_gene_family_lengths(self, genome_folder):
@@ -3045,6 +3053,9 @@ class GenomeSimulator():
 
         """
         This function obtain all the events (at the Species level and at the Genome level) that occur in every division
+        Once we have all the events for every division, we can reconstruct the division trees
+        The simulation is run once more from zero, using the same events generated in the main simulation
+        
         """
 
         def make_speciation_divisions(time, lineages):
@@ -3120,6 +3131,9 @@ class GenomeSimulator():
 
             genome1.update_genome_species(c1)
             genome2.update_genome_species(c2)  
+
+            #print(len([x for x in ch1.iter_intergenes()]))
+            
 
         def make_extinction_divisions(time, lineage):
             genome = self.all_genomes_second[lineage]
@@ -3239,12 +3253,83 @@ class GenomeSimulator():
                 self.gene_families_second[gene_family].genes.append(new_segment_2[i])
                 self.gene_families_second[gene.gene_family].register_event(time, "D", ";".join(map(str, nodes)))
 
+        def make_loss_divisions(time, event):
+
+            lineage = event.lineage
+            chromosome = [x for x in self.all_genomes_second[lineage]][0] # This should be corrected, only works if the genomes have a single chromosome
+            
+            chromosome.obtain_flankings()
+            chromosome.obtain_locations()
+            
+            pseudo = event.pseudo
+
+            c1 = event.sbpL
+            c2 = event.sbpR
+
+            r = chromosome.return_affected_region(event.sbpL, event.sbpR, RIGHT)
+
+            if r == None:
+                return None
+
+            gpositions, igpositions, leftlengths, rightlengths, int1, int2 = r
+
+            segment = chromosome.obtain_segment(gpositions)
+            intergene_segment = chromosome.obtain_intergenic_segment(igpositions[1:])
+
+            scar1 = chromosome.intergenes[igpositions[0]]
+
+            # Get old lengths from last intergene before modifying chromosome.
+            specificlen = chromosome.intergenes[-1].specific_flanking[1]
+            totallen = chromosome.intergenes[-1].total_flanking[1]
+
+            # Now we remove the genes
+
+            for gene in segment:
+                chromosome.genes.remove(gene)
+
+            # Now we remove the intergenes
+
+            for intergene in intergene_segment:
+                chromosome.intergenes.remove(intergene)
+
+            # We modify the length of the scar:
+
+            pseudo_intergenes = []
+            if pseudo:
+                pseudo_intergenes = intergene_segment
+
+            loss = Loss(int1, int2, c1, c2, specificlen, totallen, lineage, time,
+                        pseudo, pseudo_intergenes)
+            chromosome.event_history.append(loss)
+
+            if pseudo:
+
+                # We need to add the length of the genes removed
+                scar1.length = sum(leftlengths) + sum(rightlengths) \
+                            + sum([x.length for x in segment]) \
+                            + sum([x.length for x in intergene_segment[:-1]])
+            else:
+
+                scar1.length = leftlengths[0] + rightlengths[1]
+
+            # We have to register in the affected gene families that there has been as loss
+            # All genes affected must be returned
+
+            for gene in segment:
+                gene.active = False
+                self.gene_families_second[gene.gene_family].register_event(time, "L", ";".join(map(str,[lineage, gene.gene_id])))
+
+
+        ######
+
+    
         self.all_genomes_second = dict()
         self.gene_families_second = self.initial_gene_families
         self.all_genomes_second["Root"] = self.initial_genome
 
+       # We create a list of all the events (T and G) that we will order by time
+
         all_events = list()
-        
         all_events += [("T",x) for x in self.tree_events]
         for node in self.complete_tree.traverse():
            genome = self.all_genomes[node.name]            
@@ -3252,9 +3337,11 @@ class GenomeSimulator():
                for event in chromosome.event_history: 
                    all_events.append(("G", (event.time, event, chromosome)))
  
+       # We start with the initial genome, that we preserved in a copy of the initial genome in the main simulation
+       
         genome = self.initial_genome
         
-        for items in sorted(all_events, key=lambda x: float(x[1][0])):
+        for items in sorted(all_events, key=lambda x: float(x[1][0])): # This sorts the events by the time
 
             # We unpack the events
 
@@ -3276,13 +3363,18 @@ class GenomeSimulator():
             # Genome level events
 
             if etype == "D":
-
                 make_duplication_divisions(time, event)
+            if etype == "L":
+                make_loss_divisions(time, event)
 
-
-            
 
     def write_division_trees(self, division_tree_folder):
+
+        """
+        This function writes the division trees and a file documenting the lenghts of every
+        division in the initial genome
+        
+        """
 
         if not os.path.isdir(division_tree_folder):
             os.mkdir(division_tree_folder)
@@ -3296,7 +3388,12 @@ class GenomeSimulator():
             if pruned_tree != None:
                 with open(os.path.join(division_tree_folder, division_family_name + "_prunedtree.nwk"), "w") as f:
                     f.write(pruned_tree)
-        
+            
+        with open(os.path.join(division_tree_folder, "Division_lengths.tsv"), "w") as f:
+            for division_family_name, division_family in self.all_division_families.items():
+                f.write("\t".join(list(map(str,[division_family_name, len(division_family)]))) + "\n")
+
+    
 
 
 

@@ -768,6 +768,9 @@ class DivisionFamily():
     def __repr__():
         return str(self.initial_flanking)
 
+    def __len__(self):
+        return int(self.initial_flanking[1] -  self.initial_flanking[0])
+
     
   
 
