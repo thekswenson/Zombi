@@ -1960,7 +1960,7 @@ class GenomeSimulator():
         time : float
             the time stamp of the event
         """
-
+        
         chromosome: CircularChromosome = self.all_genomes[lineage].select_random_chromosome()
         r = chromosome.return_affected_region(c1, c2, d)
 
@@ -3009,18 +3009,15 @@ class GenomeSimulator():
         initial_chromosome = self.initial_genome.chromosomes[0]   
         all_cuts = list()
         natural_cuts = list()
-        #print("Events natural")
+
         for intergene in initial_chromosome.iter_intergenes(): # These are the natural cuts from the intergenes (the limits with the genes)
             
             cut1, cut2 = intergene.specific_flanking
-            #print(cut1, cut2)
             natural_cuts.append((cut1, cut2))
             
             all_cuts.append(cut1)
             all_cuts.append(cut2)
         
-        #print("events from dups")
-        #print(sorted(list(self.complete_tree.cuts)))
         all_cuts +=  sorted(list(self.complete_tree.cuts)) # These are the cuts from the events ## NEED TO FIX THiS        
         
         # These are the cuts surrounding the Genes. We don't need to treat these
@@ -3031,22 +3028,18 @@ class GenomeSimulator():
         initial_specific_flankings = zip(all_cuts, all_cuts[1:] + [all_cuts[0]])
         fam_id = 0
 
-        for initial_specific_flankings in initial_specific_flankings:
-            c1, c2 = initial_specific_flankings
-            if (c1, c2) in cuts_to_ignore:
+        for initial_specific_flanking in initial_specific_flankings:
+            c1, c2 = initial_specific_flanking
+            if (c1, c2) in cuts_to_ignore: # We need to ignore the cuts where c1 is the right most extreme of an intergene and c2 is the left most extreme of the next intergene
                 continue
-            #print(c1, c2)
-
-            intergene = initial_chromosome.return_intergene_by_coordinate(c1)
-            division = intergene.create_division(0, fam_id, initial_specific_flankings) # Identifier is 0 in the beginning
-            division_family = DivisionFamily(fam_id, initial_specific_flankings)
-            division_family.register_event(0, "O", "Root") # We register the origination 
-            self.all_division_families[str(fam_id)] = division_family
-            fam_id += 1
             
-        #for intergene in initial_chromosome.iter_intergenes():
-        #    for division in intergene:
-        #        print(intergene, division)
+            fam_id += 1
+            intergene = initial_chromosome.return_intergene_by_coordinate(c1)
+            division = intergene.create_division("1", fam_id, initial_specific_flanking) # Identifier is 1 in the beginning
+            division_family = DivisionFamily(fam_id, initial_specific_flanking)
+            division_family.register_event(0, "O", "Root") # We register the origination 
+            
+            self.all_division_families[str(fam_id)] = division_family
 
     def obtain_events_for_divisions(self):
 
@@ -3054,7 +3047,7 @@ class GenomeSimulator():
         This function obtain all the events (at the Species level and at the Genome level) that occur in every division
         """
 
-        def make_speciation_divisions(lineages):
+        def make_speciation_divisions(time, lineages):
 
             pn, c1, c2 = lineages.split(";") # Parent, child1, child2
             
@@ -3128,44 +3121,182 @@ class GenomeSimulator():
             genome1.update_genome_species(c1)
             genome2.update_genome_species(c2)  
 
+        def make_extinction_divisions(time, lineage):
+            genome = self.all_genomes_second[lineage]
+            for ch in genome:
+                for intergene in ch.iter_intergenes():
+                    for division in intergene:
+                        self.all_division_families[str(division.division_family)].register_event(str(time), "E", ";".join(
+                        map(str, [genome.species, division.identity])))
         
-        def make_extinction_divisions():
-            pass
-        
-        self.gene_families_second = self.initial_gene_families
+        def make_end_divisions(time, lineage):
+            
+            genome = self.all_genomes_second[lineage]
+            for ch in genome:
+                for intergene in ch.iter_intergenes():
+                    for division in intergene:
+                        
+                        self.all_division_families[str(division.division_family)].register_event(str(time), "F", ";".join(
+                        map(str, [genome.species, division.identity])))
+
+        def make_duplication_divisions(time, event):
+            
+            lineage = event.lineage
+            chromosome = [x for x in self.all_genomes_second[lineage]][0] # This should be corrected, only works if the genomes have a single chromosome
+            
+            chromosome.obtain_flankings()
+            chromosome.obtain_locations()
+
+            c1 = event.sbpL
+            c2 = event.sbpR
+
+            r = chromosome.return_affected_region(event.sbpL, event.sbpR, RIGHT)
+
+            if r == None:
+                return None
+    
+            genepositions, intergenepositions, leftlengths, rightlengths, int1, int2 = r
+            segment = chromosome.obtain_segment(genepositions)
+            #intergene_segment = chromosome.obtain_intergenic_segment(intergenepositions[1:])
+
+            new_identifiers1 = self.return_new_identifiers_for_segment_with_divisions(segment)
+            new_identifiers2 = self.return_new_identifiers_for_segment_with_divisions(segment)
+
+            # We duplicate the genes
+
+            new_segment_1 = af.copy_segment(segment, new_identifiers1)
+            new_segment_2 = af.copy_segment(segment, new_identifiers2)
+
+            # And the intergenes, which will have incorrect lengths until we update
+            # them later
+            
+            old_intergene_segment = [chromosome.intergenes[x] for x in intergenepositions[1:]]
+            new_intergene_segment_1 = [copy.deepcopy(chromosome.intergenes[x]) for x in intergenepositions[1:]]
+            new_intergene_segment_2 = [copy.deepcopy(chromosome.intergenes[x]) for x in intergenepositions[1:]]
+
+            for intergene, intergene1, intergene2 in zip(old_intergene_segment, new_intergene_segment_1, new_intergene_segment_2):
+                for division, division1, division2 in zip(intergene, intergene1, intergene2):
+                    division1.identity = self.all_division_families[str(division1.division_family)].obtain_new_identifier()
+                    division2.identity = self.all_division_families[str(division2.division_family)].obtain_new_identifier()
+                    nodes = [lineage, 
+                            division.identity,
+                            lineage,
+                            division1.identity,
+                            lineage,
+                            division2.identity
+                            ]
+                    self.all_division_families[str(division.division_family)].register_event(str(time), "D", ";".join(map(str,nodes)))
+
+
+            scar0 = chromosome.intergenes[intergenepositions[0]]
+            scar1 = new_intergene_segment_1[-1]
+            scar2 = new_intergene_segment_2[-1]
+
+            # Get old lengths from last intergene before modifying chromosome.
+            
+            specificlen = chromosome.intergenes[-1].specific_flanking[1]
+            totallen = chromosome.intergenes[-1].total_flanking[1]
+
+            #Replace the original set of genes/intergenes with the first copies:
+
+            for pos, newgene in zip(genepositions, new_segment_1):
+                chromosome.genes[pos] = newgene
+            for pos, newintergene in zip(intergenepositions[1:], new_intergene_segment_1): # I need to obtain new identifiers for the divisions
+                chromosome.intergenes[pos] = newintergene
+                
+            position = genepositions[-1] + 1
+
+            # Insert the second copy of new genes and intergenes after the first.
+            
+            for i, gene in enumerate(new_segment_2):
+                chromosome.genes.insert(position + i, gene)
+            for i, intergene in enumerate(new_intergene_segment_2):
+                chromosome.intergenes.insert(position + i, intergene)
+
+            dup = TandemDup(int1, int2, c1, c2, len(new_intergene_segment_1),
+                            specificlen, totallen, lineage, time)
+                
+            scar1.length = leftlengths[1] + rightlengths[0]
+            scar2.length = rightlengths[1] + rightlengths[0]
+
+            assert scar1.length == len(dup.afterC)
+            assert scar2.length == len(dup.afterR)
+            
+            chromosome.event_history.append(dup)
+
+            for i, gene in enumerate(segment):
+                nodes = [gene.species,
+                        gene.gene_id,
+                        new_segment_1[i].species,
+                        new_segment_1[i].gene_id,
+                        new_segment_2[i].species,
+                        new_segment_2[i].gene_id]
+
+                gene.active = False
+                gene_family = gene.gene_family
+
+                self.gene_families_second[gene_family].genes.append(new_segment_1[i])
+                self.gene_families_second[gene_family].genes.append(new_segment_2[i])
+                self.gene_families_second[gene.gene_family].register_event(time, "D", ";".join(map(str, nodes)))
+
         self.all_genomes_second = dict()
+        self.gene_families_second = self.initial_gene_families
         self.all_genomes_second["Root"] = self.initial_genome
 
         all_events = list()
-
-        all_events += self.tree_events
+        
+        all_events += [("T",x) for x in self.tree_events]
         for node in self.complete_tree.traverse():
            genome = self.all_genomes[node.name]            
            for chromosome in genome:
                for event in chromosome.event_history: 
-                   #print(event.etype, event.)
-                   #all_events.append(event)
-                   all_events.append([event.time, event.etype, event.lineage])
+                   all_events.append(("G", (event.time, event, chromosome)))
  
         genome = self.initial_genome
         
-        for event in sorted(all_events, key=lambda x: float(x[0])):
+        for items in sorted(all_events, key=lambda x: float(x[1][0])):
 
-            time, etype, lineages = event
+            # We unpack the events
+
+            if items[0] == "T":
+                time, etype, lineages = items[1] # In the case that it is a species level event
+            else:
+                time, event, chromosome = items[1]  # In the case that it is a genome level event
+                etype = event.etype
             
+            # Species level events
+
             if etype == "S":
-                make_speciation_divisions(lineages)
+                make_speciation_divisions(time, lineages)
+            if etype == "E":
+                make_extinction_divisions(time, lineages)
+            if etype == "F":
+                make_end_divisions(time, lineages)
+
+            # Genome level events
+
+            if etype == "D":
+
+                make_duplication_divisions(time, event)
 
 
-        # Now I have to assign the events to the divisions
-        # I start with the Initial Genome
+            
+
+    def write_division_trees(self, division_tree_folder):
+
+        if not os.path.isdir(division_tree_folder):
+            os.mkdir(division_tree_folder)
+
+        for division_family_name, division_family in self.all_division_families.items():
+            complete_tree, pruned_tree, _ = division_family.generate_tree()
+
+            with open(os.path.join(division_tree_folder, division_family_name + "_completetree.nwk"), "w") as f:
+                f.write(complete_tree)
+
+            if pruned_tree != None:
+                with open(os.path.join(division_tree_folder, division_family_name + "_prunedtree.nwk"), "w") as f:
+                    f.write(pruned_tree)
         
-        #for chromosome in genome:
-        #    for intergene in chromosome.iter_intergenes():
-        #        for division in intergene:
-        #            #print(len(intergene), len(division))
-        #            print(intergene, division)
-        #            pass
 
 
 

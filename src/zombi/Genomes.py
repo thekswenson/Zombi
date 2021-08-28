@@ -549,7 +549,7 @@ class DivisionFamily():
 
         self.id = id
         self.events = list()
-        self.gene_ids_counter = 0
+        self.gene_ids_counter = 1
         self.initial_flanking  = initial_specific_flanking
 
     def register_event(self, time, event, divisions):
@@ -559,8 +559,215 @@ class DivisionFamily():
         self.gene_ids_counter += 1
         return self.gene_ids_counter
 
+    def generate_tree(self):
+
+
+        def find_descendant(surviving_nodes, node):
+
+            found = 0
+            mynode = surviving_nodes[node]["descendant"]
+
+            while found == 0:
+
+                if surviving_nodes[mynode]["state"] == 1:
+                    found = 1
+                else:
+                    mynode = surviving_nodes[mynode]["descendant"]
+
+            return mynode
+
+        # Eric's algorithm
+
+        # First we will iterate the events from the end
+
+        events = self.events
+
+        surviving_nodes = dict()
+        times = dict()
+
+        family_size = 0
+
+        for current_time, event, nodes in events[::-1]:
+
+            if event == "F":
+
+                nodename = nodes.replace(";","_")
+                times[nodename] = float(current_time)
+                surviving_nodes[nodename] = {"state": 1, "descendant": "None"}
+
+                family_size += 1
+
+            elif event == "E" or event == "L":
+
+                nodename = nodes.replace(";", "_")
+
+                times[nodename] = float(current_time)
+                surviving_nodes[nodename] = {"state": 0, "descendant": "None"}
+
+            elif event == "S" or event == "D" or event == "T":
+
+                p, g0, c1, g1, c2, g2 = nodes.split(";")
+
+                pnodename = p + "_" + g0
+                c1nodename = c1 + "_" + g1
+                c2nodename = c2 + "_" + g2
+
+                times[pnodename] = float(current_time)
+
+                if surviving_nodes[c1nodename]["state"] == 1 and surviving_nodes[c2nodename]["state"] == 1:
+
+                    surviving_nodes[pnodename] = {"state": 1, "descendant": c1nodename + ";" + c2nodename}
+
+                elif surviving_nodes[c1nodename]["state"] == 0 and surviving_nodes[c2nodename]["state"] == 0:
+
+                    surviving_nodes[pnodename] = {"state": 0, "descendant": "None"}
+
+                elif surviving_nodes[c1nodename]["state"] == -1 and surviving_nodes[c2nodename]["state"] == -1:
+
+                    mynode1 = find_descendant(surviving_nodes, c1nodename)
+                    mynode2 = find_descendant(surviving_nodes, c2nodename)
+
+                    surviving_nodes[pnodename] = {"state": 1, "descendant": mynode1 + ";" + mynode2}
+
+                elif surviving_nodes[c1nodename]["state"] == 1 and surviving_nodes[c2nodename]["state"] == 0:
+
+                    surviving_nodes[pnodename] = {"state": -1, "descendant": c1nodename}
+
+                elif surviving_nodes[c1nodename]["state"] == 0 and surviving_nodes[c2nodename]["state"] == 1:
+
+                    surviving_nodes[pnodename] = {"state": -1, "descendant": c2nodename}
+
+                elif surviving_nodes[c1nodename]["state"] == 1 and surviving_nodes[c2nodename]["state"] == -1:
+
+                    mynode = find_descendant(surviving_nodes, c2nodename)
+                    surviving_nodes[pnodename] = {"state": 1, "descendant": c1nodename + ";" + mynode}
+
+                elif surviving_nodes[c1nodename]["state"] == -1 and surviving_nodes[c2nodename]["state"] == 1:
+
+                    mynode = find_descendant(surviving_nodes, c1nodename)
+                    surviving_nodes[pnodename] = {"state": 1, "descendant": mynode + ";" + c2nodename}
+
+                elif surviving_nodes[c1nodename]["state"] == -1 and surviving_nodes[c2nodename]["state"] == 0:
+
+                    mynode = find_descendant(surviving_nodes, c1nodename)
+                    surviving_nodes[pnodename] = {"state": -1, "descendant": mynode}
+
+                elif surviving_nodes[c1nodename]["state"] == 0 and surviving_nodes[c2nodename]["state"] == -1:
+
+                    mynode = find_descendant(surviving_nodes, c2nodename)
+                    surviving_nodes[pnodename] = {"state": -1, "descendant": mynode}
+
+        extanttree = RT.ReconciledTree()
+        completetree = RT.ReconciledTree()
+
+        eroot = extanttree.get_tree_root()
+        eroot.name = ""
+
+        wquick_nodes = dict()
+        equick_nodes = dict()
+
+        for i, values in enumerate(events):
+
+            current_time, event, nodes = values
+
+            if event == "O":
+
+                wroot = completetree.get_tree_root()
+                wroot.name = nodes + "_1"
+                wquick_nodes[wroot.name] = wroot
+
+            if event == "L" or event == "E":
+
+                p, g0 = nodes.split(";")
+                pnodename = p + "_" + g0
+                mynode = wquick_nodes[pnodename]
+                e = RT.RecEvent("L", p, int(float(current_time)))
+                mynode.addEvent(e, append=True)
+
+            if event == "F":
+
+                p, g0 = nodes.split(";")
+                pnodename = p + "_" + g0
+                mynode = wquick_nodes[pnodename]
+                e = RT.RecEvent("P", p, int(float(current_time)))
+                mynode.addEvent(e, append=True)
+
+            if event == "S" or event == "D" or event == "T":
+
+                p, g0, c1, g1, c2, g2 = nodes.split(";")
+                pnodename = p + "_" + g0
+                c1nodename = c1 + "_" + g1
+                c2nodename = c2 + "_" + g2
+
+                mynode = wquick_nodes[pnodename]
+                myc1 = mynode.add_child()
+                myc2 = mynode.add_child()
+                myc1.name = c1nodename
+                myc2.name = c2nodename
+                myc1.dist = times[c1nodename] - times[pnodename]
+                myc2.dist = times[c2nodename] - times[pnodename]
+
+                wquick_nodes[c1nodename] = myc1
+                wquick_nodes[c2nodename] = myc2
+
+                state = surviving_nodes[pnodename]["state"]
+
+                ### Now we add the reconciled events
+
+                e = RT.RecEvent(event, p, int(float(current_time)))
+                mynode.addEvent(e, append=True)
+
+                if state == 1:  # Now the extant tree
+
+                    c1name, c2name = surviving_nodes[pnodename]["descendant"].split(";")
+
+                    if eroot.name == "":
+                        eroot.name = pnodename
+                        equick_nodes[pnodename] = eroot
+
+                    mynode = equick_nodes[pnodename]
+
+                    myc1 = mynode.add_child()
+                    myc2 = mynode.add_child()
+
+                    myc1.name = c1name
+                    myc2.name = c2name
+
+                    myc1.dist = times[c1name] - times[pnodename]
+                    myc2.dist = times[c2name] - times[pnodename]
+
+                    equick_nodes[c1name] = myc1
+                    equick_nodes[c2name] = myc2
+
+        if family_size == 0:
+
+            extanttree = ";"
+
+        elif family_size == 1:
+
+
+            extanttree = [k for k, v in surviving_nodes.items() if v["state"] == 1 and v["descendant"] == "None"][
+                             0] + ";"
+
+        else:
+
+            extanttree = extanttree.write(format=1, format_root_node=True)
+
+        rec = completetree.getTreeRecPhyloXML()
+
+        if len(completetree) == 0:
+            completetree = ";"
+        elif len(completetree) == 1:
+            completetree = completetree.get_leaves()[0].name + ";"
+        else:
+            completetree = completetree.write(format=1, format_root_node=True)
+
+        return completetree, extanttree, rec
+        
+
     def __repr__():
         return str(self.initial_flanking)
+
     
   
 

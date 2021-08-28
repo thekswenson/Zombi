@@ -225,9 +225,11 @@ class Zombi():
             gene_trees_folder = os.path.join(genome_folder, "Gene_trees")
             gss.write_gene_trees(gene_trees_folder, reconciliations=True, gene_trees=False)
 
-        if advanced_mode == "f":
+        if advanced_mode == "f":    
             gss.obtain_divisions() # This obtain the divisions at the root,
             gss.obtain_events_for_divisions() # This runs again the simulation forward
+            division_trees_folder = os.path.join(genome_folder, "Division_trees")
+            gss.write_division_trees(division_trees_folder)
 
     def S(self, parameters_file, experiment_folder, advanced_mode, num_threads: int, fasta_file: str):
 
