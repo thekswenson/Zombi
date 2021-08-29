@@ -233,12 +233,15 @@ class Zombi():
 
     def S(self, parameters_file, experiment_folder, advanced_mode, num_threads: int, fasta_file: str):
 
+        genome_folder = os.path.join(experiment_folder, "G")
+        
         gene_trees_folder = os.path.join(experiment_folder, "G/Gene_trees")
         sequences_folder = os.path.join(experiment_folder, "S")
+        genesequences_folder = os.path.join(sequences_folder, "Genes")
         os.system("cp " + parameters_file + " " + sequences_folder)
 
-        if not os.path.isdir(sequences_folder):
-            os.mkdir(sequences_folder)
+        if not os.path.isdir(genesequences_folder):
+            os.mkdir(genesequences_folder)
 
         parameters = af.prepare_sequence_parameters(af.read_parameters(parameters_file))
 
@@ -253,8 +256,8 @@ class Zombi():
                 tree_path = os.path.join(gene_trees_folder, tree_file)
                 if parameters["VERBOSE"] == 1:
                     print("Simulating sequence for gene family %s" % tree_file.split("_")[0])
-                ss.run(tree_path, sequences_folder)
-                af.write_pruned_sequences(tree_path.replace("complete", "pruned"), sequences_folder)
+                ss.run(tree_path, genesequences_folder)
+                af.write_pruned_sequences(tree_path.replace("complete", "pruned"), genesequences_folder)
 
         elif advanced_mode == "u":
 
@@ -274,8 +277,8 @@ class Zombi():
                 tree_path = os.path.join(gene_trees_folder, tree_file)
                 if parameters["VERBOSE"] == 1:
                     print("Simulating sequence for gene family %s" % tree_file.split("_")[0])
-                ss.run_u(tree_path, sequences_folder)
-                af.write_pruned_sequences(tree_path.replace("complete", "pruned"), sequences_folder)
+                ss.run_u(tree_path, genesequences_folder)
+                af.write_pruned_sequences(tree_path.replace("complete", "pruned"), genesequences_folder)
                 
         elif advanced_mode == "s":
 
@@ -334,10 +337,10 @@ class Zombi():
         elif advanced_mode == "f":
 
             complete_trees = [x for x in os.listdir(gene_trees_folder) if "complete" in x]
+            divisionsequences_folder = os.path.join(sequences_folder, "Divisions")
+            os.mkdir(divisionsequences_folder)
 
             gf_lengths: Dict[str, int] = dict()
-
-            genome_folder = os.path.join(experiment_folder, "G")
 
             with open(os.path.join(genome_folder, "GeneFamily_lengths.tsv")) as f:
                 f.readline()
@@ -345,9 +348,10 @@ class Zombi():
                     gf, l = line.strip().split("\t")
                     gf_lengths[gf] = int(l)
 
-            id_to_seq = None
-            if fasta_file:
-                id_to_seq = af.read_nucleotide_sequences(fasta_file, genome_folder)
+            # FIX THIS
+            #id_to_seq = None
+            #if fasta_file:
+            #    id_to_seq = af.read_nucleotide_sequences(fasta_file, genome_folder)
 
             if parameters["SEQUENCE"] != "nucleotide":
                 print("Sequence mode will be changed to codon for full compatibility with Sf mode")
@@ -361,30 +365,108 @@ class Zombi():
                                      [ss]*n, [gf_lengths]*n, [id_to_seq]*n,
                                      [parameters["VERBOSE"]]*n))
             else:
+                id_to_seq=None
                 for tree_file in complete_trees:
-                    simulate_sequences_on_tree(tree_file, gene_trees_folder,
+                    simulate_sequences_on_tree(tree_file, gene_trees_folder, genesequences_folder, 
                                                ss, gf_lengths, id_to_seq,
                                                parameters["VERBOSE"])
+            
+            print("Writing division sequences")
 
+            division_trees_folder = os.path.join(genome_folder, "Division_trees")
+            division_trees = [x for x in os.listdir(division_trees_folder) if "complete" in x]
 
+            division_lengths: Dict[str, int] = dict()
+
+            with open(os.path.join(genome_folder, "Genomes/Initial_DIVISIONS.tsv")) as f:
+                f.readline()
+                for line in f:
+                    h = line.strip().split("\t")
+                    if h[1] == "GENE":
+                        continue
+                    
+                    division_lengths[h[0]] = int(h[3])
+
+            # We need to add the parallel computation here  FIX
+            
+            for tree_file in division_trees:
+                    simulate_sequences_on_tree(tree_file, gene_trees_folder, divisionsequences_folder, 
+                                               ss, division_lengths, id_to_seq,
+                                               parameters["VERBOSE"])
+            
+
+            # Now we write all the fastas and we create a dictionary to recover the sequences
+
+            genef2name2seq = dict() # To keep the genes
+            divf2name2seq = dict() # To keep the divisions
+            
+            gene_fastas = [x for x in os.listdir(genesequences_folder) if "complete" in x]
+
+            for gene_fasta in gene_fastas:
+                gf = gene_fasta.split("_")[0]
+                genef2name2seq[gf] = dict()
+                for name, seq in af.fasta_reader(os.path.join(genesequences_folder, gene_fasta)):
+                    genef2name2seq[gf][name[1:]] = seq
+
+            
+            division_fastas = [x for x in os.listdir(divisionsequences_folder) if "complete" in x]
+
+            for division_fasta in division_fastas:
+                
+                gf = division_fasta.split("_")[0]
+                
+                divf2name2seq[gf] = dict()
+
+                for name, seq in af.fasta_reader(os.path.join(divisionsequences_folder, division_fasta)):
+                    divf2name2seq[gf][name[1:]] = seq
+            
+            
+            # Finally we write the whole genomes
+            
             print("Writing whole genomes")
 
-            lengths_folder = os.path.join(genome_folder, "Genomes")
-            genome_lengths = [x for x in os.listdir(lengths_folder) if
-                              "LENGTH" in x and "Initial" not in x and "Root" not in x]
+            genomes_folder = os.path.join(genome_folder, "Genomes")
+            genomeseq_folder = os.path.join(sequences_folder, "Genomes")
+            
+            os.mkdir(genomeseq_folder)
 
-            if num_threads:
-                print(f"Using {num_threads} threads in parallel.")
-                n = len(genome_lengths)
-                with multiprocessing.Pool(processes=num_threads) as pool:
-                    pool.starmap(write_whole_genome,
-                                 zip(genome_lengths, [lengths_folder]*n, [ss]*n))
-            else:
-                for length_file in genome_lengths:
-                    write_whole_genome(length_file, lengths_folder, ss)
+            division_files = [os.path.join(genomes_folder, x) for x in os.listdir(genomes_folder) if x.endswith("DIVISIONS.tsv")] # For better clarity, should be renamed to coordinate files
+            
+            #if num_threads: FIX NEED TO ADD PARALLEL
+            #    print(f"Using {num_threads} threads in parallel.")
+            #    n = len(genome_lengths)
+            #    with multiprocessing.Pool(processes=num_threads) as pool:
+            #        pool.starmap(write_whole_genome,
+            #                     zip(genome_lengths, [lengths_folder]*n, [ss]*n))
+            #else:
+            #    for division_file in division_files:
+            #        write_whole_genome(division_file, ss)
+
+            for division_file in division_files:
+                whole_genome = list()
+                
+                genome = division_file.split("/")[-1].split("_")[0]
+                if genome == "Initial": # FIX
+                    continue
+                with open(division_file) as f:
+                    f.readline() # Header
+                    for line in f:
+                        family, gtype, identity, length, fl1, fl2, tfl1, tfl2, orientation = line.strip().split("\t")
+                        if gtype == "GENE":
+                            seq = genef2name2seq[family][genome + "_" + identity]
+                        elif gtype == "DIVISION":
+                            seq = divf2name2seq[family][genome + "_" + identity]
+                        else:
+                            print("ERROR")
+                            return 0
+                        whole_genome.append(seq)
+                genome_seq = "".join(whole_genome)
+                with open(os.path.join(genomeseq_folder, genome +".faa"), "w") as f:
+                    f.write(genome_seq)
 
 
-def write_whole_genome(length_file: str, lengths_folder:str, seq_sim: SequenceSimulator):
+def write_whole_genome_old(length_file: str, lengths_folder:str, seq_sim: SequenceSimulator): # Probably erase
+
     species = length_file.split("_")[0]
     whole_genome = ""
     length_path = os.path.join(lengths_folder, length_file)
@@ -413,22 +495,58 @@ def write_whole_genome(length_file: str, lengths_folder:str, seq_sim: SequenceSi
     entry = [(">" + species, whole_genome)]
     af.fasta_writer(os.path.join(sequences_folder, species + "_Wholegenome.fasta"), entry)
 
+def write_whole_genome(division_file: str, seq_sim: SequenceSimulator):
+
+    species = division_file.split("_")[0]
+    whole_genome = ""
+    return 0
+    with open(division_file) as f:
+        f.readline() # Header
+        
+        for line in f:
+
+            family, gtype, identity, length, fl1, fl2, tfl1, tfl2, orientation = line.strip().split("\t")
+            print(family, gtype)
+        
+            if "G" in id:
+                gf = id.split("_")[0].split("(")[1]
+                id = id.split("_")[1].split(")")[0]
+                name = species + "_" + id
+                sequence = seq_sim.retrieve_sequences(name, gf, sequences_folder)
+                orientation = seq_sim.retrieve_orientation(species, gf + "_" + id, lengths_folder)
+                if orientation == "+":
+                    whole_genome += sequence
+                elif orientation == "-":
+                    whole_genome += af.get_complementary_sequence(sequence)
+                else:
+                    print("Error. Bad orientation of gene")
+            elif id == "I":
+                whole_genome += seq_sim.generate_intergenic_sequences(int(l))
+
+    entry = [(">" + species, whole_genome)]
+    af.fasta_writer(os.path.join(sequences_folder, species + "_Wholegenome.fasta"), entry)
+
+
 def simulate_sequences_on_tree(tree_file: str, gene_trees_folder: str,
+                               outfolder: str,
                                seq_sim: SequenceSimulator,
                                gf_lengths: Dict[str, int],
                                id_to_seq: Dict[str, SeqRecord]=None,
                                verbose: bool=False) -> None:
+                                                  
     gf = tree_file.split("_")[0]
 
     tree_path = os.path.join(gene_trees_folder, tree_file)
     if verbose:
         print("Simulating sequence for gene family %s" % gf)
                           #gf from root genome so use fasta sequence
-    if id_to_seq and gf in id_to_seq:
-        seq_sim.run_f(tree_path, gf_lengths[gf], sequences_folder, id_to_seq[gf])
-    else:                 #gf originated after species tree root so make random gene
-        seq_sim.run_f(tree_path, gf_lengths[gf], sequences_folder)
-    af.write_pruned_sequences(tree_path.replace("complete", "pruned"), sequences_folder)
+    #if id_to_seq and gf in id_to_seq:
+    #    seq_sim.run_f(tree_path, gf_lengths[gf], sequences_folder, id_to_seq[gf])
+    #else:                 #gf originated after species tree root so make random gene
+    
+    seq_sim.run_f(tree_path, gf_lengths[gf], outfolder)
+
+    af.write_pruned_sequences(tree_path.replace("complete", "pruned"), outfolder)
 
 
 
@@ -436,8 +554,6 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
 
-    #parser.add_argument("mode", type=str, choices=["T", "Ti", "Tb", "Tp", "G", "Gu", "Gf", "Gi", "S", "Su", "Sf"],
-    #                    help="Mode")
     parser.add_argument("mode", type=str, choices=["T", "Ti", "Tb", "Tp", "Tm", "Ts", "F", "G", "Gu", "Gf", "Gm", "S", "Su", "Sf", "Ss"],
                                             help="Mode")
     parser.add_argument("params", type=str, help="Parameters file")
@@ -500,26 +616,26 @@ if __name__ == "__main__":
             Z.G(parameters_file, experiment_folder, advanced_mode, root_gff)
 
         else:
-            # print("G folder already present in experiment folder. Please, remove previous existing data to proceed.")
-            # print("For instance: rm -r ./" + (os.path.join(experiment_folder, "G")))
             os.system("rm -r " + genome_folder)
             os.mkdir(genome_folder)
             Z.G(parameters_file, experiment_folder, advanced_mode, root_gff)
 
 
-
     elif main_mode == "S":
 
         sequences_folder = os.path.join(experiment_folder, "S")
-
+      
+        
         if not os.path.isdir(sequences_folder):
+
             os.mkdir(sequences_folder)
             Z.S(parameters_file, experiment_folder, advanced_mode, num_threads, root_fasta)
+        
         else:
-            # print("S folder already present in experiment folder. Please, remove previous existing data to proceed.")
-            # print("For instance: rm -r ./" + (os.path.join(experiment_folder, "S")))
 
-            os.system("rm -r " + os.path.join(experiment_folder, "S"))
+            os.system("rm -r " + sequences_folder)
+            os.mkdir(sequences_folder)
+            
             Z.S(parameters_file, experiment_folder, advanced_mode, num_threads, root_fasta)
 
 

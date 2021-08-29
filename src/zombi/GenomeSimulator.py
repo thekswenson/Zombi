@@ -112,13 +112,20 @@ class GenomeSimulator():
 
             with open(os.path.join(genome_folder, genome_name + "_DIVISIONS.tsv"), "w") as f:
 
-                header = ["DIVISION_FAMILY", "IDENTITY", "LENGTH", "FLANKING_LEFT_SPECIFIC", "FLANKING_RIGHT_SPECIFIC", "TOTAL_LEFT", "TOTAL_RIGHT"]
+                header = ["DIVISION_FAMILY", "TYPE", "IDENTITY", "LENGTH", "FLANKING_LEFT_SPECIFIC", "FLANKING_RIGHT_SPECIFIC", "TOTAL_LEFT", "TOTAL_RIGHT", "ORIENTATION"]
                 header = "\t".join(map(str, header)) + "\n"
                 f.write(header)
 
                 for chromosome in genome:
                     chromosome.obtain_locations()
-                    for intergene in chromosome.iter_intergenes():
+
+                    for gene, intergene in zip(chromosome, chromosome.iter_intergenes()):
+
+                        scl, scr = gene.total_flanking
+                        tcl, tcr = gene.specific_flanking
+                        line = "\t".join(list(map(str, [gene.gene_family, "GENE", gene.gene_id, gene.length, scl, scr, tcl, tcr, gene.orientation ]))) + "\n"
+                        f.write(line)
+
                         for division in intergene:
 
                             scl = division.specific_flanking[0]
@@ -126,7 +133,7 @@ class GenomeSimulator():
                             tcl = chromosome.return_total_coordinate_from_specific_coordinate(scl)
                             tcr = chromosome.return_total_coordinate_from_specific_coordinate(scr)
 
-                            line = "\t".join(list(map(str, [division.division_family, division.identity, len(division), scl, scr, tcl, tcr ]))) + "\n"
+                            line = "\t".join(list(map(str, [division.division_family, "DIVISION", division.identity, len(division), scl, scr, tcl, tcr, division.orientation ]))) + "\n"
                             f.write(line)
 
 
@@ -635,6 +642,9 @@ class GenomeSimulator():
 
         if interactome:
             genome.create_interactome()
+
+        self.initial_genome = copy.deepcopy(genome)
+        self.initial_gene_families =  copy.deepcopy(self.all_gene_families)
 
         return genome
 
@@ -1514,7 +1524,7 @@ class GenomeSimulator():
                 if r == None:
                     return None
                 else:
-                    ch, c1, c2, d = r
+                    c1, c2, d = r
                     self.make_transfer_intergenic(ch, c1, c2, d, donor, recipient, time)
 
                 return "T", donor + "->" + recipient
@@ -1529,7 +1539,7 @@ class GenomeSimulator():
             if r == None:
                 return None
             else:
-                ch, c1, c2, d = r
+                c1, c2, d = r
                 pseudo = False
                 if numpy.random.uniform(0,1) <= float(self.parameters["PSEUDOGENIZATION"]):
                     pseudo = True
@@ -1544,7 +1554,7 @@ class GenomeSimulator():
             if r == None:
                 return None
             else:
-                ch, c1, c2, d = r
+                c1, c2, d = r
                 self.make_inversion_intergenic(ch, c1, c2, d, lineage, time)
 
             return "I", lineage
@@ -1555,7 +1565,7 @@ class GenomeSimulator():
             if r == None:
                 return None
 
-            ch, c1, c2, d = r
+            c1, c2, d = r
 
             c3 = ch.select_random_intergenic_coordinate_excluding(c1, c2, d)
             self.make_transposition_intergenic(ch, c1, c2, d, c3, lineage, time)
@@ -2971,11 +2981,8 @@ class GenomeSimulator():
         """
         
         for node in self.complete_tree.traverse("postorder"): # Need to traverse in a different way once we simulate transfers
-  
             genome = self.all_genomes[node.name]            
-
             for chromosome in genome:
-
                 chromosome.obtain_flankings()
 
                 cut_set = set()
@@ -2983,9 +2990,9 @@ class GenomeSimulator():
                 for event in chromosome.event_history[::-1]: # We traverse from the end to the beginning
                 
                     # We get the cuts
-                    
-                    h = str(event).split()
-                    sc1, sc2 = int(h[4]), int(h[9]) # Fix this line
+
+                    sc1 = event.sbpL
+                    sc2 = event.sbpR
                     
                     # We translate the cuts to the specific coordinates before the event
 
@@ -3026,6 +3033,11 @@ class GenomeSimulator():
             all_cuts.append(cut1)
             all_cuts.append(cut2)
         
+        #print("Natural cuts")
+        #for x in natural_cuts:
+        #    print(x)
+        #print("***")
+
         all_cuts +=  sorted(list(self.complete_tree.cuts)) # These are the cuts from the events ## NEED TO FIX THiS        
         
         # These are the cuts surrounding the Genes. We don't need to treat these
@@ -3320,12 +3332,62 @@ class GenomeSimulator():
                 self.gene_families_second[gene.gene_family].register_event(time, "L", ";".join(map(str,[lineage, gene.gene_id])))
 
 
+        def make_inversion_divisions(time, event):
+
+            lineage = event.lineage
+            chromosome = [x for x in self.all_genomes_second[lineage]][0] # This should be corrected, only works if the genomes have a single chromosome
+            
+            chromosome.obtain_flankings()
+            chromosome.obtain_locations()
+
+            c1 = event.sbpL
+            c2 = event.sbpR
+
+            r = chromosome.return_affected_region(event.sbpL, event.sbpR, RIGHT)
+
+            if r == None:
+                return None
+
+            gpositions, igpositions, leftlengths, rightlengths, int1, int2 = r
+
+                # Get lengths from last intergene before modifying chromosome.
+            specificlen = chromosome.intergenes[-1].specific_flanking[1]
+            totallen = chromosome.intergenes[-1].total_flanking[1]
+
+            segment = chromosome.obtain_segment(gpositions)
+            chromosome.invert_segment(gpositions)
+
+            chromosome.invert_divisions(c1,c2) # This function receives the two cuts and inverts all the divisions between them
+
+            sleftlen, srightlen, tleftlen, trightlen = 0, 0, 0, 0
+            if gpositions[0] > gpositions[-1]:      #The inversion wraps:
+                sleftlen, srightlen, tleftlen, trightlen = \
+                    chromosome.inversion_wrap_lengths(gpositions)
+
+            inv = Inversion(int1, int2, c1, c2, specificlen, totallen, sleftlen,
+                            tleftlen, srightlen, trightlen, lineage, time)
+
+            chromosome.event_history.append(inv)
+
+            scar1 = chromosome.intergenes[igpositions[0]]
+            scar2 = chromosome.intergenes[igpositions[-1]]
+
+            scar1.length = leftlengths[0] + rightlengths[0]
+            scar2.length = rightlengths[1] + leftlengths[1]
+
+            assert scar1.length == len(inv.afterL)
+            assert scar2.length == len(inv.afterR)      
+
+            for gene in segment:
+                self.gene_families_second[gene.gene_family].register_event(str(time), "I", ";".join(map(str,[lineage, gene.gene_id])))
+
         ######
 
     
         self.all_genomes_second = dict()
         self.gene_families_second = self.initial_gene_families
-        self.all_genomes_second["Root"] = self.initial_genome
+        self.all_genomes_second["Initial"] = self.initial_genome
+        self.all_genomes_second["Root"] = copy.deepcopy(self.initial_genome)
 
        # We create a list of all the events (T and G) that we will order by time
 
@@ -3366,6 +3428,8 @@ class GenomeSimulator():
                 make_duplication_divisions(time, event)
             if etype == "L":
                 make_loss_divisions(time, event)
+            if etype == "I":
+                make_inversion_divisions(time, event)
 
 
     def write_division_trees(self, division_tree_folder):

@@ -451,7 +451,8 @@ class Division():
         a list with all the events affecting this division
     """
     def __init__(self, identity: int, division_family: str, specific_flanking: T_PAIR = None):
-
+        
+        self.orientation = "+"
         self.identity = identity # Specific identifier of this division
         self.division_family = division_family # The name of the division family
         self.specific_flanking: T_PAIR = specific_flanking   #: not pythonic (both inclusive)
@@ -961,7 +962,6 @@ class Chromosome():
 
     def return_specific_coordinate_from_total_coordinate(self, c, debug = False):
 
-
         sc = None
         for r in self.map_of_locations:
             if debug:
@@ -1271,6 +1271,30 @@ class CircularChromosome(Chromosome):
 
         for i,x in enumerate(affected_genes):
             self.genes[x] = reversed_segment[i]
+
+    
+    def invert_divisions(self, cut1, cut2):
+        """
+        Invert the divisions between the two cuts
+        """
+        start = False
+        end = False
+
+        for intergene in self.iter_intergenes():
+            for division in intergene:
+                sf1, sf2 = division.specific_flanking # We get the flakings of the divisions
+                print(sf1, sf2)
+                if sf1 == cut1:
+                    start = True
+                if sf2 == cut2:
+                    end = True
+                    
+        print("This is the result")
+        print(start, end)
+        print("These were the cuts")
+        print(cut1, cut2)
+        print("******")
+
 
     def inversion_wrap_lengths(self, affected_genes: List[int]
                                ) -> Tuple[int, int, int, int]:
