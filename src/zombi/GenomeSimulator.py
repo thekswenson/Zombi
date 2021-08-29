@@ -1037,6 +1037,7 @@ class GenomeSimulator():
         current_species_tree_event = 0
         current_time = 0.0
         all_species_tree_events = len(self.tree_events)
+
         # Second, we compute the time to the next event:
 
         elapsed_time = 0.0
@@ -1088,6 +1089,93 @@ class GenomeSimulator():
                 current_time += time_to_next_genome_event
                 self.advanced_evolve_genomes_f(d, t, l, i, c, o, current_time)
 
+    def run_f_debug(self): # Only for debugging purposes
+
+        d = af.obtain_value(self.parameters["DUPLICATION"])
+        t = af.obtain_value(self.parameters["TRANSFER"])
+        l = af.obtain_value(self.parameters["LOSS"])
+        i = af.obtain_value(self.parameters["INVERSION"])
+        c = af.obtain_value(self.parameters["TRANSPOSITION"])
+        o = af.obtain_value(self.parameters["ORIGINATION"])
+
+        # First we prepare the root genome
+
+        if self.root_genome_file:
+            genome = self.read_genome(self.root_genome_file,
+                                      intergenic_sequences=True)
+        else:
+            genome = self.fill_genome(intergenic_sequences=True)
+
+        ## These two lines are important for this mode (already in read_genome)
+
+        #for chromosome in genome:          #NOTE: already done in read_genome!?
+        #    chromosome.obtain_flankings()
+        #    chromosome.obtain_locations()
+
+        self.active_genomes.add(genome.species)
+        self.all_genomes["Root"] = genome
+
+        # We add the original genome too
+
+        self.all_genomes["Initial"] = copy.deepcopy(genome)
+
+        current_species_tree_event = 0
+        current_time = 0.0
+        all_species_tree_events = len(self.tree_events)
+        
+        # Second, we compute the time to the next event:
+
+        elapsed_time = 0.0
+
+        while current_species_tree_event < all_species_tree_events:
+
+            time_of_next_species_tree_event, event, nodes = self.tree_events[current_species_tree_event]
+            time_of_next_species_tree_event = float(time_of_next_species_tree_event)
+
+            if self.parameters["VERBOSE"] == 1:
+                print("Simulating genomes. Time %s" % str(current_time))
+
+            time_to_next_genome_event = self.get_time_to_next_event(len(self.active_genomes), [d, t, l, i, c, o])
+            time_to_next_genome_event = 1
+
+            elapsed_time = float(current_time) - elapsed_time
+
+            if time_to_next_genome_event + current_time >= float(time_of_next_species_tree_event):
+
+                current_species_tree_event += 1
+                current_time = time_of_next_species_tree_event
+
+                if event == "S":
+
+                    sp, c1, c2 = nodes.split(";")
+
+                    # First we keep track of the active and inactive genomes
+
+                    self.active_genomes.discard(sp)
+                    self.active_genomes.add(c1)
+                    self.active_genomes.add(c2)
+
+                    # Second, we speciate the genomes
+
+                    genome_c1, genome_c2 = self.make_speciation(sp, c1, c2, current_time)
+
+                    self.all_genomes[c1] = genome_c1
+                    self.all_genomes[c2] = genome_c2
+
+                elif event == "E":
+                    self.make_extinction(nodes, current_time)
+                    self.active_genomes.discard(nodes)
+
+                elif event == "F":
+                    self.make_end(current_time)
+                    break
+
+            else:
+
+                current_time += time_to_next_genome_event
+                self.advanced_evolve_genomes_f(d, t, l, i, c, o, current_time)
+    
+    
     def generate_new_rates(self):
 
         d = af.obtain_value(self.parameters["DUPLICATION"])
@@ -2981,44 +3069,46 @@ class GenomeSimulator():
         """
         
         for node in self.complete_tree.traverse("postorder"): # Need to traverse in a different way once we simulate transfers
+            
             genome = self.all_genomes[node.name]            
+
+            node.add_feature("cuts", set())
+            
             for chromosome in genome:
+                
                 chromosome.obtain_flankings()
 
-                cut_set = set()
+                if not node.is_leaf():
+                    n1,n2 = node.get_children()
+                    node.cuts = node.cuts.union(n1.cuts, n2.cuts)
 
-                for event in chromosome.event_history[::-1]: # We traverse from the end to the beginning
+                new_cuts = set()
                 
-                    # We get the cuts
+                # This maps to the top of the branch all the cuts along that branch. We need to do the same with the 
 
-                    sc1 = event.sbpL
-                    sc2 = event.sbpR
-                    
-                    # We translate the cuts to the specific coordinates before the event
+                for i, event1 in enumerate(chromosome.event_history[::-1]): # We traverse from the end to the beginning
+                    sc1 = event1.sbpL
+                    sc2 = event1.sbpR
+                    for j, event2 in enumerate(chromosome.event_history[::-1]): # We arrive until the top event
+                        if j < i:
+                            continue
+                        sc1 = event2.afterToBeforeS(sc1)
+                        sc2 = event2.afterToBeforeS(sc2)
+                        
+                    new_cuts.add(sc1)
+                    new_cuts.add(sc2)
+                
+                # This maps to the top of the branch all the cuts that were acquired from previous nodes
 
-                    b_sc1 = event.afterToBeforeS(sc1)
-                    b_sc2 = event.afterToBeforeS(sc2)
+                for cut in node.cuts:
+                    for event in chromosome.event_history[::-1]:
+                        cut = event.afterToBeforeS(cut)
 
-                    # We translate also any preexisting cuts along this brunch
+                    new_cuts.add(cut)
+                node.cuts = new_cuts
+                  
 
-                    new_cut_set = set()
-
-                    for c in cut_set:
-                        b_sc = event.afterToBeforeS(c)
-                        new_cut_set.add(b_sc)
-
-                    # We add the new cuts:
-
-                    new_cut_set.add(b_sc1)
-                    new_cut_set.add(b_sc2)
-
-                    cut_set = new_cut_set
             
-            node.add_feature("cuts", cut_set)
-
-            if not node.is_leaf():
-                n1,n2 = node.get_children()
-                node.cuts = node.cuts.union(n1.cuts, n2.cuts)
 
 
         initial_chromosome = self.initial_genome.chromosomes[0]   
@@ -3033,11 +3123,13 @@ class GenomeSimulator():
             all_cuts.append(cut1)
             all_cuts.append(cut2)
         
-        #print("Natural cuts")
-        #for x in natural_cuts:
-        #    print(x)
-        #print("***")
-
+        print("Natural cuts")
+        for x in natural_cuts:
+            print(x)
+        print("***")
+        print("Events cuts")
+        print(sorted(list(self.complete_tree.cuts)))
+        print("***")
         all_cuts +=  sorted(list(self.complete_tree.cuts)) # These are the cuts from the events ## NEED TO FIX THiS        
         
         # These are the cuts surrounding the Genes. We don't need to treat these
@@ -3346,7 +3438,7 @@ class GenomeSimulator():
             r = chromosome.return_affected_region(event.sbpL, event.sbpR, RIGHT)
 
             if r == None:
-                return None
+                return None    
 
             gpositions, igpositions, leftlengths, rightlengths, int1, int2 = r
 
@@ -3429,6 +3521,10 @@ class GenomeSimulator():
             if etype == "L":
                 make_loss_divisions(time, event)
             if etype == "I":
+                print(event)
+                c1 = event.sbpL
+                c2 = event.sbpR
+                print(c1, c2)
                 make_inversion_divisions(time, event)
 
 

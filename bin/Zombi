@@ -160,6 +160,7 @@ class Zombi():
 
         elif advanced_mode == "f":
 
+            #gss.run_f_debug() # FIX
             gss.run_f()
 
         elif advanced_mode == "m":

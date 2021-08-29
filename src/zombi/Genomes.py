@@ -1284,9 +1284,9 @@ class CircularChromosome(Chromosome):
             for division in intergene:
                 sf1, sf2 = division.specific_flanking # We get the flakings of the divisions
                 print(sf1, sf2)
-                if sf1 == cut1:
+                if sf1 == cut1 or sf2 == cut1:
                     start = True
-                if sf2 == cut2:
+                if sf1 == cut2 or sf2 == cut2:
                     end = True
                     
         print("This is the result")
