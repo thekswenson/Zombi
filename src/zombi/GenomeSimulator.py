@@ -1329,6 +1329,7 @@ class GenomeSimulator():
 
             if len(possible_recipients) > 0:
 
+                donor = lineage
                 if self.parameters["ASSORTATIVE_TRANSFER"] == "True":
                     recipient = self.choose_assortative_recipient(time, possible_recipients, donor)
                     if recipient == None:
@@ -1336,7 +1337,6 @@ class GenomeSimulator():
                 else:
                     recipient = random.choice(possible_recipients)
 
-                donor = lineage
                 self.make_transfer_interactome(t_e, donor, recipient, time)
                 return "T", donor + "->" + recipient
 
@@ -1445,6 +1445,7 @@ class GenomeSimulator():
 
             if len(possible_recipients) > 0:
 
+                donor = lineage
                 if self.parameters["ASSORTATIVE_TRANSFER"] == "True":
                     recipient = self.choose_assortative_recipient(time, possible_recipients, donor)
                     if recipient == None:
@@ -1452,7 +1453,6 @@ class GenomeSimulator():
                 else:
                     recipient = random.choice(possible_recipients)
 
-                donor = lineage
                 self.make_transfer(t_e, donor, recipient, time, family_mode = True)
                 return "T", donor + "->" + recipient
 
@@ -1598,14 +1598,13 @@ class GenomeSimulator():
 
             if len(possible_recipients) > 0:
 
+                donor = lineage
                 if self.parameters["ASSORTATIVE_TRANSFER"] == "True":
                     recipient = self.choose_assortative_recipient(time, possible_recipients, donor)
                     if recipient == None:
                         return None
                 else:
                     recipient = random.choice(possible_recipients)
-
-                donor = lineage
 
                 r = self.select_advanced_length(lineage, 1/t_e * multiplier)
 
