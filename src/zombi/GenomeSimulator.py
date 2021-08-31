@@ -1171,6 +1171,9 @@ class GenomeSimulator():
                         ch.obtain_flankings()
                         ch.obtain_locations()
 
+                    for intergene in ch.iter_intergenes():
+                        print(intergene)
+
                     self.make_inversion_intergenic(ch, c1, c2, d, lineage, time)
 
                 elif event == "P":
@@ -2931,8 +2934,7 @@ class GenomeSimulator():
         time : float
             the time stamp of the event
         """
-        print("The cuts received by the function are:")
-        print(c1, c2)
+        
         r = chromosome.return_affected_region(c1, c2, d)
 
         if r == None:
