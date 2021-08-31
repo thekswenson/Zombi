@@ -1089,14 +1089,7 @@ class GenomeSimulator():
                 current_time += time_to_next_genome_event
                 self.advanced_evolve_genomes_f(d, t, l, i, c, o, current_time)
 
-    def run_f_debug(self): # Only for debugging purposes
-
-        d = af.obtain_value(self.parameters["DUPLICATION"])
-        t = af.obtain_value(self.parameters["TRANSFER"])
-        l = af.obtain_value(self.parameters["LOSS"])
-        i = af.obtain_value(self.parameters["INVERSION"])
-        c = af.obtain_value(self.parameters["TRANSPOSITION"])
-        o = af.obtain_value(self.parameters["ORIGINATION"])
+    def run_f_debug(self, injected_events): # Only for debugging purposes
 
         # First we prepare the root genome
 
@@ -1106,11 +1099,6 @@ class GenomeSimulator():
         else:
             genome = self.fill_genome(intergenic_sequences=True)
 
-        ## These two lines are important for this mode (already in read_genome)
-
-        #for chromosome in genome:          #NOTE: already done in read_genome!?
-        #    chromosome.obtain_flankings()
-        #    chromosome.obtain_locations()
 
         self.active_genomes.add(genome.species)
         self.all_genomes["Root"] = genome
@@ -1119,31 +1107,16 @@ class GenomeSimulator():
 
         self.all_genomes["Initial"] = copy.deepcopy(genome)
 
-        current_species_tree_event = 0
-        current_time = 0.0
-        all_species_tree_events = len(self.tree_events)
+        all_species_tree_events = [("T",float(x[0]),x[1],x[2]) for x in self.tree_events]
         
         # Second, we compute the time to the next event:
 
-        elapsed_time = 0.0
+        all_events = sorted(all_species_tree_events + injected_events, key=lambda x: x[1]) # We put together the two types of events and order by time
 
-        while current_species_tree_event < all_species_tree_events:
+        for item in all_events:
 
-            time_of_next_species_tree_event, event, nodes = self.tree_events[current_species_tree_event]
-            time_of_next_species_tree_event = float(time_of_next_species_tree_event)
-
-            if self.parameters["VERBOSE"] == 1:
-                print("Simulating genomes. Time %s" % str(current_time))
-
-            time_to_next_genome_event = self.get_time_to_next_event(len(self.active_genomes), [d, t, l, i, c, o])
-            time_to_next_genome_event = 1
-
-            elapsed_time = float(current_time) - elapsed_time
-
-            if time_to_next_genome_event + current_time >= float(time_of_next_species_tree_event):
-
-                current_species_tree_event += 1
-                current_time = time_of_next_species_tree_event
+            if item[0] == "T":
+                etype, time, event, nodes = item
 
                 if event == "S":
 
@@ -1157,24 +1130,64 @@ class GenomeSimulator():
 
                     # Second, we speciate the genomes
 
-                    genome_c1, genome_c2 = self.make_speciation(sp, c1, c2, current_time)
+                    genome_c1, genome_c2 = self.make_speciation(sp, c1, c2, time)
 
                     self.all_genomes[c1] = genome_c1
                     self.all_genomes[c2] = genome_c2
 
                 elif event == "E":
-                    self.make_extinction(nodes, current_time)
+                    self.make_extinction(nodes, time)
                     self.active_genomes.discard(nodes)
 
                 elif event == "F":
-                    self.make_end(current_time)
+                    self.make_end(time)
                     break
 
             else:
+                # If the event is a Genome level event
+                etype, time, event, nodes, r = item
+                c1, c2, d = r
+                 
+                if event == "D":
 
-                current_time += time_to_next_genome_event
-                self.advanced_evolve_genomes_f(d, t, l, i, c, o, current_time)
-    
+                    self.make_duplication_within_intergene(ch, c1, c2, d, lineage, time)
+
+                elif event == "T":
+                    pass
+
+                elif event == "L":
+
+                    pseudo = False
+                    if numpy.random.uniform(0,1) <= float(self.parameters["PSEUDOGENIZATION"]):
+                        pseudo = True
+                    self.make_loss_intergenic(ch, c1, c2, d, lineage, time, pseudo)
+
+                    return "L", lineage
+
+                elif event == "I":
+
+                    lineage = nodes
+                    for ch in self.all_genomes[lineage]:
+                        ch.obtain_flankings()
+                        ch.obtain_locations()
+
+                    self.make_inversion_intergenic(ch, c1, c2, d, lineage, time)
+
+                elif event == "P":
+
+                    c3 = ch.select_random_intergenic_coordinate_excluding(c1, c2, d)
+                    self.make_transposition_intergenic(ch, c1, c2, d, c3, lineage, time)
+
+                    return "P", lineage
+
+                elif event == "O":
+                        
+                    ch = self.all_genomes[lineage].select_random_chromosome()
+                    intergene_coordinate = ch.select_random_coordinate_in_intergenic_regions()
+                    self.make_origination_intergenic(ch, intergene_coordinate,
+                                                    lineage, time)
+
+                    return "O", lineage
     
     def generate_new_rates(self):
 
@@ -1571,6 +1584,108 @@ class GenomeSimulator():
 
         lineage = random.choice(list(self.active_genomes))
         event = self.choose_event(duplication, transfer, loss, inversion, transposition, origination)
+
+        for ch in self.all_genomes[lineage]:
+            ch.obtain_flankings()
+            ch.obtain_locations()
+
+        if event == "D":
+
+            r = self.select_advanced_length(lineage, 1/d_e * multiplier)
+            if r == None:
+                return None
+            else:
+                
+                #ch, c1, c2, d = r
+                c1, c2, d = r
+                self.make_duplication_within_intergene(ch, c1, c2, d, lineage, time)
+
+            return "D", lineage
+
+        elif event == "T":
+
+
+            # We choose a recipient
+
+            possible_recipients = [x for x in self.active_genomes if x != lineage]
+
+            if len(possible_recipients) > 0:
+
+                if self.parameters["ASSORTATIVE_TRANSFER"] == "True":
+                    recipient = self.choose_assortative_recipient(time, possible_recipients, donor)
+                    if recipient == None:
+                        return None
+                else:
+                    recipient = random.choice(possible_recipients)
+
+                donor = lineage
+
+                r = self.select_advanced_length(lineage, 1/t_e * multiplier)
+
+                if r == None:
+                    return None
+                else:
+                    c1, c2, d = r
+                    self.make_transfer_intergenic(ch, c1, c2, d, donor, recipient, time)
+
+                return "T", donor + "->" + recipient
+
+            else:
+                return None
+
+        elif event == "L":
+
+            r = self.select_advanced_length(lineage, 1/l_e * multiplier)
+
+            if r == None:
+                return None
+            else:
+                c1, c2, d = r
+                pseudo = False
+                if numpy.random.uniform(0,1) <= float(self.parameters["PSEUDOGENIZATION"]):
+                    pseudo = True
+                self.make_loss_intergenic(ch, c1, c2, d, lineage, time, pseudo)
+
+            return "L", lineage
+
+        elif event == "I":
+
+            r = self.select_advanced_length(lineage, 1/i_e * multiplier)
+
+            if r == None:
+                return None
+            else:
+                c1, c2, d = r
+                self.make_inversion_intergenic(ch, c1, c2, d, lineage, time)
+
+            return "I", lineage
+
+        elif event == "P":
+
+            r = self.select_advanced_length(lineage, 1/c_e * multiplier)
+            if r == None:
+                return None
+
+            c1, c2, d = r
+
+            c3 = ch.select_random_intergenic_coordinate_excluding(c1, c2, d)
+            self.make_transposition_intergenic(ch, c1, c2, d, c3, lineage, time)
+
+            return "P", lineage
+
+        elif event == "O":
+                
+            ch = self.all_genomes[lineage].select_random_chromosome()
+            intergene_coordinate = ch.select_random_coordinate_in_intergenic_regions()
+            self.make_origination_intergenic(ch, intergene_coordinate,
+                                             lineage, time)
+
+            return "O", lineage
+
+
+    def advanced_evolve_genomes_f_debug(self, duplication, transfer, loss, inversion, transposition, origination, time):
+        
+        
 
         for ch in self.all_genomes[lineage]:
             ch.obtain_flankings()
@@ -2817,6 +2932,8 @@ class GenomeSimulator():
         time : float
             the time stamp of the event
         """
+        print("The cuts received by the function are:")
+        print(c1, c2)
         r = chromosome.return_affected_region(c1, c2, d)
 
         if r == None:
@@ -3087,17 +3204,23 @@ class GenomeSimulator():
                 # This maps to the top of the branch all the cuts along that branch. We need to do the same with the 
 
                 for i, event1 in enumerate(chromosome.event_history[::-1]): # We traverse from the end to the beginning
+                    
+
                     sc1 = event1.sbpL
                     sc2 = event1.sbpR
+                    print("Mapping back in time these events")
+                    print(sc1, sc2)
+
                     for j, event2 in enumerate(chromosome.event_history[::-1]): # We arrive until the top event
                         if j < i:
                             continue
                         sc1 = event2.afterToBeforeS(sc1)
                         sc2 = event2.afterToBeforeS(sc2)
+                        print(sc1,sc2)
                         
                     new_cuts.add(sc1)
                     new_cuts.add(sc2)
-                
+                print("Done!")
                 # This maps to the top of the branch all the cuts that were acquired from previous nodes
 
                 for cut in node.cuts:
@@ -3449,8 +3572,6 @@ class GenomeSimulator():
             segment = chromosome.obtain_segment(gpositions)
             chromosome.invert_segment(gpositions)
 
-            chromosome.invert_divisions(c1,c2) # This function receives the two cuts and inverts all the divisions between them
-
             sleftlen, srightlen, tleftlen, trightlen = 0, 0, 0, 0
             if gpositions[0] > gpositions[-1]:      #The inversion wraps:
                 sleftlen, srightlen, tleftlen, trightlen = \
@@ -3458,6 +3579,8 @@ class GenomeSimulator():
 
             inv = Inversion(int1, int2, c1, c2, specificlen, totallen, sleftlen,
                             tleftlen, srightlen, trightlen, lineage, time)
+            
+            chromosome.invert_divisions(c1,c2) # This function receives the two cuts and inverts all the divisions between them KRISTER
 
             chromosome.event_history.append(inv)
 
