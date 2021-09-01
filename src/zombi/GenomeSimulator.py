@@ -1171,8 +1171,8 @@ class GenomeSimulator():
                         ch.obtain_flankings()
                         ch.obtain_locations()
 
-                    for intergene in ch.iter_intergenes():
-                        print(intergene)
+                    #for intergene in ch.iter_intergenes():
+                    #    print(intergene)
 
                     self.make_inversion_intergenic(ch, c1, c2, d, lineage, time)
 
@@ -3231,24 +3231,20 @@ class GenomeSimulator():
                     new_cuts.add(cut)
                 node.cuts = new_cuts
                   
-
-            
-
-
         initial_chromosome = self.initial_genome.chromosomes[0]   
         all_cuts = list()
-        natural_cuts = list()
+        self.natural_cuts = list()
 
         for intergene in initial_chromosome.iter_intergenes(): # These are the natural cuts from the intergenes (the limits with the genes)
             
             cut1, cut2 = intergene.specific_flanking
-            natural_cuts.append((cut1, cut2))
+            self.natural_cuts.append((cut1, cut2))
             
             all_cuts.append(cut1)
             all_cuts.append(cut2)
         
         print("Natural cuts")
-        for x in natural_cuts:
+        for x in self.natural_cuts:
             print(x)
         print("***")
         print("Events cuts")
@@ -3257,18 +3253,21 @@ class GenomeSimulator():
         all_cuts +=  sorted(list(self.complete_tree.cuts)) # These are the cuts from the events ## NEED TO FIX THiS        
         
         # These are the cuts surrounding the Genes. We don't need to treat these
-        cuts_to_ignore = {(x1[1], x2[0]) for x1, x2 in zip(natural_cuts, natural_cuts[1:] + [natural_cuts[0]])}
+        cuts_to_ignore = {(x1[1], x2[0]) for x1, x2 in zip(self.natural_cuts, self.natural_cuts[1:] + [self.natural_cuts[0]])}
         
        
         all_cuts =  sorted(list(set(all_cuts))) # To remove possible repeated values
         initial_specific_flankings = zip(all_cuts, all_cuts[1:] + [all_cuts[0]])
         fam_id = 0
+        
+        self.initial_divisions = list() # For debugging purposes
 
         for initial_specific_flanking in initial_specific_flankings:
             c1, c2 = initial_specific_flanking
+
             if (c1, c2) in cuts_to_ignore: # We need to ignore the cuts where c1 is the right most extreme of an intergene and c2 is the left most extreme of the next intergene
                 continue
-            
+            self.initial_divisions.append((c1,c2))
             fam_id += 1
             intergene = initial_chromosome.return_intergene_by_coordinate(c1)
             division = intergene.create_division("1", fam_id, initial_specific_flanking) # Identifier is 1 in the beginning
