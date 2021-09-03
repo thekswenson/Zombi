@@ -4,7 +4,6 @@ Unittests for testing the GenomeEvents and how they map coordinates.
 
 import os
 import unittest
-from zombi.Events import Inversion, LOSS, MapOriginError, MapPseudogeneError, ORIG, POS, TandemDup
 from zombi.GenomeSimulator import GenomeSimulator
 from zombi.Genomes import LEFT, RIGHT
 import zombi.AuxiliarFunctions as af
@@ -26,7 +25,8 @@ class TestDivisions(unittest.TestCase):
   def test_divisions(self):
       self.gss.run_f_debug([])
       self.gss.obtain_divisions() # This obtain the divisions at the root
-      self.assertEqual(self.gss.natural_cuts, [(0,3),(4,7),(8,11),(12,15),(16,19)])
+      self.assertEqual(self.gss.natural_cuts,
+                       [(0,3),(4,7),(8,11),(12,15),(16,19)])
 
   def test_single_inversion_RIGHT(self):
     event1 = ("G", 1.3, "I", "n2", (2, 6, RIGHT))
@@ -38,21 +38,24 @@ class TestDivisions(unittest.TestCase):
     
     self.gss.run_f_debug([event1])
     self.gss.obtain_divisions() # This obtain the divisions at the root
-    self.assertEqual(self.gss.initial_divisions, [(0,2),(2,3),(4,6),(6,7),(8,11),(12,15),(16,19)])
+    self.assertEqual(self.gss.initial_divisions,
+                     [(0,2),(2,3),(4,6),(6,7),(8,11),(12,15),(16,19)])
     
   def test_single_inversion_LEFT(self):
     event1 = ("G", 1.3, "I", "n2", (6, 2, LEFT))
     
     self.gss.run_f_debug([event1])
     self.gss.obtain_divisions() 
-    self.assertEqual(self.gss.initial_divisions, [(0,2),(2,3),(4,6),(6,7),(8,11),(12,15),(16,19)])
+    self.assertEqual(self.gss.initial_divisions,
+                     [(0,2),(2,3),(4,6),(6,7),(8,11),(12,15),(16,19)])
 
   def test_single_inversion_LEFT_wrapping(self): # Should give the same divisions, why it does not???
     event1 = ("G", 1.3, "I", "n2", (2, 6, LEFT))
     
     self.gss.run_f_debug([event1])
     self.gss.obtain_divisions() 
-    self.assertEqual(self.gss.initial_divisions, [(0,2),(2,3),(4,6),(6,7),(8,11),(12,15),(16,19)])
+    self.assertEqual(self.gss.initial_divisions,
+                     [(0,2),(2,3),(4,6),(6,7),(8,11),(12,15),(16,19)])
   
 
 

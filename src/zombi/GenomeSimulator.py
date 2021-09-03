@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ete3
+from ete3.coretype.tree import TreeNode
 import numpy
 import copy
 import random
@@ -3195,8 +3196,8 @@ class GenomeSimulator():
         """
         Obtain the divisions at the root
         """
-        
-        for node in self.complete_tree.traverse("postorder"): # Need to traverse in a different way once we simulate transfers
+        # (Need to traverse in a different way once we simulate transfers)
+        for node in self.complete_tree.traverse("postorder"):
             
             genome = self.all_genomes[node.name]            
 
@@ -3212,18 +3213,17 @@ class GenomeSimulator():
 
                 new_cuts = set()
                 
-                # This maps to the top of the branch all the cuts along that branch. We need to do the same with the 
-
-                for i, event1 in enumerate(chromosome.event_history[::-1]): # We traverse from the end to the beginning
-                    
-
+                # This maps to the top of the branch all the cuts along that
+                # branch.  We traverse from the end to the beginning:
+                for i, event1 in enumerate(reversed(chromosome.event_history)):
                     sc1 = event1.sbpL
                     sc2 = event1.sbpR
                     print("Mapping back in time these events")
                     print(sc1, sc2)
 
-                    for j, event2 in enumerate(chromosome.event_history[::-1]): # We arrive until the top event
-                        if j < i:
+                    # We arrive until the top event:
+                    for j, event2 in enumerate(reversed(chromosome.event_history)):
+                        if j <= i:
                             continue
                         sc1 = event2.afterToBeforeS(sc1)
                         sc2 = event2.afterToBeforeS(sc2)
@@ -3232,20 +3232,24 @@ class GenomeSimulator():
                     new_cuts.add(sc1)
                     new_cuts.add(sc2)
                 print("Done!")
-                # This maps to the top of the branch all the cuts that were acquired from previous nodes
 
+                # This maps to the top of the branch all the cuts that were
+                # acquired from previous nodes
                 for cut in node.cuts:
                     for event in chromosome.event_history[::-1]:
                         cut = event.afterToBeforeS(cut)
 
                     new_cuts.add(cut)
+
                 node.cuts = new_cuts
                   
         initial_chromosome = self.initial_genome.chromosomes[0]   
         all_cuts = list()
         self.natural_cuts = list()
 
-        for intergene in initial_chromosome.iter_intergenes(): # These are the natural cuts from the intergenes (the limits with the genes)
+        # These are the natural cuts from the intergenes (the limits with the
+        # genes):
+        for intergene in initial_chromosome.iter_intergenes():
             
             cut1, cut2 = intergene.specific_flanking
             self.natural_cuts.append((cut1, cut2))
@@ -3260,22 +3264,27 @@ class GenomeSimulator():
         print("Events cuts")
         print(sorted(list(self.complete_tree.cuts)))
         print("***")
-        all_cuts +=  sorted(list(self.complete_tree.cuts)) # These are the cuts from the events ## NEED TO FIX THiS        
+        # These are the cuts from the events ## NOTE: NEED TO FIX THIS        
+        all_cuts +=  sorted(list(self.complete_tree.cuts))
         
         # These are the cuts surrounding the Genes. We don't need to treat these
-        cuts_to_ignore = {(x1[1], x2[0]) for x1, x2 in zip(self.natural_cuts, self.natural_cuts[1:] + [self.natural_cuts[0]])}
+        cuts_to_ignore = {(x1[1], x2[0]) for x1, x2 in zip(self.natural_cuts,
+                                                           self.natural_cuts[1:] +
+                                                           [self.natural_cuts[0]])}
         
        
         all_cuts =  sorted(list(set(all_cuts))) # To remove possible repeated values
         initial_specific_flankings = zip(all_cuts, all_cuts[1:] + [all_cuts[0]])
         fam_id = 0
         
-        self.initial_divisions = list() # For debugging purposes
+        self.initial_divisions = list()         # For debugging purposes
 
         for initial_specific_flanking in initial_specific_flankings:
             c1, c2 = initial_specific_flanking
 
-            if (c1, c2) in cuts_to_ignore: # We need to ignore the cuts where c1 is the right most extreme of an intergene and c2 is the left most extreme of the next intergene
+            # We need to ignore the cuts where c1 is the right most extreme of
+            # an intergene and c2 is the left most extreme of the next intergene
+            if (c1, c2) in cuts_to_ignore:
                 continue
             self.initial_divisions.append((c1,c2))
             fam_id += 1
