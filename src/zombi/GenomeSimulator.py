@@ -1599,8 +1599,7 @@ class GenomeSimulator():
                 return None
             else:
                 
-                #ch, c1, c2, d = r
-                c1, c2, d = r
+                ch, c1, c2, d = r
                 self.make_duplication_within_intergene(ch, c1, c2, d, lineage, time)
 
             return "D", lineage
@@ -1627,7 +1626,7 @@ class GenomeSimulator():
                 if r == None:
                     return None
 
-                c1, c2, d = r
+                ch, c1, c2, d = r
 
                 chreceptor: CircularChromosome = self.all_genomes[recipient].select_random_chromosome()
                 chreceptor.obtain_locations()
@@ -1648,7 +1647,7 @@ class GenomeSimulator():
             if r == None:
                 return None
             else:
-                c1, c2, d = r
+                ch, c1, c2, d = r
                 pseudo = False
                 if numpy.random.uniform(0,1) <= float(self.parameters["PSEUDOGENIZATION"]):
                     pseudo = True
@@ -1663,7 +1662,7 @@ class GenomeSimulator():
             if r == None:
                 return None
             else:
-                c1, c2, d = r
+                ch, c1, c2, d = r
                 self.make_inversion_intergenic(ch, c1, c2, d, lineage, time)
 
             return "I", lineage
@@ -1674,7 +1673,7 @@ class GenomeSimulator():
             if r == None:
                 return None
 
-            c1, c2, d = r
+            ch, c1, c2, d = r
 
             c3 = ch.select_random_intergenic_coordinate_excluding(c1, c2, d)
             self.make_transposition_intergenic(ch, c1, c2, d, c3, lineage, time)
@@ -1880,7 +1879,7 @@ class GenomeSimulator():
 
         return gene, gene_family
 
-    def make_origination_intergenic(self, chromosome: Chromosome, c: int,
+    def make_origination_intergenic(self, chromosome: CircularChromosome, c: int,
                                     lineage, time) -> Gene:
 
         gene, _ = self.make_origination(lineage, time)
@@ -2912,7 +2911,7 @@ class GenomeSimulator():
             self.all_gene_families[gene.gene_family].register_event(str(time), "I", ";".join(map(str,[lineage, gene.gene_id])))
 
     
-    def make_inversion_intergenic(self, chromosome: Chromosome, c1: int,
+    def make_inversion_intergenic(self, chromosome: CircularChromosome, c1: int,
                                   c2: int, d: T_DIR, lineage: str, time: float):
         
         """
@@ -3121,7 +3120,7 @@ class GenomeSimulator():
 
 
     def select_advanced_length(self, lineage: str, p: float, reps=100,
-                               ) -> Tuple[int, int, T_DIR]:
+                               ) -> Tuple[CircularChromosome, int, int, T_DIR]:
         """
         Return a pair of specific coordinates for intergenic regions according
         to `p` on a chromosome of `lineage`.
@@ -3140,7 +3139,7 @@ class GenomeSimulator():
 
         Returns
         -------
-        Tuple[int, int, T_DIR]
+        Tuple[CircularChromosome, int, int, T_DIR]
             (sc1, sc2, direction) where sc1 and sc2 are specific intergenic
             breakpoint coordinates, meant to be breakpoints, and direction is
             one of {LEFT, RIGHT} indicating if sc2 is left or right of sc1.
@@ -3185,14 +3184,13 @@ class GenomeSimulator():
                 l1 = chromosome.return_location_by_coordinate(sc1, True)
                 l2 = chromosome.return_location_by_coordinate(sc2, True)
                 if l1 != l2:
-                    return sc1, sc2, d
+                    return chromosome, sc1, sc2, d
 
                 success = False
 
         return None
 
     def obtain_divisions(self):
-
         """
         Obtain the divisions at the root
         """
