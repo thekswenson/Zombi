@@ -3215,19 +3215,18 @@ class GenomeSimulator():
                 
                 # This maps to the top of the branch all the cuts along that
                 # branch.  We traverse from the end to the beginning:
-                for i, event1 in enumerate(reversed(chromosome.event_history)):
+                reverse_history = list(reversed(chromosome.event_history))
+                for i, event1 in enumerate(reverse_history):
                     sc1 = event1.sbpL
                     sc2 = event1.sbpR
                     print("Mapping back in time these events")
                     print(sc1, sc2)
 
-                    # We arrive until the top event:
-                    for j, event2 in enumerate(reversed(chromosome.event_history)):
-                        if j <= i:
-                            continue
+                    # Map the cuts through the events that are above:
+                    for event2 in reverse_history[i+1:]:
                         sc1 = event2.afterToBeforeS(sc1)
                         sc2 = event2.afterToBeforeS(sc2)
-                        print(sc1,sc2)
+                        print(sc1, sc2)
                         
                     new_cuts.add(sc1)
                     new_cuts.add(sc2)
@@ -3236,7 +3235,7 @@ class GenomeSimulator():
                 # This maps to the top of the branch all the cuts that were
                 # acquired from previous nodes
                 for cut in node.cuts:
-                    for event in chromosome.event_history[::-1]:
+                    for event in reverse_history:
                         cut = event.afterToBeforeS(cut)
 
                     new_cuts.add(cut)

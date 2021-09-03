@@ -56,6 +56,27 @@ class TestDivisions(unittest.TestCase):
     self.gss.obtain_divisions() 
     self.assertEqual(self.gss.initial_divisions,
                      [(0,2),(2,3),(4,6),(6,7),(8,11),(12,15),(16,19)])
+
+  def test_2inversions_1branch(self):
+    event1 = ("G", 1.3, "I", "n2", (2, 6, LEFT))
+    event2 = ("G", 1.31, "I", "n2", (4, 10, RIGHT))
+    
+    self.gss.run_f_debug([event1, event2])
+    self.gss.obtain_divisions() 
+    self.assertEqual(self.gss.initial_divisions,
+                     [(0,2),(2,3),(4,5),(5,6),(6,7),(8,11),(12,15),(16,17),
+                      (17,19)])
+    
+  def test_3inversions_1branch(self):
+    event1 = ("G", 1.3, "I", "n2", (2, 6, LEFT))
+    event2 = ("G", 1.31, "I", "n2", (4, 10, RIGHT))
+    event3 = ("G", 1.32, "I", "n2", (8, 17, RIGHT))
+    
+    self.gss.run_f_debug([event1, event2, event3])
+    self.gss.obtain_divisions() 
+    self.assertEqual(self.gss.initial_divisions,
+                     [(0,1),(1,2),(2,3),(4,5),(5,6),(6,7),(8,10),(10,11),
+                      (12,15),(16,17),(17,19)])
   
 
 
