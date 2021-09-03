@@ -52,9 +52,10 @@ class Interval:
             one of 'I' or 'G'
         total : int, optional
             total coordinate in the interval corresponding to a breakpoint, by
-            default 0
+            default -1
         specific : int, optional
-            specific coordinate in the interval corresponding to `total`, by default 0
+            specific coordinate in the interval corresponding to `total`, by
+            default -1
         """
         self.tc1: int = tc1
         self.tc2: int = tc2

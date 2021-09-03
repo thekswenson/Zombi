@@ -419,7 +419,7 @@ class ReconciledTree(ete3.TreeNode):
         Speciesnode = speciesTree.search_nodes(**{speciesIdFeature: lostSpeciesSister })
 
         if len(Speciesnode) != 1:
-            raise Error("error:",len(Speciesnode),"with Id",lostSpeciesSister ,"(1 expected).")
+            raise Exception("error:",len(Speciesnode),"with Id",lostSpeciesSister ,"(1 expected).")
 
         lostSpeciesNode = Speciesnode[0].get_sisters()[0]
 
@@ -550,7 +550,7 @@ class ReconciledTreeList:
         """
 
         if not self.hasSpTree():
-            raise Error("error : can't get an events summary when no species tree has been assigned.")
+            raise Exception("error : can't get an events summary when no species tree has been assigned.")
 
         EventsSummary = { "duplication" : [],
                           "loss" : [] }

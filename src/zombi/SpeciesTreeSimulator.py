@@ -869,9 +869,8 @@ class SpeciesTreeGenerator():
         return (mextant_tree.write(format=1), scaled_events)
 
 
-    def quick_pruner():
-
-        mextant_tree
+    #def quick_pruner():
+    #    mextant_tree
 
 
     def write_events_file(self, events_file):

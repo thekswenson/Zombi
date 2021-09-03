@@ -1,7 +1,8 @@
 import copy
 import abc
-from os import initgroups
-from typing import List
+from typing import List, Tuple
+
+from networkx.generators.classic import star_graph
 
 from zombi.Genomes import Intergene
 
@@ -116,7 +117,8 @@ class EventTwoCuts(GenomeEvent):
 
         NOTES
         -----
-            Assumes no intergenes that wrap from the end to beginning.
+            Assumes that no intergenes wrap from the end to beginning
+            (the genome starts with a gene).
         """
         return self.beforeL.tc1 > self.beforeR.tc1
 
@@ -221,6 +223,192 @@ class Origination(EventOneCut):
             return tc - self.genelen
         
         return tc
+
+#-- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - --
+class Transfer(EventTwoCuts):
+    """
+    A transfer, where a new segment is transferred from a donor chromosome to
+    a location in a receptor chromosome.
+
+    Attributes
+    ----------
+    afterL: Interval
+        the left intergenic interval in the receptor after the cut
+    afterR: Interval
+        the right intergenic interval in the receptor after the cut
+    lineage: str
+        the donor lineage (pendant node name)
+    receptorint: Interval
+        the recepter intergenic interval where the sequence is copied
+    receptorsbp: int
+        the recepter (intergene specific) breakpoint where sequence is copied
+    receptorlineage: str
+        the receptor lineage
+    numintergenes: int
+        number of intergenes in receptor chromosome before the transfer
+    """
+    def __init__(self, donorint1: Interval, donorint2: Interval, sbp1: int,
+                 sbp2: int, swraplen: int, twraplen: int, donorlineage:str,
+                 numintergenes: int, receptorint: Interval, receptorsbp: int,
+                 receptorlineage: str, time: float):
+        """
+        Create an Origination event.
+
+        Parameters
+        ----------
+        donorint1: Interval
+            the left intergenic interval where the transferred material starts
+        donorint2: Interval
+            the right intergenic interval where the transferred material ends
+        sbp1: int
+            the start (specific coordinate) of the transferred segment
+        sbp2: int
+            the end (specific coordinate) of the transferred segment
+        donorlineage: str
+            the lineage (pendant node name) on which the chromosome gave the
+            transfered sequence
+        numintergenes: int
+            number of intergenes in receptor chromosome before the transfer
+        receptorint: Interval
+            the intergenic interval to put the new gene in
+        receptorsbp: int
+            the exact (specific coordinate) spot to put it
+        receptorlineage: str
+            the lineage on which the chromosome received the transfer
+        time: float
+            the time at which it happened
+        """
+        super().__init__(donorint1, donorint2, sbp1, sbp2, swraplen, twraplen,
+                         FER, donorlineage, time)
+        self.afterL: Interval = None
+        self.afterR: Interval = None
+        self.receptorlineage = receptorlineage
+        self.receptorint = receptorint
+        self.receptorsbp = receptorsbp
+        self.numintergenes = numintergenes
+
+        self.setAfter()
+
+    def setAfter(self):
+        """
+        Compute the resulting intergenic intervals after the transfer.
+
+        Consider intergenic regions I = `self.beforeL` and J = `self.beforeR`
+        from the donor chromosome:
+
+            ... I S J ...
+
+        and consider intergenic region K = `self.receptorint` from the receptor:
+
+            ... K ...
+
+        I is split at `self.sbpL` into I0 I1, J is split at `self.sbpR` into
+        J0 and J1.  K is split at `self.receptorsbp` into K0 and K1.
+        The transfer produces:
+
+            ... K0 I1 S J0 K1 ...
+        """
+        lenK0 = self.receptorsbp - self.receptorint.sc1
+        lenK1 = self.receptorint.sc2 - self.receptorsbp
+        self.lenI1 = self.beforeL.sc2 - self.sbpL
+        self.lenJ0 = self.sbpR - self.beforeR.sc1
+        self.afterL = Interval(self.receptorint.tc1,
+                               self.receptorint.tc1 + lenK0 + self.lenI1,
+                               self.receptorint.sc1,
+                               self.receptorint.sc1 + lenK0 + self.lenI1,
+                               self.receptorint.position, 'I',
+                               self.receptorint.tc1 + lenK0,
+                               self.receptorint.sc1 + lenK0)
+
+        position = self.receptorint.position
+        if self.wraps():
+            self.lenSs = (self.swraplen - self.sbpL) + self.sbpR
+            self.lenSt = (self.twraplen - self.tbpL) + self.tbpR - 1
+            position += self.beforeR.position + \
+                       (self.numintergenes - self.beforeL.position)
+        else:
+            self.lenSs = self.sbpR - self.sbpL - 1  #Num pb indices between
+            self.lenSt = self.tbpR - self.tbpL - 1  #Num flanking indices between
+            position += self.beforeR.position - self.beforeL.position
+
+        sstart = self.receptorint.sc1 + lenK0 + self.lenSs - self.lenJ0 + 1
+        tstart = self.receptorint.tc1 + lenK0 + self.lenSt - self.lenJ0 + 1
+        self.afterR = Interval(tstart, tstart + self.lenJ0 + lenK1,
+                               sstart, sstart + self.lenJ0 + lenK1,
+                               position, 'I',
+                               tstart + self.lenJ0, sstart + self.lenJ0)
+        
+    def afterToBeforeS(self, sc: int) -> int:
+        """
+        This function cannot be defined on Transfer since the lineage is not
+        implicit. See `afterToBeforeS_lineage`.
+        """
+        raise(NotImplementedError) #Use afterToBeforeS_lineage()!
+
+    def afterToBeforeS_lineage(self, sc: int) -> Tuple[str, int]:
+        """
+        Given a specific breakpoint coordinate after this Transfer, return
+        the same one before.
+
+            ... K ...       became
+            ... K0 I1 S J0 K1 ...
+        """
+        if self.wraps():
+            if sc <= self.afterL.s_bp:      #before transfered region
+                return (self.receptorlineage, sc)
+            elif sc >= self.afterR.s_bp:    #after transfered region
+                return (self.receptorlineage, sc - (self.lenSs + 1))
+            else:                           #inside transfered region
+                if sc - self.afterL.s_bp <= self.swraplen - self.sbpL:
+                    return (self.lineage,   #in part that didn't wrap
+                            self.beforeL.s_bp + (sc - self.afterL.s_bp))
+                else:                       #in part that wrapped
+                    return (self.lineage,
+                            (sc - self.afterL.s_bp) -
+                            (self.swraplen - self.beforeL.s_bp) - 1)
+        else:
+            if sc <= self.afterL.s_bp:      #before transfered region
+                return (self.receptorlineage, sc)
+            elif sc >= self.afterR.s_bp:    #after transfered region
+                return (self.receptorlineage, sc - self.lenSs - 1)
+            else:                           #inside transfered region
+                return (self.lineage, self.sbpL + (sc - self.afterL.s_bp))
+
+    def afterToBeforeT(self, sc: int) -> int:
+        """
+        This function cannot be defined on Transfer since the lineage is not
+        implicit. See `afterToBeforeT_lineage`.
+        """
+        raise(NotImplementedError)  #Use afterToBeforeT_lineage()!
+
+    def afterToBeforeT_lineage(self, tc: int) -> Tuple[str, int]:
+        """
+        Given a total breakpoint coordinate after this Transfer, return
+        the same one before.
+
+            ... K ...       became
+            ... K0 I1 S J0 K1 ...
+        """
+        if self.wraps():
+            if tc <= self.afterL.t_bp:      #before transfered region
+                return (self.receptorlineage, tc)
+            elif tc >= self.afterR.t_bp:    #after transfered region
+                return (self.receptorlineage, tc - (self.lenSt + 1))
+            else:                           #inside transfered region
+                if tc - self.afterL.t_bp <= self.twraplen - self.tbpL:
+                    return (self.lineage,   #in part that didn't wrap
+                            self.beforeL.t_bp + (tc - self.afterL.t_bp))
+                else:                       #in part that wrapped
+                    return (self.lineage,
+                            (tc - self.afterL.t_bp) -
+                            (self.twraplen - self.beforeL.t_bp))
+        else:
+            if tc <= self.afterL.t_bp:      #before transfered region
+                return (self.receptorlineage, tc)
+            elif tc >= self.afterR.t_bp:    #after transfered region
+                return (self.receptorlineage, tc - self.lenSt - 1)
+            else:                           #inside transfered region
+                return (self.lineage, self.tbpL + (tc - self.afterL.t_bp))
 
 #-- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - --
 class Loss(EventTwoCuts):
@@ -534,7 +722,7 @@ class Transposition(EventTwoCuts):
         the intergenic interval to the right of the transposed segment
     afterH: Interval
         here is where the segment was moved from (I0 J1)
-    numpositions: int
+    numintergenes: int
         the total number of intergenes in the chromosome
     """
     def __init__(self, int1: Interval, int2: Interval, sbp1: int, sbp2: int,

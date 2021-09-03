@@ -6,12 +6,11 @@ import copy
 import random
 import os
 import networkx as nx
-import itertools
 from typing import Tuple, Set, Dict, Union
 
 from . import AuxiliarFunctions as af
-from .Events import Loss, Origination, TandemDup, Inversion, Transposition
-from .Genomes import Chromosome, CircularChromosome, Gene, GeneFamily, Genome, Division, DivisionFamily, Intergene
+from .Events import Loss, Origination, TandemDup, Inversion, Transfer, Transposition
+from .Genomes import Chromosome, CircularChromosome, Gene, GeneFamily, Genome, DivisionFamily, Intergene
 from .Genomes import T_DIR, LEFT, RIGHT, Intergene, LinearChromosome
 
 from Bio.SeqFeature import SeqFeature
@@ -1188,7 +1187,7 @@ class GenomeSimulator():
                     ch = self.all_genomes[lineage].select_random_chromosome()
                     intergene_coordinate = ch.select_random_coordinate_in_intergenic_regions()
                     self.make_origination_intergenic(ch, intergene_coordinate,
-                                                    lineage, time)
+                                                     lineage, time)
 
                     return "O", lineage
     
@@ -1626,9 +1625,15 @@ class GenomeSimulator():
 
                 if r == None:
                     return None
-                else:
-                    c1, c2, d = r
-                    self.make_transfer_intergenic(ch, c1, c2, d, donor, recipient, time)
+
+                c1, c2, d = r
+
+                chreceptor: CircularChromosome = self.all_genomes[recipient].select_random_chromosome()
+                chreceptor.obtain_locations()
+                c3 = chreceptor.select_random_coordinate_in_intergenic_regions()
+
+                self.make_transfer_intergenic(ch, c1, c2, d, donor, chreceptor,
+                                              c3, recipient, time)
 
                 return "T", donor + "->" + recipient
 
@@ -1685,106 +1690,106 @@ class GenomeSimulator():
             return "O", lineage
 
 
-    def advanced_evolve_genomes_f_debug(self, duplication, transfer, loss, inversion, transposition, origination, time):
-        
-        
-
-        for ch in self.all_genomes[lineage]:
-            ch.obtain_flankings()
-            ch.obtain_locations()
-
-        if event == "D":
-
-            r = self.select_advanced_length(lineage, 1/d_e * multiplier)
-            if r == None:
-                return None
-            else:
-                
-                #ch, c1, c2, d = r
-                c1, c2, d = r
-                self.make_duplication_within_intergene(ch, c1, c2, d, lineage, time)
-
-            return "D", lineage
-
-        elif event == "T":
-
-
-            # We choose a recipient
-
-            possible_recipients = [x for x in self.active_genomes if x != lineage]
-
-            if len(possible_recipients) > 0:
-
-                if self.parameters["ASSORTATIVE_TRANSFER"] == "True":
-                    recipient = self.choose_assortative_recipient(time, possible_recipients, donor)
-                    if recipient == None:
-                        return None
-                else:
-                    recipient = random.choice(possible_recipients)
-
-                donor = lineage
-
-                r = self.select_advanced_length(lineage, 1/t_e * multiplier)
-
-                if r == None:
-                    return None
-                else:
-                    c1, c2, d = r
-                    self.make_transfer_intergenic(ch, c1, c2, d, donor, recipient, time)
-
-                return "T", donor + "->" + recipient
-
-            else:
-                return None
-
-        elif event == "L":
-
-            r = self.select_advanced_length(lineage, 1/l_e * multiplier)
-
-            if r == None:
-                return None
-            else:
-                c1, c2, d = r
-                pseudo = False
-                if numpy.random.uniform(0,1) <= float(self.parameters["PSEUDOGENIZATION"]):
-                    pseudo = True
-                self.make_loss_intergenic(ch, c1, c2, d, lineage, time, pseudo)
-
-            return "L", lineage
-
-        elif event == "I":
-
-            r = self.select_advanced_length(lineage, 1/i_e * multiplier)
-
-            if r == None:
-                return None
-            else:
-                c1, c2, d = r
-                self.make_inversion_intergenic(ch, c1, c2, d, lineage, time)
-
-            return "I", lineage
-
-        elif event == "P":
-
-            r = self.select_advanced_length(lineage, 1/c_e * multiplier)
-            if r == None:
-                return None
-
-            c1, c2, d = r
-
-            c3 = ch.select_random_intergenic_coordinate_excluding(c1, c2, d)
-            self.make_transposition_intergenic(ch, c1, c2, d, c3, lineage, time)
-
-            return "P", lineage
-
-        elif event == "O":
-                
-            ch = self.all_genomes[lineage].select_random_chromosome()
-            intergene_coordinate = ch.select_random_coordinate_in_intergenic_regions()
-            self.make_origination_intergenic(ch, intergene_coordinate,
-                                             lineage, time)
-
-            return "O", lineage
+#    def advanced_evolve_genomes_f_debug(self, duplication, transfer, loss, inversion, transposition, origination, time):
+#        
+#        
+#
+#        for ch in self.all_genomes[lineage]:
+#            ch.obtain_flankings()
+#            ch.obtain_locations()
+#
+#        if event == "D":
+#
+#            r = self.select_advanced_length(lineage, 1/d_e * multiplier)
+#            if r == None:
+#                return None
+#            else:
+#                
+#                #ch, c1, c2, d = r
+#                c1, c2, d = r
+#                self.make_duplication_within_intergene(ch, c1, c2, d, lineage, time)
+#
+#            return "D", lineage
+#
+#        elif event == "T":
+#
+#
+#            # We choose a recipient
+#
+#            possible_recipients = [x for x in self.active_genomes if x != lineage]
+#
+#            if len(possible_recipients) > 0:
+#
+#                if self.parameters["ASSORTATIVE_TRANSFER"] == "True":
+#                    recipient = self.choose_assortative_recipient(time, possible_recipients, donor)
+#                    if recipient == None:
+#                        return None
+#                else:
+#                    recipient = random.choice(possible_recipients)
+#
+#                donor = lineage
+#
+#                r = self.select_advanced_length(lineage, 1/t_e * multiplier)
+#
+#                if r == None:
+#                    return None
+#                else:
+#                    c1, c2, d = r
+#                    self.make_transfer_intergenic(ch, c1, c2, d, donor, recipient, time)
+#
+#                return "T", donor + "->" + recipient
+#
+#            else:
+#                return None
+#
+#        elif event == "L":
+#
+#            r = self.select_advanced_length(lineage, 1/l_e * multiplier)
+#
+#            if r == None:
+#                return None
+#            else:
+#                c1, c2, d = r
+#                pseudo = False
+#                if numpy.random.uniform(0,1) <= float(self.parameters["PSEUDOGENIZATION"]):
+#                    pseudo = True
+#                self.make_loss_intergenic(ch, c1, c2, d, lineage, time, pseudo)
+#
+#            return "L", lineage
+#
+#        elif event == "I":
+#
+#            r = self.select_advanced_length(lineage, 1/i_e * multiplier)
+#
+#            if r == None:
+#                return None
+#            else:
+#                c1, c2, d = r
+#                self.make_inversion_intergenic(ch, c1, c2, d, lineage, time)
+#
+#            return "I", lineage
+#
+#        elif event == "P":
+#
+#            r = self.select_advanced_length(lineage, 1/c_e * multiplier)
+#            if r == None:
+#                return None
+#
+#            c1, c2, d = r
+#
+#            c3 = ch.select_random_intergenic_coordinate_excluding(c1, c2, d)
+#            self.make_transposition_intergenic(ch, c1, c2, d, c3, lineage, time)
+#
+#            return "P", lineage
+#
+#        elif event == "O":
+#                
+#            ch = self.all_genomes[lineage].select_random_chromosome()
+#            intergene_coordinate = ch.select_random_coordinate_in_intergenic_regions()
+#            self.make_origination_intergenic(ch, intergene_coordinate,
+#                                             lineage, time)
+#
+#            return "O", lineage
 
 
     def get_time_to_next_event(self, n, events):
@@ -2667,17 +2672,24 @@ class GenomeSimulator():
 
 
 
-    def make_transfer_intergenic(self, chromosome1, c1, c2, d: T_DIR, donor,
-                                 recipient, time):
+    def make_transfer_intergenic(self, donorchrom: Chromosome,
+                                 c1: int, c2: int, d: T_DIR, donor: str,
+                                 receptorchrom: Chromosome, c3: int,
+                                 receptor: str, time: int):
 
-        r = chromosome1.return_affected_region(c1, c2, d)
+        r = donorchrom.return_affected_region(c1, c2, d)
 
         if r == None:
             return None
 
         else:
-            r1, r2, r3, r4, int1, int2 = r
-            segment = chromosome1.obtain_segment(r1)
+            gpositions, igpositions, leftlengths, rightlengths, int1, int2 = r
+            segment = donorchrom.obtain_segment(gpositions)
+
+            # Get lengths from last intergene.
+        specificlen = donorchrom.intergenes[-1].specific_flanking[1]
+        totallen = donorchrom.intergenes[-1].total_flanking[1]
+        numintergenes = len(donorchrom.intergenes)
             
         new_identifiers1 = self.return_new_identifiers_for_segment(segment)
         new_identifiers2 = self.return_new_identifiers_for_segment(segment)
@@ -2687,51 +2699,49 @@ class GenomeSimulator():
         copied_segment1 = af.copy_segment(segment, new_identifiers1)
         copied_segment2 = af.copy_segment(segment, new_identifiers2)
 
-        new_intergene_segment = [copy.deepcopy(chromosome1.intergenes[x]) for x in r2[1:]]
+        new_intergene_segment = [copy.deepcopy(donorchrom.intergenes[x])
+                                 for x in igpositions[1:]]
 
-        # We insert the first segment (leaving transfer) in the same position than the previous segment
+        # We insert the first segment (leaving transfer) in the same position as the previous segment
         # We do this just to change the identifiers of the numbers
 
         # We insert in the same place
 
-        position = r1[-1] + 1
+        position = gpositions[-1] + 1
 
         for i, gene in enumerate(copied_segment1):
-            chromosome1.genes.insert(position + i, gene)
+            donorchrom.genes.insert(position + i, gene)
 
         # We remove the old copies:
 
-        chromosome1.remove_segment(segment)
+        donorchrom.remove_segment(segment)
 
         # Normal transfer
 
-        chromosome2: CircularChromosome = self.all_genomes[recipient].select_random_chromosome()
-        chromosome2.obtain_locations()
-        intergene_coordinate = chromosome2.select_random_coordinate_in_intergenic_regions()
-        l = chromosome2.return_location_by_coordinate(intergene_coordinate, within_intergene=True)
+        int3 = receptorchrom.return_location_by_coordinate(c3, True)
+        position = int3.position + 1
 
-
-
-        position = l.position + 1
-
-        
         for i, gene in enumerate(copied_segment2):
-            chromosome2.genes.insert(position + i, gene)
+            receptorchrom.genes.insert(position + i, gene)
         for i, intergene in enumerate(new_intergene_segment):
-            chromosome2.intergenes.insert(position + i, intergene)
+            receptorchrom.intergenes.insert(position + i, intergene)
 
-        cut_position = (intergene_coordinate - l.sc1, l.sc2 - intergene_coordinate)
+        cut_position = (c3 - int3.sc1, int3.sc2 - c3)
 
-        scar1 = chromosome2.intergenes[l.position]
-        scar2 = chromosome2.intergenes[position + i]
+        scar1 = receptorchrom.intergenes[int3.position]
+        scar2 = receptorchrom.intergenes[position + i]
 
         if d == LEFT:
-            r3,r4 = r4,r3
+            leftlengths, rightlengths = rightlengths, leftlengths
+            int1, int2 = int2, int1
+            c1, c2 = c2, c1
 
-        scar1.length = r3[1] + cut_position[0]
-        scar2.length = r4[0] + cut_position[1]
+        scar1.length = leftlengths[1] + cut_position[0]
+        scar2.length = rightlengths[0] + cut_position[1]
 
-
+        tr = Transfer(int1, int2, c1, c2, specificlen, totallen, donor,
+                      numintergenes, int3, c3, receptor, time)
+        receptorchrom.event_history.append(tr)
 
         # We have to register in the affected gene families that there has been a transfer event
 
@@ -2748,7 +2758,7 @@ class GenomeSimulator():
             # 5. Id of the new gene arriving
 
             copied_segment1[i].species = donor
-            copied_segment2[i].species = recipient
+            copied_segment2[i].species = receptor
 
             nodes = [gene.species,
                      gene.gene_id,
@@ -2844,26 +2854,26 @@ class GenomeSimulator():
             gene.active = False
             self.all_gene_families[gene.gene_family].register_event(time, "L", ";".join(map(str,[lineage, gene.gene_id])))
 
-    def make_loss_family_mode(self, p, lineage, time):
+    #def make_loss_family_mode(self, p, lineage, time):
 
-        chromosome = self.all_genomes[lineage].select_random_chromosome()
+    #    chromosome: CircularChromosome = self.all_genomes[lineage].select_random_chromosome()
 
-        affected_genes = chromosome.obtain_affected_genes_accounting_for_family_rates(p, interactome)
-        segment = chromosome.obtain_segment(affected_genes)
+    #    affected_genes = chromosome.obtain_affected_genes_accounting_for_family_rates(p, interactome)
+    #    segment = chromosome.obtain_segment(affected_genes)
 
-        # Now we check we are not under the minimum size
+    #    # Now we check we are not under the minimum size
 
-        if len(chromosome) - len(affected_genes) <= self.parameters["MIN_GENOME_SIZE"]:
-            return 0
+    #    if len(chromosome) - len(affected_genes) <= self.parameters["MIN_GENOME_SIZE"]:
+    #        return 0
 
-        chromosome.remove_segment(segment)
+    #    chromosome.remove_segment(segment)
 
-        # We have to register in the affected gene families that there has been as loss
-        # All genes affected must be returned
+    #    # We have to register in the affected gene families that there has been as loss
+    #    # All genes affected must be returned
 
-        for gene in segment:
-            gene.active = False
-            self.all_gene_families[gene.gene_family].register_event(time, "L", ";".join(map(str,[lineage, gene.gene_id])))
+    #    for gene in segment:
+    #        gene.active = False
+    #        self.all_gene_families[gene.gene_family].register_event(time, "L", ";".join(map(str,[lineage, gene.gene_id])))
 
     def make_loss_interactome(self, p, lineage, time):
 
@@ -2901,8 +2911,8 @@ class GenomeSimulator():
             self.all_gene_families[gene.gene_family].register_event(str(time), "I", ";".join(map(str,[lineage, gene.gene_id])))
 
     
-    def make_inversion_intergenic(self, chromosome, c1: int, c2: int, d: T_DIR,
-                                  lineage: str, time: float):
+    def make_inversion_intergenic(self, chromosome: Chromosome, c1: int,
+                                  c2: int, d: T_DIR, lineage: str, time: float):
         
         """
         Do an inversion that acts on the given pair of intergene specific

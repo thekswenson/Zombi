@@ -4,7 +4,8 @@ Unittests for testing the GenomeEvents and how they map coordinates.
 
 import os
 import unittest
-from zombi.Events import Inversion, LOSS, MapOriginError, MapPseudogeneError, ORIG, POS, TandemDup
+from zombi.Events import Inversion, Loss, Origination, TandemDup, Transposition
+from zombi.Events import MapOriginError, MapPseudogeneError, Transfer
 from zombi.GenomeSimulator import GenomeSimulator
 from zombi.Genomes import LEFT, RIGHT
 import zombi.AuxiliarFunctions as af
@@ -455,7 +456,7 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_loss_intergenic(ch, 3, 10, RIGHT, lineage, 0.0)
-    loss: LOSS = ch.event_history[0]
+    loss: Loss = ch.event_history[0]
 
 
     self.assertEqual(ch.intergenes[0].length, 4,
@@ -483,7 +484,7 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_loss_intergenic(ch, 3, 10, RIGHT, lineage, 0.0, True)
-    loss: LOSS = ch.event_history[0]
+    loss: Loss = ch.event_history[0]
 
 
     self.assertEqual(ch.intergenes[0].length, 15,
@@ -529,7 +530,7 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_loss_intergenic(ch, 14, 6, RIGHT, lineage, 0.0)
-    loss: LOSS = ch.event_history[0]
+    loss: Loss = ch.event_history[0]
 
 
     self.assertEqual(ch.intergenes[1].length, 3,
@@ -555,7 +556,7 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_loss_intergenic(ch, 14, 6, RIGHT, lineage, 0.0, True)
-    loss: LOSS = ch.event_history[0]
+    loss: Loss = ch.event_history[0]
 
 
     self.assertEqual(ch.intergenes[1].length, 21,
@@ -608,7 +609,7 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_transposition_intergenic(ch, 2, 9, RIGHT, 17, lineage, 0.0)
-    trans: POS = ch.event_history[0]
+    trans: Transposition = ch.event_history[0]
 
 
     self.assertEqual(ch.intergenes[0].length, 4,
@@ -652,7 +653,7 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_transposition_intergenic(ch, 6, 11, RIGHT, 0, lineage, 0.0)
-    trans: POS = ch.event_history[0]
+    trans: Transposition = ch.event_history[0]
 
 
     self.assertEqual(ch.intergenes[0].length, 1,
@@ -700,7 +701,7 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_transposition_intergenic(ch, 14, 1, RIGHT, 10, lineage, 0.0)
-    trans: POS = ch.event_history[0]
+    trans: Origination = ch.event_history[0]
 
 
     self.assertEqual(ch.intergenes[0].length, 3,
@@ -757,7 +758,7 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     gene = self.gss.make_origination_intergenic(ch, 2, lineage, 0.0)
-    orig: ORIG = ch.event_history[0]
+    orig: Origination = ch.event_history[0]
 
 
     self.assertEqual(ch.intergenes[0].length, 2,
@@ -783,6 +784,88 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(orig.afterToBeforeT(5 + gene.length), 5,
                      'intergene breakpoint mismap')
     self.assertEqual(orig.afterToBeforeT(6 + gene.length), 6,
+                     'intergene breakpoint mismap')
+
+  # TRANSFERS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  def transferSetUp(self):
+    donorlineage = 'donorlineage'
+    receptorlineage = 'receptorlineage'
+    g1, g2 = self.gss.make_speciation(self.genome.species, donorlineage,
+                                      receptorlineage, 1.0)
+    donor = g1.chromosomes[0]
+    receptor = g2.chromosomes[0]
+
+    donor.obtain_locations()
+    receptor.obtain_locations()
+
+    return donor, donorlineage, receptor, receptorlineage
+
+  def test_transfer1(self):
+    self.setUp(TEST_GENOME_18_6)
+    donor, donorlineage, receptor, receptorlineage = self.transferSetUp()
+
+    self.gss.make_transfer_intergenic(donor, 2, 10, RIGHT, donorlineage,
+                                      receptor, 1, receptorlineage, 1.5)
+    trans: Transfer = receptor.event_history[0]
+
+    self.assertEqual(trans.afterToBeforeS_lineage(1), (receptorlineage, 1),
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS_lineage(2), (donorlineage, 3),
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS_lineage(8), (donorlineage, 9),
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS_lineage(9), (receptorlineage, 1),
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS_lineage(10), (receptorlineage, 2),
+                     'intergene breakpoint mismap')
+
+    self.assertEqual(trans.afterToBeforeT_lineage(4), (receptorlineage, 4),
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT_lineage(5), (donorlineage, 6),
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT_lineage(12), (donorlineage, 13),
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT_lineage(15), (donorlineage, 16),
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT_lineage(16), (receptorlineage, 4),
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT_lineage(17), (receptorlineage, 5),
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT_lineage(26), (receptorlineage, 14),
+                     'intergene breakpoint mismap')
+
+  def test_transfer2(self):
+    self.setUp(TEST_GENOME_18_6)
+    donor, donorlineage, receptor, receptorlineage = self.transferSetUp()
+
+    self.gss.make_transfer_intergenic(donor, 3, 10, LEFT, donorlineage,
+                                      receptor, 7, receptorlineage, 1.5)
+    trans: Transfer = receptor.event_history[0]
+
+    self.assertEqual(trans.afterToBeforeS_lineage(7), (receptorlineage, 7),
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS_lineage(8), (donorlineage, 11),
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS_lineage(9), (donorlineage, 0),
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS_lineage(11), (donorlineage, 2),
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS_lineage(12), (receptorlineage, 7),
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeS_lineage(15), (receptorlineage, 10),
+                     'intergene breakpoint mismap')
+
+    self.assertEqual(trans.afterToBeforeT_lineage(12), (receptorlineage, 12),
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT_lineage(13), (donorlineage, 18),
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT_lineage(14), (donorlineage, 1),
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT_lineage(18), (donorlineage, 5),
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT_lineage(19), (receptorlineage, 12),
+                     'intergene breakpoint mismap')
+    self.assertEqual(trans.afterToBeforeT_lineage(22), (receptorlineage, 15),
                      'intergene breakpoint mismap')
 
 if __name__ == '__main__':

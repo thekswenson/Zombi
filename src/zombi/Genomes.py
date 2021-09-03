@@ -766,7 +766,7 @@ class DivisionFamily():
         return completetree, extanttree, rec
         
 
-    def __repr__():
+    def __repr__(self):
         return str(self.initial_flanking)
 
     def __len__(self):
@@ -1080,7 +1080,6 @@ class Chromosome():
 
             5. The intergenic interval containing c2
         """
-
         l1 = self.return_location_by_coordinate(c1, within_intergene=True)
         l2 = self.return_location_by_coordinate(c2, within_intergene=True)
 
