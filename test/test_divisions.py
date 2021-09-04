@@ -82,25 +82,25 @@ class TestDivisions1(unittest.TestCase):
 
 class TestDivisions2(unittest.TestCase): # In a slightly more compex tree
 
-    def setUp(self, genome_file=TEST_GENOME_30_6):
-        params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
-        events_file = os.path.join(TEST_FOLDER2, 'T/Events.tsv')
-        self.gss = GenomeSimulator(params, events_file, genome_file)
+  def setUp(self, genome_file=TEST_GENOME_30_6):
+    params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
+    events_file = os.path.join(TEST_FOLDER2, 'T/Events.tsv')
+    self.gss = GenomeSimulator(params, events_file, genome_file)
 
-    def test_inversions_multiple_branches(self):
+  def test_inversions_multiple_branches(self):
 
-      event1 = ("G", 0.624, "I", "Root", (19, 1, RIGHT))
-      event2 = ("G", 1.073, "I", "n1", (15, 5, LEFT))
-      #event3 = ("G", 1.19, "I", "n2", (6, 15, RIGHT))
-      #event4 = ("G", 1.322, "I", "n3", (8, 7, LEFT))
-      #event5 = ("G", 1.377, "I", "n2", (8, 6, RIGHT))
-      
-      
-      self.gss.run_f_debug([event1, event2])
-      #self.gss.run_f_debug([event1, event2, event3, event4, event5])
-      self.gss.obtain_divisions() 
-      self.assertEqual(self.gss.initial_divisions,
-                       [(0,1),(1,3),(4,6),(6,7),(8,11),(12,15),(16,19)])
+    event1 = ("G", 0.624, "I", "Root", (19, 1, RIGHT))
+    event2 = ("G", 1.073, "I", "n1", (15, 5, LEFT))
+    #event3 = ("G", 1.19, "I", "n2", (6, 15, RIGHT))
+    #event4 = ("G", 1.322, "I", "n3", (8, 7, LEFT))
+    #event5 = ("G", 1.377, "I", "n2", (8, 6, RIGHT))
+    
+    
+    self.gss.run_f_debug([event1, event2])
+    #self.gss.run_f_debug([event1, event2, event3, event4, event5])
+    self.gss.obtain_divisions() 
+    self.assertEqual(self.gss.initial_divisions,
+                     [(0,1),(1,3),(4,6),(6,7),(8,11),(12,15),(16,19)])
     
     
   
