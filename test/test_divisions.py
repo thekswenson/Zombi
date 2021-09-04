@@ -10,15 +10,16 @@ import zombi.AuxiliarFunctions as af
 
 
 GENOME_PARAMS = 'test/GenomeParametersDivisions.tsv'
-TEST_FOLDER = 'test/TestDivisions/'
+TEST_FOLDER1 = 'test/TestDivisions1/'
+TEST_FOLDER2 = 'test/TestDivisions2/'
 TEST_GENOME_30_6 = 'test/30_6.gff'  #30 bases, 5 * length-3 genomic/intergenomic pairs
 
 
-class TestDivisions(unittest.TestCase):
+class TestDivisions1(unittest.TestCase):
 
   def setUp(self, genome_file=TEST_GENOME_30_6):
     params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
-    events_file = os.path.join(TEST_FOLDER, 'T/Events.tsv')
+    events_file = os.path.join(TEST_FOLDER1, 'T/Events.tsv')
 
     self.gss = GenomeSimulator(params, events_file, genome_file)
   
@@ -49,7 +50,7 @@ class TestDivisions(unittest.TestCase):
     self.assertEqual(self.gss.initial_divisions,
                      [(0,2),(2,3),(4,6),(6,7),(8,11),(12,15),(16,19)])
 
-  def test_single_inversion_LEFT_wrapping(self): # Should give the same divisions, why it does not???
+  def test_single_inversion_LEFT_wrapping(self): 
     event1 = ("G", 1.3, "I", "n2", (2, 6, LEFT))
     
     self.gss.run_f_debug([event1])
@@ -79,7 +80,30 @@ class TestDivisions(unittest.TestCase):
                       (12,15),(16,17),(17,19)])
   
 
+class TestDivisions2(unittest.TestCase): # In a slightly more compex tree
 
+    def setUp(self, genome_file=TEST_GENOME_30_6):
+        params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
+        events_file = os.path.join(TEST_FOLDER2, 'T/Events.tsv')
+        self.gss = GenomeSimulator(params, events_file, genome_file)
+
+    def test_inversions_multiple_branches(self):
+
+      event1 = ("G", 0.624, "I", "Root", (19, 1, RIGHT))
+      event2 = ("G", 1.073, "I", "n1", (15, 5, LEFT))
+      #event3 = ("G", 1.19, "I", "n2", (6, 15, RIGHT))
+      #event4 = ("G", 1.322, "I", "n3", (8, 7, LEFT))
+      #event5 = ("G", 1.377, "I", "n2", (8, 6, RIGHT))
+      
+      
+      self.gss.run_f_debug([event1])
+      #self.gss.run_f_debug([event1, event2, event3, event4, event5])
+      self.gss.obtain_divisions() 
+      self.assertEqual(self.gss.initial_divisions,
+                     [(0,1),(1,3),(4,5),(5,7),(8,11),(12,15),(16,19)])
+    
+    
   
+
 if __name__ == '__main__':
     unittest.main()

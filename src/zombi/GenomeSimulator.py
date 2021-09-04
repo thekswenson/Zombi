@@ -2945,6 +2945,7 @@ class GenomeSimulator():
             the time stamp of the event
         """
         
+        print(c1,c2,d,lineage, time)
         r = chromosome.return_affected_region(c1, c2, d)
 
         if r == None:
@@ -3217,18 +3218,12 @@ class GenomeSimulator():
                 for i, event1 in enumerate(reverse_history):
                     sc1 = event1.sbpL
                     sc2 = event1.sbpR
-                    print("Mapping back in time these events")
-                    print(sc1, sc2)
-
                     # Map the cuts through the events that are above:
                     for event2 in reverse_history[i+1:]:
                         sc1 = event2.afterToBeforeS(sc1)
                         sc2 = event2.afterToBeforeS(sc2)
-                        print(sc1, sc2)
-                        
                     new_cuts.add(sc1)
                     new_cuts.add(sc2)
-                print("Done!")
 
                 # This maps to the top of the branch all the cuts that were
                 # acquired from previous nodes
@@ -3254,14 +3249,7 @@ class GenomeSimulator():
             all_cuts.append(cut1)
             all_cuts.append(cut2)
         
-        print("Natural cuts")
-        for x in self.natural_cuts:
-            print(x)
-        print("***")
-        print("Events cuts")
-        print(sorted(list(self.complete_tree.cuts)))
-        print("***")
-        # These are the cuts from the events ## NOTE: NEED TO FIX THIS        
+
         all_cuts +=  sorted(list(self.complete_tree.cuts))
         
         # These are the cuts surrounding the Genes. We don't need to treat these
@@ -3283,6 +3271,7 @@ class GenomeSimulator():
             # an intergene and c2 is the left most extreme of the next intergene
             if (c1, c2) in cuts_to_ignore:
                 continue
+            
             self.initial_divisions.append((c1,c2))
             fam_id += 1
             intergene = initial_chromosome.return_intergene_by_coordinate(c1)
@@ -3660,7 +3649,6 @@ class GenomeSimulator():
             if etype == "L":
                 make_loss_divisions(time, event)
             if etype == "I":
-                print(event)
                 c1 = event.sbpL
                 c2 = event.sbpR
                 print(c1, c2)
