@@ -96,11 +96,11 @@ class TestDivisions2(unittest.TestCase): # In a slightly more compex tree
       #event5 = ("G", 1.377, "I", "n2", (8, 6, RIGHT))
       
       
-      self.gss.run_f_debug([event1])
+      self.gss.run_f_debug([event1, event2])
       #self.gss.run_f_debug([event1, event2, event3, event4, event5])
       self.gss.obtain_divisions() 
       self.assertEqual(self.gss.initial_divisions,
-                     [(0,1),(1,3),(4,5),(5,7),(8,11),(12,15),(16,19)])
+                       [(0,1),(1,3),(4,6),(6,7),(8,11),(12,15),(16,19)])
     
     
   
