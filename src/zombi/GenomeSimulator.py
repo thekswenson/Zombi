@@ -3445,24 +3445,45 @@ class GenomeSimulator():
             new_segment_2 = af.copy_segment(segment, new_identifiers2)
 
             # And the intergenes, which will have incorrect lengths until we update
-            # them later
+            # them later. The divisions also need to be adjusted
             
             old_intergene_segment = [chromosome.intergenes[x] for x in intergenepositions[1:]]
             new_intergene_segment_1 = [copy.deepcopy(chromosome.intergenes[x]) for x in intergenepositions[1:]]
             new_intergene_segment_2 = [copy.deepcopy(chromosome.intergenes[x]) for x in intergenepositions[1:]]
 
+            # We adjust the divisions
+
+            # In the last intergene copied, we can erase all divisions right of the event:
+            
+            redundant_divisions = list()
+            for division in new_intergene_segment_2[-1]:
+                df1, df2 = division.specific_flanking # We don't have to duplicate all divisions, only those within the region affected by the event
+                if df1 >= c2:
+                    redundant_divisions.append(division)
+            
+            for division in redundant_divisions:
+                (new_intergene_segment_2[-1]).divisions.remove(division)
+
             for intergene, intergene1, intergene2 in zip(old_intergene_segment, new_intergene_segment_1, new_intergene_segment_2):
+
                 for division, division1, division2 in zip(intergene, intergene1, intergene2):
-                    division1.identity = self.all_division_families[str(division1.division_family)].obtain_new_identifier()
-                    division2.identity = self.all_division_families[str(division2.division_family)].obtain_new_identifier()
-                    nodes = [lineage, 
-                            division.identity,
-                            lineage,
-                            division1.identity,
-                            lineage,
-                            division2.identity
-                            ]
-                    self.all_division_families[str(division.division_family)].register_event(str(time), "D", ";".join(map(str,nodes)))
+
+                    #df1, df2 = division.specific_flanking # We don't have to duplicate all divisions, only those within the region affected by the event FIX
+                    # maybe I don't need this check after removing the redundant divisions
+
+                    #if df1 >= c1 and df2 <= c2:
+
+                        division1.identity = self.all_division_families[str(division1.division_family)].obtain_new_identifier()
+                        division2.identity = self.all_division_families[str(division2.division_family)].obtain_new_identifier()
+                        nodes = [lineage, 
+                                division.identity,
+                                lineage,
+                                division1.identity,
+                                lineage,
+                                division2.identity
+                                ]
+                        
+                        self.all_division_families[str(division.division_family)].register_event(str(time), "D", ";".join(map(str,nodes)))
 
 
             scar0 = chromosome.intergenes[intergenepositions[0]]
@@ -3515,8 +3536,10 @@ class GenomeSimulator():
                 self.gene_families_second[gene_family].genes.append(new_segment_1[i])
                 self.gene_families_second[gene_family].genes.append(new_segment_2[i])
                 self.gene_families_second[gene.gene_family].register_event(time, "D", ";".join(map(str, nodes)))
-
-            chromosome.update_flankings_divisions()
+            
+            chromosome.obtain_flankings()
+            chromosome.obtain_locations()
+            #chromosome.update_flankings_divisions()
 
         def make_loss_divisions(time, event):
 
@@ -3641,6 +3664,11 @@ class GenomeSimulator():
         self.gene_families_second = self.initial_gene_families
         self.all_genomes_second["Initial"] = self.initial_genome
         self.all_genomes_second["Root"] = copy.deepcopy(self.initial_genome)
+
+        for ch in self.initial_genome:
+            for intergene in ch.iter_intergenes():
+                for division in intergene:
+                    len(division) # To obtain the sizes of the divisions
 
        # We create a list of all the events (T and G) that we will order by time
 

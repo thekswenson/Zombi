@@ -456,6 +456,7 @@ class Division():
         self.identity = identity # Specific identifier of this division
         self.division_family = division_family # The name of the division family
         self.specific_flanking: T_PAIR = specific_flanking   #: not pythonic (both inclusive)
+        self.size = None
 
     def change_sense(self):
 
@@ -468,7 +469,9 @@ class Division():
         return  str(self.division_family) + "_" + str(self.identity) + "_" + str(self.specific_flanking)
 
     def __len__(self):
-        return int(abs(self.specific_flanking[1] - self.specific_flanking[0]))
+        if self.size == None:
+            self.size = int(abs(self.specific_flanking[1] - self.specific_flanking[0]))
+        return self.size
 
 
 class Intergene():
