@@ -136,7 +136,34 @@ class GenomeSimulator():
                             line = "\t".join(list(map(str, [division.division_family, "DIVISION", division.identity, len(division), scl, scr, tcl, tcr, division.orientation ]))) + "\n"
                             f.write(line)
 
+    
+    def write_genome_info(self, genome_folder:str,
+                               filename="InitialGenome_info.tsv"):
+        """
+        Write a TSV file with containing gene id, gff gene id, and start and
+        end coordinates for every gene and division in the intial genome.
 
+        Parameters
+        ----------
+        genome_folder : str
+            the folder
+        filename : str, optional
+            the filename to use, by default "InitialGenome_info.tsv"
+        """
+        with open(os.path.join(genome_folder, filename), "w") as f:
+            header = ["TYPE", "IDENTITY", "GFF_ID", "START", "END"]
+            f.write("\t".join(map(str, header)) + "\n")
+
+            for chromosome in self.initial_genome:
+                for gene, intergene in zip(chromosome, chromosome.iter_intergenes()):             
+                    line = "\t".join(["GENE_FAMILY", gene.gene_family, "", str(gene.start), str(gene.end)]) + "\n"
+                    f.write(line)
+                    for division in intergene:
+                        line = "\t".join(["DIVISION", str(division.division_family), "", 
+                        str(division.specific_flanking[0]), str(division.specific_flanking[1])]) + "\n"
+                        f.write(line)
+    
+    
     def write_gene_family_info(self, genome_folder:str,
                                filename="GeneFamily_info.tsv"):
         """
@@ -1149,6 +1176,12 @@ class GenomeSimulator():
                 c1, c2, d = r
                  
                 if event == "D":
+
+                    lineage = nodes
+                    
+                    for ch in self.all_genomes[lineage]:
+                        ch.obtain_flankings()
+                        ch.obtain_locations()
 
                     self.make_duplication_within_intergene(ch, c1, c2, d, lineage, time)
 
@@ -2272,7 +2305,6 @@ class GenomeSimulator():
 
             self.all_gene_families[gene_family].genes.append(new_segment_1[i])
             self.all_gene_families[gene_family].genes.append(new_segment_2[i])
-
             self.all_gene_families[gene.gene_family].register_event(time, "D", ";".join(map(str, nodes)))
 
     def _dupAssert(self, dup: TandemDup, ileft: Intergene, icenter: Intergene,
@@ -2945,7 +2977,6 @@ class GenomeSimulator():
             the time stamp of the event
         """
         
-        print(c1,c2,d,lineage, time)
         r = chromosome.return_affected_region(c1, c2, d)
 
         if r == None:
@@ -3485,6 +3516,8 @@ class GenomeSimulator():
                 self.gene_families_second[gene_family].genes.append(new_segment_2[i])
                 self.gene_families_second[gene.gene_family].register_event(time, "D", ";".join(map(str, nodes)))
 
+            chromosome.update_flankings_divisions()
+
         def make_loss_divisions(time, event):
 
             lineage = event.lineage
@@ -3574,6 +3607,8 @@ class GenomeSimulator():
             specificlen = chromosome.intergenes[-1].specific_flanking[1]
             totallen = chromosome.intergenes[-1].total_flanking[1]
 
+            chromosome.invert_divisions(c1,c2) # This function receives the two cuts and inverts all the divisions between them 
+
             segment = chromosome.obtain_segment(gpositions)
             chromosome.invert_segment(gpositions)
 
@@ -3585,8 +3620,6 @@ class GenomeSimulator():
             inv = Inversion(int1, int2, c1, c2, specificlen, totallen, sleftlen,
                             tleftlen, srightlen, trightlen, lineage, time)
             
-            chromosome.invert_divisions(c1,c2) # This function receives the two cuts and inverts all the divisions between them KRISTER
-
             chromosome.event_history.append(inv)
 
             scar1 = chromosome.intergenes[igpositions[0]]
@@ -3649,9 +3682,6 @@ class GenomeSimulator():
             if etype == "L":
                 make_loss_divisions(time, event)
             if etype == "I":
-                c1 = event.sbpL
-                c2 = event.sbpR
-                print(c1, c2)
                 make_inversion_divisions(time, event)
 
 

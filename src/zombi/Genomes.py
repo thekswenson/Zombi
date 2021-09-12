@@ -456,9 +456,16 @@ class Division():
         self.identity = identity # Specific identifier of this division
         self.division_family = division_family # The name of the division family
         self.specific_flanking: T_PAIR = specific_flanking   #: not pythonic (both inclusive)
+
+    def change_sense(self):
+
+        if self.orientation == "+":
+            self.orientation = "-"
+        elif self.orientation == "-":
+            self.orientation = "+"
         
     def __str__(self):
-        return str(self.division_family) + "_" + str(self.identity)
+        return  str(self.division_family) + "_" + str(self.identity) + "_" + str(self.specific_flanking)
 
     def __len__(self):
         return int(abs(self.specific_flanking[1] - self.specific_flanking[0]))
@@ -521,13 +528,12 @@ class Intergene():
         division = Division(identity, division_family, specific_flanking)
         self.divisions.append(division)
         
-
-
     def __str__(self):
 
         #return "(" + str(self.length) + ")"
         #return "I_" + str(self.length)
-        return "I_" + str(self.id) + "_" + str(self.length)
+        #return "I_" + str(self.id) + "_" + str(self.length)
+        return "I_" + str(self.specific_flanking) 
     
     def __iter__(self):
 
@@ -864,7 +870,7 @@ class Chromosome():
         genome. In the process, set the "flanking" endpoints for each of the
         genes and intergenes (based on their length).
         """
-        self.obtain_flankings()
+        self.obtain_flankings() # Redundant FIX
         self.map_of_locations = list()
 
         for i in range(len(self.genes)):
@@ -880,8 +886,27 @@ class Chromosome():
             sc1 = self.intergenes[i].specific_flanking[0]
             sc2 = self.intergenes[i].specific_flanking[1]
             self.map_of_locations.append(Interval(tc1, tc2, sc1, sc2, i, "I"))
+    
+    def update_flankings_divisions(self):
 
+        """
+        After an event, updates the coordinates of the divisions
+        based on the length 
+        """
+        
+        first_division = self.intergenes[0].divisions[0]
+        previous_right_breakpoint = first_division.specific_flanking[1]
 
+        for intergene in self.iter_intergenes():
+            for division in intergene:
+                if division == first_division:
+                    continue
+                else:
+                    division_length = len(division)
+                    division_flanking = (previous_right_breakpoint, previous_right_breakpoint + division_length)
+                    division.specific_flanking = division_flanking
+                    previous_right_breakpoint = division_flanking[1]
+                
     def select_random_coordinate_in_intergenic_regions(self,
                                                        exclude: List[int] = None
                                                       ) -> int:
@@ -1275,25 +1300,50 @@ class CircularChromosome(Chromosome):
     def invert_divisions(self, cut1, cut2):
         """
         Invert the divisions between the two cuts
+        Change the orientation of all divisions affected by the inversion
         """
         start = False
         end = False
 
+        divisions_to_invert = list()
+
         for intergene in self.iter_intergenes():
             for division in intergene:
                 sf1, sf2 = division.specific_flanking # We get the flakings of the divisions
-                print(sf1, sf2)
-                if sf1 == cut1 or sf2 == cut1:
-                    start = True
-                if sf1 == cut2 or sf2 == cut2:
-                    end = True
-                    
-        print("This is the result")
-        print(start, end)
-        print("These were the cuts")
-        print(cut1, cut2)
-        print("******")
 
+                if cut1 == sf1 and cut2 == sf2:
+                    divisions_to_invert.append((intergene, division))
+                    end = True
+                    break
+                elif cut1 == sf1 and cut2 != sf2:
+                    start = True 
+                    divisions_to_invert.append((intergene, division))
+                elif cut2 == sf1:
+                    end = True
+                    break
+                elif cut2 == sf2:
+                    divisions_to_invert.append((intergene, division))
+                    end = True
+                    break
+                elif start == True:
+                    divisions_to_invert.append((intergene, division))
+
+            if end == True:
+                break    
+
+        for i in range(int(len(divisions_to_invert)/2)):
+            
+            intergene1, division1 = divisions_to_invert[i]
+            intergene2, division2 = list(reversed(divisions_to_invert))[i]
+
+            index1 = (intergene1.divisions).index(division1)
+            index2 = (intergene2.divisions).index(division2)
+
+            intergene1.divisions[index1], intergene2.divisions[index2] = intergene2.divisions[index2], intergene1.divisions[index1]
+            division1.specific_flanking, division2.specific_flanking = division2.specific_flanking, division1.specific_flanking
+            
+            division1.change_sense()
+            division2.change_sense()
 
     def inversion_wrap_lengths(self, affected_genes: List[int]
                                ) -> Tuple[int, int, int, int]:

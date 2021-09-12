@@ -180,9 +180,6 @@ class Zombi():
             gss.write_genomes(genomes_folder, intergenic_sequences=True)
             gss.write_gene_family_lengths(genome_folder)
 
-            if root_genome:
-                gss.write_gene_family_info(genome_folder)
-
         else:
             gss.write_genomes(genomes_folder, intergenic_sequences=False)
 
@@ -230,6 +227,10 @@ class Zombi():
             division_trees_folder = os.path.join(genome_folder, "Division_trees")
             gss.write_division_trees(division_trees_folder)
             gss.write_division_coordinates(genomes_folder)
+
+            if root_genome:
+                gss.write_gene_family_info(genome_folder) # This function should probably disappear FIX
+                gss.write_genome_info(genome_folder)
             
 
     def S(self, parameters_file, experiment_folder, advanced_mode, num_threads: int, fasta_file: str):
@@ -349,10 +350,11 @@ class Zombi():
                     gf, l = line.strip().split("\t")
                     gf_lengths[gf] = int(l)
 
-            # FIX THIS
-            #id_to_seq = None
-            #if fasta_file:
-            #    id_to_seq = af.read_nucleotide_sequences(fasta_file, genome_folder)
+            id_to_seq = None
+            if fasta_file:
+                id_to_seq = af.read_nucleotide_sequences(fasta_file, genome_folder)
+            
+            #print(id_to_seq)
 
             if parameters["SEQUENCE"] != "nucleotide":
                 print("Sequence mode will be changed to codon for full compatibility with Sf mode")

@@ -91,19 +91,34 @@ class TestDivisions2(unittest.TestCase): # In a slightly more compex tree
 
     event1 = ("G", 0.624, "I", "Root", (19, 1, RIGHT))
     event2 = ("G", 1.073, "I", "n1", (15, 5, LEFT))
-    #event3 = ("G", 1.19, "I", "n2", (6, 15, RIGHT))
-    #event4 = ("G", 1.322, "I", "n3", (8, 7, LEFT))
-    #event5 = ("G", 1.377, "I", "n2", (8, 6, RIGHT))
-    
     
     self.gss.run_f_debug([event1, event2])
-    #self.gss.run_f_debug([event1, event2, event3, event4, event5])
     self.gss.obtain_divisions() 
     self.assertEqual(self.gss.initial_divisions,
                      [(0,1),(1,3),(4,6),(6,7),(8,11),(12,15),(16,19)])
-    
-    
   
+  def test_events_for_divisions(self):
+
+    print("***")
+
+    #event1 = ("G", 1.073, "I", "n1", (6, 9, RIGHT))
+    #event2 = ("G", 1.075, "I", "n1", (4, 11, RIGHT))
+    event1 = ("G", 1.076, "D", "n1", (0, 18, RIGHT))
+    
+    #self.gss.run_f_debug([event1, event2, event3])
+    #self.gss.run_f_debug([event1, event2])
+    self.gss.run_f_debug([event1])
+    self.gss.obtain_divisions() 
+    #self.assertEqual(self.gss.initial_divisions,
+    #                 [(0,3),(4,6),(6,7),(8,9),(9,11),(12,15),(16,19)])
+    
+    self.gss.obtain_events_for_divisions() 
+    for ch in self.gss.all_genomes_second["n1"]:
+         for intergene in ch.iter_intergenes():
+             for division in intergene:
+                 print(intergene, division)
+
+    #self.assertEqual()
 
 if __name__ == '__main__':
     unittest.main()
