@@ -3541,6 +3541,7 @@ class GenomeSimulator():
             chromosome.obtain_locations()
             chromosome.update_flankings_divisions()
 
+
         def make_loss_divisions(time, event):
 
             lineage = event.lineage
@@ -3660,6 +3661,7 @@ class GenomeSimulator():
 
             chromosome.invert_divisions(c1,c2) # This function receives the two cuts and inverts all the divisions between them             
             chromosome.update_flankings_divisions()
+
                         
         ######
 
@@ -3706,10 +3708,14 @@ class GenomeSimulator():
 
             if etype == "D":
                 make_duplication_divisions(time, event)
+                
             if etype == "L":
                 make_loss_divisions(time, event)
             if etype == "I":
+
+
                 make_inversion_divisions(time, event)
+                
 
 
     def write_division_trees(self, division_tree_folder):

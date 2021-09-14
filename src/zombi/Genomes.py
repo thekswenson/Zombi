@@ -900,7 +900,8 @@ class Chromosome():
 
         for intergene in self.iter_intergenes():
 
-
+            if len(intergene.divisions) == 0:
+                continue
 
             lb, rb = intergene.specific_flanking # the specific flankings of the intergene
             first_division = intergene.divisions[0]
