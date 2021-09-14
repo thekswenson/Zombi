@@ -3661,11 +3661,9 @@ class GenomeSimulator():
 
             chromosome.invert_divisions(c1,c2) # This function receives the two cuts and inverts all the divisions between them             
             chromosome.update_flankings_divisions()
-
                         
         ######
 
-    
         self.all_genomes_second = dict()
         self.gene_families_second = self.initial_gene_families
         self.all_genomes_second["Initial"] = self.initial_genome
@@ -3708,12 +3706,9 @@ class GenomeSimulator():
 
             if etype == "D":
                 make_duplication_divisions(time, event)
-                
             if etype == "L":
                 make_loss_divisions(time, event)
             if etype == "I":
-
-
                 make_inversion_divisions(time, event)
                 
 

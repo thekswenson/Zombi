@@ -1322,14 +1322,21 @@ class CircularChromosome(Chromosome):
         
         for intergene in itertools.cycle(self.iter_intergenes()):
 
+            if len(intergene) == 0:
+
+                bp = intergene.specific_flanking[0] # breakpoint
+                if bp == cut1:
+                    start = True
+                
+                if bp == cut2:
+                    end = True
+
             for division in intergene:
 
                 sf1, sf2 = division.specific_flanking # We get the flankings of the divisions
                 #print(cut1, cut2, sf1, sf2)
             
                 if cut1 == sf1 and cut2 == sf2:
-                    
-            
                     divisions_to_invert.append(division)
                     if intergene not in affected_intergenes:
                         affected_intergenes.append(intergene)
@@ -1338,7 +1345,6 @@ class CircularChromosome(Chromosome):
                 
                 elif cut1 == sf1 and cut2 != sf2:
                     
-        
                     start = True 
                     divisions_to_invert.append(division)
                     if intergene not in affected_intergenes:
