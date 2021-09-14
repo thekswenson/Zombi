@@ -1325,36 +1325,37 @@ class CircularChromosome(Chromosome):
                 sf1, sf2 = division.specific_flanking # We get the flakings of the divisions
             
                 if cut1 == sf1 and cut2 == sf2:
-                    
+            
                     divisions_to_invert.append(division)
                     if intergene not in affected_intergenes:
                         affected_intergenes.append(intergene)
-                
                     end = True
                     break
                 
                 elif cut1 == sf1 and cut2 != sf2:
-                    
+        
                     start = True 
                     divisions_to_invert.append(division)
                     if intergene not in affected_intergenes:
                         affected_intergenes.append(intergene)
 
+                elif cut1 == sf2 and intergene.divisions[-1] == division: # The breakpoint is right before the gene
+                    if intergene not in affected_intergenes: # shoudl be ok without this check
+                        affected_intergenes.append(intergene)
+                    start = True
+
                 elif cut2 == sf1:
-                    
                     end = True
                     break
 
                 elif cut2 == sf2:
-                    
                     divisions_to_invert.append(division)
                     if intergene not in affected_intergenes:
                         affected_intergenes.append(intergene)
                     end = True
                     break
-                
+
                 elif start == True:
-    
                     divisions_to_invert.append(division)
                     if intergene not in affected_intergenes:
                         affected_intergenes.append(intergene)
@@ -1363,12 +1364,13 @@ class CircularChromosome(Chromosome):
                 break    
                 
         # We keep track also of all divisions
-        
-        all_divisions = list()
 
+        all_divisions = list()
+    
         for intergene in affected_intergenes:
             for division in intergene:
                 all_divisions.append((intergene, division))
+       
 
         #  We prepare the new list with the right order
         

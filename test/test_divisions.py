@@ -101,14 +101,14 @@ class TestDivisions2(unittest.TestCase): # In a slightly more compex tree
 
     print("***")
 
-    event1 = ("G", 1.073, "I", "n1", (6, 9, RIGHT))
-    event2 = ("G", 1.075, "I", "n1", (5, 10, RIGHT))
-    event3 = ("G", 1.076, "D", "n1", (7, 9, RIGHT))
-    event4 = ("G", 1.0766, "D", "n1", (3, 9, RIGHT))
+    event1 = ("G", 1.073, "I", "n1", (7, 9, RIGHT))
+    #event2 = ("G", 1.075, "I", "n1", (5, 10, RIGHT))
+    #event3 = ("G", 1.076, "D", "n1", (7, 9, RIGHT))
+    #event4 = ("G", 1.0766, "D", "n1", (15,2, LEFT))
     
     #self.gss.run_f_debug([event1, event2, event3])
     #self.gss.run_f_debug([event1, event2])
-    self.gss.run_f_debug([event1, event2, event3, event4])
+    self.gss.run_f_debug([event1])
     #self.gss.run_f_debug([event2])
     #self.gss.run_f_debug([])
     self.gss.obtain_divisions() 
