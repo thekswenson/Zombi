@@ -3456,13 +3456,13 @@ class GenomeSimulator():
             # In the last intergene copied, we can erase all divisions right of the event:
             
             redundant_divisions = list()
-            for division in new_intergene_segment_2[-1]:
+            for division in new_intergene_segment_1[-1]:
                 df1, df2 = division.specific_flanking # We don't have to duplicate all divisions, only those within the region affected by the event
                 if df1 >= c2:
                     redundant_divisions.append(division)
-            
+                
             for division in redundant_divisions:
-                (new_intergene_segment_2[-1]).divisions.remove(division)
+                (new_intergene_segment_1[-1]).divisions.remove(division)
 
             for intergene, intergene1, intergene2 in zip(old_intergene_segment, new_intergene_segment_1, new_intergene_segment_2):
 
@@ -3539,7 +3539,7 @@ class GenomeSimulator():
             
             chromosome.obtain_flankings()
             chromosome.obtain_locations()
-            #chromosome.update_flankings_divisions()
+            chromosome.update_flankings_divisions()
 
         def make_loss_divisions(time, event):
 
@@ -3630,8 +3630,6 @@ class GenomeSimulator():
             specificlen = chromosome.intergenes[-1].specific_flanking[1]
             totallen = chromosome.intergenes[-1].total_flanking[1]
 
-            chromosome.invert_divisions(c1,c2) # This function receives the two cuts and inverts all the divisions between them 
-
             segment = chromosome.obtain_segment(gpositions)
             chromosome.invert_segment(gpositions)
 
@@ -3656,7 +3654,18 @@ class GenomeSimulator():
 
             for gene in segment:
                 self.gene_families_second[gene.gene_family].register_event(str(time), "I", ";".join(map(str,[lineage, gene.gene_id])))
+            
+            chromosome.obtain_flankings()
+            chromosome.obtain_locations()
 
+            
+
+            chromosome.invert_divisions(c1,c2) # This function receives the two cuts and inverts all the divisions between them             
+            chromosome.update_flankings_divisions()
+
+            
+            
+            
         ######
 
     
@@ -3664,11 +3673,6 @@ class GenomeSimulator():
         self.gene_families_second = self.initial_gene_families
         self.all_genomes_second["Initial"] = self.initial_genome
         self.all_genomes_second["Root"] = copy.deepcopy(self.initial_genome)
-
-        for ch in self.initial_genome:
-            for intergene in ch.iter_intergenes():
-                for division in intergene:
-                    len(division) # To obtain the sizes of the divisions
 
        # We create a list of all the events (T and G) that we will order by time
 
