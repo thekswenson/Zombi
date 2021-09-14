@@ -3658,14 +3658,9 @@ class GenomeSimulator():
             chromosome.obtain_flankings()
             chromosome.obtain_locations()
 
-            
-
             chromosome.invert_divisions(c1,c2) # This function receives the two cuts and inverts all the divisions between them             
             chromosome.update_flankings_divisions()
-
-            
-            
-            
+                        
         ######
 
     

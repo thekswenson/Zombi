@@ -1,5 +1,6 @@
 import random
 import ete3
+import itertools
 from functools import reduce
 from typing import List, Tuple, Optional, TypeVar
 
@@ -1318,13 +1319,15 @@ class CircularChromosome(Chromosome):
         divisions_to_invert = list()
         affected_intergenes = list()
         
-        for intergene in self.iter_intergenes():
+        for intergene in itertools.cycle(self.iter_intergenes()):
 
             for division in intergene:
 
-                sf1, sf2 = division.specific_flanking # We get the flakings of the divisions
+                sf1, sf2 = division.specific_flanking # We get the flankings of the divisions
+                #print(cut1, cut2, sf1, sf2)
             
                 if cut1 == sf1 and cut2 == sf2:
+                    
             
                     divisions_to_invert.append(division)
                     if intergene not in affected_intergenes:
@@ -1333,6 +1336,7 @@ class CircularChromosome(Chromosome):
                     break
                 
                 elif cut1 == sf1 and cut2 != sf2:
+                    
         
                     start = True 
                     divisions_to_invert.append(division)
@@ -1340,15 +1344,18 @@ class CircularChromosome(Chromosome):
                         affected_intergenes.append(intergene)
 
                 elif cut1 == sf2 and intergene.divisions[-1] == division: # The breakpoint is right before the gene
+                    
                     if intergene not in affected_intergenes: # shoudl be ok without this check
                         affected_intergenes.append(intergene)
                     start = True
 
-                elif cut2 == sf1:
+                elif cut2 == sf1 and start == True:
+                    
                     end = True
                     break
 
-                elif cut2 == sf2:
+                elif cut2 == sf2 and start == True:
+                    
                     divisions_to_invert.append(division)
                     if intergene not in affected_intergenes:
                         affected_intergenes.append(intergene)
@@ -1356,15 +1363,19 @@ class CircularChromosome(Chromosome):
                     break
 
                 elif start == True:
+                    
                     divisions_to_invert.append(division)
                     if intergene not in affected_intergenes:
                         affected_intergenes.append(intergene)
                 
             if end == True:
                 break    
-                
-        # We keep track also of all divisions
+        
 
+
+        # We keep track also of all divisions
+        
+        #print([str(x) for x in divisions_to_invert])
         all_divisions = list()
     
         for intergene in affected_intergenes:
