@@ -3331,7 +3331,7 @@ class GenomeSimulator():
         
         self.initial_divisions = list()         # For debugging purposes
         
-
+        print("DIVISIONS AT THE ROOT")
         for initial_specific_flanking in initial_specific_flankings:
             c1, c2 = initial_specific_flanking
 
@@ -3341,12 +3341,15 @@ class GenomeSimulator():
                 continue
             
             self.initial_divisions.append((c1,c2))
+            
             fam_id += 1
             intergene = initial_chromosome.return_intergene_by_coordinate(c1)
             division = intergene.create_division("1", fam_id, initial_specific_flanking) # Identifier is 1 in the beginning
             division_family = DivisionFamily(fam_id, initial_specific_flanking)
             division_family.register_event(0, "O", "Root") # We register the origination 
             division.get_length()
+
+            print(division)
             
             self.all_division_families[str(fam_id)] = division_family
     
@@ -3364,6 +3367,9 @@ class GenomeSimulator():
 
         for chromosome in self.all_genomes_second["Root"]:
             chromosome.fill_pieces()
+
+        chromosome.update_coordinates()
+        chromosome.update_specific_coordinates()
 
         #chromosome.print_pieces()
 
@@ -3475,7 +3481,10 @@ class GenomeSimulator():
 
                     division1.total_flanking = division.total_flanking
                     division2.total_flanking = division.total_flanking
-
+                    
+                    division1.specific_flanking = division.specific_flanking
+                    division2.specific_flanking = division.specific_flanking
+                    
                     division1.orientation = division.orientation
                     division2.orientation = division.orientation
                     
@@ -3496,6 +3505,11 @@ class GenomeSimulator():
 
                     ch1.pieces.append(division1)
                     ch2.pieces.append(division2)
+        
+        ch1.update_coordinates()   # FIX it suffices changing specific2total to an independent function
+        ch1.update_specific_coordinates()
+        ch2.update_coordinates()   # FIX it suffices changing specific2total to an independent function
+        ch2.update_specific_coordinates()
  
 
 
@@ -3528,27 +3542,34 @@ class GenomeSimulator():
         print(sc1, sc2)
         print("Total coordinates of event")
         print(tcL, tcR)
+        print("What I think it should happen")
+        print(chromosome.specific2total[sc1], chromosome.specific2total[sc2])
+        
+        tcL = chromosome.specific2total[sc1]
+        tcR = chromosome.specific2total[sc2]
 
         start = False
         end = False
 
         pieces_to_invert = list()
         indexes_to_invert = list()
+        genes = [piece for piece in chromosome.pieces if piece.ptype == "Gene"]
+        gene2index = {gene:index for index, gene in enumerate(genes)}
 
-        #if tcL == chromosome.pieces[-1].total_flanking[1]:
-        #    tcL = 0
+        # If the event affects at the end or the beginning of the chromosome:
+
+        if tcL == chromosome.pieces[-1].total_flanking[1]:
+            tcL = 0
         
-        #if tcR == chromosome.pieces[-1].total_flanking[1]:
-        #    tcR = 0
-
-        #if sc1 == 11:
-        #    return 0
+        if tcR == 0:
+            tcR = chromosome.pieces[-1].total_flanking[1]
 
         wrapping = False
         
         for index, piece in enumerate(itertools.cycle(chromosome.pieces)):               
-            
+           
             pfL, pfR = piece.total_flanking
+            #print(pfL, pfR, "", tcL,tcR)
             
             if pfL == tcL:
                 start = True
@@ -3564,39 +3585,40 @@ class GenomeSimulator():
             if end == True:
                 break
         
-        # We keep track of the first gene in the inverted segment,
-        # it will be important later
-
-        first_gene = None
-        
-        pieces_to_invert = reversed(copy.deepcopy(pieces_to_invert))
+        pieces_to_invert = list(reversed(copy.deepcopy(pieces_to_invert)))
         
         for index, replacement in zip(indexes_to_invert, pieces_to_invert):
-
-            if replacement.ptype == "Gene" and first_gene == None:
-                first_gene = replacement
-            
             chromosome.pieces[index] = replacement
             replacement.change_sense()
-        
-        # We always start with a gene. Some inversions can make the beginning to be an intergene
-        # If this is the case, we need to put those pieces at the end to keep the 
-        # frame of reference. We start with the last gene in the affected segment
-        # which is the first gene in the inverted segment
+
+        # Now we adjust the indexes if there has been a warpping event
 
         if wrapping == True:
 
-            for index, piece in enumerate(chromosome.pieces):
-                if piece == first_gene:
-                    break
-        else:
-            for index, piece in enumerate(chromosome.pieces):
+            # We search the index position of a gene not affected by the event
+
+            gene_ref_index = 0
+            gene_ref = None
+
+            for piece in chromosome.pieces:
                 if piece.ptype == "Gene":
-                    break
+                    gene_ref_index +=1
+                    gene_ref = piece
+                    if piece not in pieces_to_invert:
+                        break
 
+            # Now we start adjusting the pieces until there are no divisions in the beginning
+            # and the unaffected pieces remain in the same index as before
+            
+            while (chromosome.pieces[0].ptype == "Divi") or chromosome.get_index_gene(gene_ref) != gene2index[gene_ref]:
+                
+                piece = (chromosome.pieces).pop(0)
+                (chromosome.pieces).append(piece)
 
-        chromosome.pieces = chromosome.pieces[index:] + chromosome.pieces[:index]        
+        
         chromosome.update_coordinates()
+        chromosome.update_specific_coordinates()
+        chromosome.print_pieces()
 
     
     def write_division_trees(self, division_tree_folder):

@@ -854,6 +854,15 @@ class Chromosome():
                 right_bp =  right_bp + len(division)
                 self.pieces.append(division) 
 
+    def get_index_gene(self,search_gene):
+        """
+        Obtain the index of the gene in the pieces
+        The index refers only at the genes, so
+        intergenic divisions are ignored
+        """
+        genes = [piece for piece in self.pieces if piece.ptype == "Gene"]
+        return (genes.index(search_gene))
+
     def print_pieces(self):       
         """
         For debugging purposes. Print all pieces in the genome
@@ -862,7 +871,7 @@ class Chromosome():
             if piece.ptype == "Gene":
                 print(piece.ptype, piece.total_flanking, piece.length, piece.orientation, piece.gene_family) # I should change the name to only Family
             else:
-                print(piece.ptype, piece.total_flanking, piece.length, piece.orientation, piece.division_family) 
+                print(piece.ptype, piece.total_flanking, piece.length, piece.orientation, piece.division_family, piece.specific_flanking) 
 
     def update_coordinates(self):
 
@@ -870,11 +879,60 @@ class Chromosome():
         Update the coordinates of the genes and the divisions
         """
         
+        # First the total flankings
+
         right_bp = len(self.pieces[0])
         self.pieces[0].total_flanking = (0, right_bp)
         for piece in self.pieces[1:]:
             piece.total_flanking = (right_bp, right_bp + len(piece))
             right_bp =  right_bp + len(piece)
+
+    def update_specific_coordinates(self):
+
+        """
+        Get the specific coordinates of the intergenes
+        """
+        
+        first_intergene = True
+        adjacent_gene = False
+        adjacent_division = False
+        coordinate_adjustment = 0 
+
+        self.specific2total = dict()
+
+        for piece in self.pieces:
+    
+            if piece.ptype == "Gene":
+                adjacent_division = False
+                if adjacent_gene == True:
+                    coordinate_adjustment += 1
+                adjacent_gene = True
+                continue
+
+            elif piece.ptype == "Divi":
+                adjacent_gene = False
+
+                if first_intergene == True:
+                    
+                    adjacent_division = True
+                    first_intergene = False
+                    piece.specific_flanking = (coordinate_adjustment, coordinate_adjustment + len(piece))
+                    right_bp = coordinate_adjustment + len(piece) 
+                    coordinate_adjustment = 0
+                    
+                else:
+
+                    if adjacent_division == False:
+                        right_bp += 1
+                    adjacent_division = True
+                    piece.specific_flanking = (right_bp +  coordinate_adjustment, right_bp + coordinate_adjustment + len(piece))
+                    right_bp = right_bp + coordinate_adjustment + len(piece)
+                    coordinate_adjustment = 0
+
+                self.specific2total[piece.specific_flanking[0]] = piece.total_flanking[0]
+                self.specific2total[piece.specific_flanking[1]] = piece.total_flanking[1]
+        
+        
 
     def obtain_flankings(self):
         """
