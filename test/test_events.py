@@ -307,18 +307,18 @@ class TestEvent(unittest.TestCase):
                      'intergene breakpoint mismap')
 
       #Total coordinate mapping:
-    self.assertEqual(inversion.afterToBeforeS(3), 12,
+    self.assertEqual(inversion.afterToBeforeT(3), 12,
                      'intergene breakpoint mismap')
-    #self.assertEqual(inversion.afterToBeforeS(10), 17,
-    #                 'intergene breakpoint mismap')
-    #self.assertEqual(inversion.afterToBeforeS(14), 13,
-    #                 'intergene breakpoint mismap')
-    #self.assertEqual(inversion.afterToBeforeS(19), 8,
-    #                 'intergene breakpoint mismap')
-    #self.assertEqual(inversion.afterToBeforeS(18), 9,
-    #                 'intergene breakpoint mismap')
-    #self.assertEqual(inversion.afterToBeforeS(17), 16,
-    #                 'intergene breakpoint mismap')
+    self.assertEqual(inversion.afterToBeforeT(17), 28,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion.afterToBeforeT(23), 22,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion.afterToBeforeT(30), 15,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion.afterToBeforeT(29), 16,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion.afterToBeforeT(28), 27,
+                     'intergene breakpoint mismap')
 
   # TANDEM DUPLICATIONS - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   def test_tandemdup_1(self):
