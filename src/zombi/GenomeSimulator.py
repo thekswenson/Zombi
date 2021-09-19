@@ -2997,7 +2997,7 @@ class GenomeSimulator():
             c1, c2 = c2, c1
 
         sleftlen, srightlen, tleftlen, trightlen = 0, 0, 0, 0
-        if gpositions[0] > gpositions[-1]:      #The inversion wraps:
+        if c1 > c2:                     #The inversion wraps:
             sleftlen, srightlen, tleftlen, trightlen = \
                  chromosome.inversion_wrap_lengths(gpositions)
 

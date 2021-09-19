@@ -1453,8 +1453,6 @@ class CircularChromosome(Chromosome):
             length for the same segment. The "second" variables are the same
             values for left-most sequence (not including B2).
         """
-        assert affected_genes[0] > affected_genes[-1]   #it wraps
-
         sfirstlen = 0
         tfirstlen = 0
         ssecondlen = 0

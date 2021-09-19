@@ -278,6 +278,48 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(inversion.afterToBeforeT(30), 9,
                      'intergene breakpoint mismap')
 
+  def test_inversion_Adri_19_10_21(self):
+    """
+    This test wraps.
+    """
+    ch = self.genome.chromosomes[0]
+    lineage = self.genome.species
+    self.gss.make_inversion_intergenic(ch, 16, 10, RIGHT, lineage, 0.0)
+    inversion: Inversion = ch.event_history[0]
+
+    self.assertEqual(ch.intergenes[2].length, 4,
+                     'first intergene length mismatch after inversion')
+    self.assertEqual(ch.intergenes[4].length, 2,
+                     'second intergene length mismatch after inversion')
+
+      #Specific coordinate mapping:
+    self.assertEqual(inversion.afterToBeforeS(0), 7,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion.afterToBeforeS(10), 17,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion.afterToBeforeS(14), 13,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion.afterToBeforeS(19), 8,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion.afterToBeforeS(18), 9,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion.afterToBeforeS(17), 16,
+                     'intergene breakpoint mismap')
+
+      #Total coordinate mapping:
+    self.assertEqual(inversion.afterToBeforeS(3), 12,
+                     'intergene breakpoint mismap')
+    #self.assertEqual(inversion.afterToBeforeS(10), 17,
+    #                 'intergene breakpoint mismap')
+    #self.assertEqual(inversion.afterToBeforeS(14), 13,
+    #                 'intergene breakpoint mismap')
+    #self.assertEqual(inversion.afterToBeforeS(19), 8,
+    #                 'intergene breakpoint mismap')
+    #self.assertEqual(inversion.afterToBeforeS(18), 9,
+    #                 'intergene breakpoint mismap')
+    #self.assertEqual(inversion.afterToBeforeS(17), 16,
+    #                 'intergene breakpoint mismap')
+
   # TANDEM DUPLICATIONS - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   def test_tandemdup_1(self):
     ch = self.genome.chromosomes[0]
