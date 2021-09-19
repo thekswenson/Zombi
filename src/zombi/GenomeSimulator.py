@@ -9,9 +9,11 @@ import os
 import networkx as nx
 from typing import Tuple, Set, Dict, Union
 
+import itertools
+
 from . import AuxiliarFunctions as af
 from .Events import Loss, Origination, TandemDup, Inversion, Transfer, Transposition
-from .Genomes import Chromosome, CircularChromosome, Gene, GeneFamily, Genome, DivisionFamily, Intergene
+from .Genomes import Chromosome, CircularChromosome, Gene, GeneFamily, Genome, DivisionFamily, Intergene, Division
 from .Genomes import T_DIR, LEFT, RIGHT, Intergene, LinearChromosome
 
 from Bio.SeqFeature import SeqFeature
@@ -452,7 +454,16 @@ class GenomeSimulator():
 
                 f.write("\t".join(map(str,[gene_family_name, d,t,l])) + "\n")
 
+    def _read_events_genome(self, events_file):
 
+        events = list()
+        with open(events_file) as f:
+            f.readline()
+            for line in f:
+                handle = line.strip().split("\t")
+                events.append(handle)
+        return events
+    
     def _read_events_file(self, events_file):
 
         events = list()
@@ -462,7 +473,32 @@ class GenomeSimulator():
                 handle = line.strip().split("\t")
                 events.append(handle)
         return events
+    
+    def read_genome_events_file(self, events_file):
 
+        events = list()
+        with open(events_file) as f:
+            for line in f:
+                h = line.strip().split("\t")
+                events.append((h[0], float(h[1]), h[2], h[3], (int(h[4]), int(h[5]), False)))
+        return events
+
+    def write_event_file(self, event, event_file):
+
+        # For debugging purposes
+
+        line = ["G"]
+
+        with open(event_file, "a") as f:
+            line.append(str(event.time))
+            line.append(str(event.etype))
+            line.append(str(event.lineage))
+            line.append(str(event.sbpL))
+            line.append(str(event.sbpR))
+            line.append("RIGHT")
+            line = "\t".join(line) + "\n"
+            f.write(line)
+            
     def _read_distances_to_start(self, events_file):
 
         # This function could be fusion with the function above
@@ -3294,7 +3330,8 @@ class GenomeSimulator():
         fam_id = 0
         
         self.initial_divisions = list()         # For debugging purposes
-
+        
+        print("DIVISIONS AT THE ROOT")
         for initial_specific_flanking in initial_specific_flankings:
             c1, c2 = initial_specific_flanking
 
@@ -3304,415 +3341,286 @@ class GenomeSimulator():
                 continue
             
             self.initial_divisions.append((c1,c2))
+            
             fam_id += 1
             intergene = initial_chromosome.return_intergene_by_coordinate(c1)
             division = intergene.create_division("1", fam_id, initial_specific_flanking) # Identifier is 1 in the beginning
             division_family = DivisionFamily(fam_id, initial_specific_flanking)
             division_family.register_event(0, "O", "Root") # We register the origination 
+            division.get_length()
+
+            print(division)
             
             self.all_division_families[str(fam_id)] = division_family
-
-    def obtain_events_for_divisions(self):
-
-        """
-        This function obtain all the events (at the Species level and at the Genome level) that occur in every division
-        Once we have all the events for every division, we can reconstruct the division trees
-        The simulation is run once more from zero, using the same events generated in the main simulation
-        
-        """
-
-        def make_speciation_divisions(time, lineages):
-
-            pn, c1, c2 = lineages.split(";") # Parent, child1, child2
-            
-            genome_pn = self.all_genomes_second[pn]
-            genome1 = Genome()
-            genome2 = Genome()
-            
-            self.all_genomes_second[c1] = genome1
-            self.all_genomes_second[c2] = genome2
-
-            for chromosome in genome_pn:
-
-                ch1 = CircularChromosome()
-                ch2 = CircularChromosome()
-
-                genome1.chromosomes.append(ch1)
-                genome2.chromosomes.append(ch2)
-
-                ch1.has_intergenes = True
-                ch2.has_intergenes = True
-
-                for gene in chromosome:
-
-                    new_id1 = self.return_new_identifiers_for_segment_with_divisions([gene]) 
-                    new_id2 = self.return_new_identifiers_for_segment_with_divisions([gene])
-
-                    new_gene1 = af.copy_segment([Gene()], new_id1)[0]
-                    new_gene2 = af.copy_segment([Gene()], new_id2)[0]
-
-                    new_gene1.species = c1
-                    new_gene2.species = c2
-
-                    new_gene1.orientation = gene.orientation
-                    new_gene2.orientation = gene.orientation
-
-                    new_gene1.length = gene.length
-                    new_gene2.length = gene.length
-
-                    gene_family = self.all_gene_families[gene.gene_family]
-                    gene_family.genes.append(new_gene1)
-                    gene_family.genes.append(new_gene2)
-
-                    new_gene1.gene_family = gene.gene_family
-                    new_gene2.gene_family = gene.gene_family
-
-                    ch1.genes.append(new_gene1)
-                    ch2.genes.append(new_gene2)
-
-                for intergene in chromosome.iter_intergenes():
-                    
-                    intergene1 = copy.deepcopy(intergene)
-                    intergene2 = copy.deepcopy(intergene)
-                    
-                    ch1.intergenes.append(intergene1)
-                    ch2.intergenes.append(intergene2)
-
-                    for division, division1, division2 in zip(intergene, intergene1, intergene2):
-
-                        division1.identity = self.all_division_families[str(division1.division_family)].obtain_new_identifier()
-                        division2.identity = self.all_division_families[str(division2.division_family)].obtain_new_identifier()
-
-                        nodes = [pn, 
-                                 division.identity,
-                                 c1,
-                                 division1.identity,
-                                 c2,
-                                 division2.identity
-                                 ]
-                        self.all_division_families[str(division.division_family)].register_event(str(time), "S", ";".join(map(str,nodes)))
-
-            genome1.update_genome_species(c1)
-            genome2.update_genome_species(c2)  
-
-            #print(len([x for x in ch1.iter_intergenes()]))
-            
-
-        def make_extinction_divisions(time, lineage):
-            genome = self.all_genomes_second[lineage]
-            for ch in genome:
-                for intergene in ch.iter_intergenes():
-                    for division in intergene:
-                        self.all_division_families[str(division.division_family)].register_event(str(time), "E", ";".join(
-                        map(str, [genome.species, division.identity])))
-        
-        def make_end_divisions(time, lineage):
-            
-            genome = self.all_genomes_second[lineage]
-            for ch in genome:
-                for intergene in ch.iter_intergenes():
-                    for division in intergene:
-                        
-                        self.all_division_families[str(division.division_family)].register_event(str(time), "F", ";".join(
-                        map(str, [genome.species, division.identity])))
-
-        def make_duplication_divisions(time, event):
-            
-            lineage = event.lineage
-            chromosome = [x for x in self.all_genomes_second[lineage]][0] # This should be corrected, only works if the genomes have a single chromosome
-            
-            chromosome.obtain_flankings()
-            chromosome.obtain_locations()
-
-            c1 = event.sbpL
-            c2 = event.sbpR
-
-            r = chromosome.return_affected_region(event.sbpL, event.sbpR, RIGHT)
-
-            if r == None:
-                return None
     
-            genepositions, intergenepositions, leftlengths, rightlengths, int1, int2 = r
-            segment = chromosome.obtain_segment(genepositions)
-            #intergene_segment = chromosome.obtain_intergenic_segment(intergenepositions[1:])
-
-            new_identifiers1 = self.return_new_identifiers_for_segment_with_divisions(segment)
-            new_identifiers2 = self.return_new_identifiers_for_segment_with_divisions(segment)
-
-            # We duplicate the genes
-
-            new_segment_1 = af.copy_segment(segment, new_identifiers1)
-            new_segment_2 = af.copy_segment(segment, new_identifiers2)
-
-            # And the intergenes, which will have incorrect lengths until we update
-            # them later. The divisions also need to be adjusted
-            
-            old_intergene_segment = [chromosome.intergenes[x] for x in intergenepositions[1:]]
-            new_intergene_segment_1 = [copy.deepcopy(chromosome.intergenes[x]) for x in intergenepositions[1:]]
-            new_intergene_segment_2 = [copy.deepcopy(chromosome.intergenes[x]) for x in intergenepositions[1:]]
-
-            # We adjust the divisions
-
-            # In the last intergene copied, we can erase all divisions right of the event:
-            
-            redundant_divisions = list()
-            for division in new_intergene_segment_1[-1]:
-                df1, df2 = division.specific_flanking # We don't have to duplicate all divisions, only those within the region affected by the event
-                if df1 >= c2:
-                    redundant_divisions.append(division)
-                
-            for division in redundant_divisions:
-                (new_intergene_segment_1[-1]).divisions.remove(division)
-
-            for intergene, intergene1, intergene2 in zip(old_intergene_segment, new_intergene_segment_1, new_intergene_segment_2):
-
-                for division, division1, division2 in zip(intergene, intergene1, intergene2):
-
-                    #df1, df2 = division.specific_flanking # We don't have to duplicate all divisions, only those within the region affected by the event FIX
-                    # maybe I don't need this check after removing the redundant divisions
-
-                    #if df1 >= c1 and df2 <= c2:
-
-                        division1.identity = self.all_division_families[str(division1.division_family)].obtain_new_identifier()
-                        division2.identity = self.all_division_families[str(division2.division_family)].obtain_new_identifier()
-                        nodes = [lineage, 
-                                division.identity,
-                                lineage,
-                                division1.identity,
-                                lineage,
-                                division2.identity
-                                ]
-                        
-                        self.all_division_families[str(division.division_family)].register_event(str(time), "D", ";".join(map(str,nodes)))
-
-
-            scar0 = chromosome.intergenes[intergenepositions[0]]
-            scar1 = new_intergene_segment_1[-1]
-            scar2 = new_intergene_segment_2[-1]
-
-            # Get old lengths from last intergene before modifying chromosome.
-            
-            specificlen = chromosome.intergenes[-1].specific_flanking[1]
-            totallen = chromosome.intergenes[-1].total_flanking[1]
-
-            #Replace the original set of genes/intergenes with the first copies:
-
-            for pos, newgene in zip(genepositions, new_segment_1):
-                chromosome.genes[pos] = newgene
-            for pos, newintergene in zip(intergenepositions[1:], new_intergene_segment_1): # I need to obtain new identifiers for the divisions
-                chromosome.intergenes[pos] = newintergene
-                
-            position = genepositions[-1] + 1
-
-            # Insert the second copy of new genes and intergenes after the first.
-            
-            for i, gene in enumerate(new_segment_2):
-                chromosome.genes.insert(position + i, gene)
-            for i, intergene in enumerate(new_intergene_segment_2):
-                chromosome.intergenes.insert(position + i, intergene)
-
-            dup = TandemDup(int1, int2, c1, c2, len(new_intergene_segment_1),
-                            specificlen, totallen, lineage, time)
-                
-            scar1.length = leftlengths[1] + rightlengths[0]
-            scar2.length = rightlengths[1] + rightlengths[0]
-
-            assert scar1.length == len(dup.afterC)
-            assert scar2.length == len(dup.afterR)
-            
-            chromosome.event_history.append(dup)
-
-            for i, gene in enumerate(segment):
-                nodes = [gene.species,
-                        gene.gene_id,
-                        new_segment_1[i].species,
-                        new_segment_1[i].gene_id,
-                        new_segment_2[i].species,
-                        new_segment_2[i].gene_id]
-
-                gene.active = False
-                gene_family = gene.gene_family
-
-                self.gene_families_second[gene_family].genes.append(new_segment_1[i])
-                self.gene_families_second[gene_family].genes.append(new_segment_2[i])
-                self.gene_families_second[gene.gene_family].register_event(time, "D", ";".join(map(str, nodes)))
-            
-            chromosome.obtain_flankings()
-            chromosome.obtain_locations()
-            chromosome.update_flankings_divisions()
-
-
-        def make_loss_divisions(time, event):
-
-            lineage = event.lineage
-            chromosome = [x for x in self.all_genomes_second[lineage]][0] # This should be corrected, only works if the genomes have a single chromosome
-            
-            chromosome.obtain_flankings()
-            chromosome.obtain_locations()
-            
-            pseudo = event.pseudo
-
-            c1 = event.sbpL
-            c2 = event.sbpR
-
-            r = chromosome.return_affected_region(event.sbpL, event.sbpR, RIGHT)
-
-            if r == None:
-                return None
-
-            gpositions, igpositions, leftlengths, rightlengths, int1, int2 = r
-
-            segment = chromosome.obtain_segment(gpositions)
-            intergene_segment = chromosome.obtain_intergenic_segment(igpositions[1:])
-
-            scar1 = chromosome.intergenes[igpositions[0]]
-
-            # Get old lengths from last intergene before modifying chromosome.
-            specificlen = chromosome.intergenes[-1].specific_flanking[1]
-            totallen = chromosome.intergenes[-1].total_flanking[1]
-
-            # Now we remove the genes
-
-            for gene in segment:
-                chromosome.genes.remove(gene)
-
-            # Now we remove the intergenes
-
-            for intergene in intergene_segment:
-                chromosome.intergenes.remove(intergene)
-
-            # We modify the length of the scar:
-
-            pseudo_intergenes = []
-            if pseudo:
-                pseudo_intergenes = intergene_segment
-
-            loss = Loss(int1, int2, c1, c2, specificlen, totallen, lineage, time,
-                        pseudo, pseudo_intergenes)
-            chromosome.event_history.append(loss)
-
-            if pseudo:
-
-                # We need to add the length of the genes removed
-                scar1.length = sum(leftlengths) + sum(rightlengths) \
-                            + sum([x.length for x in segment]) \
-                            + sum([x.length for x in intergene_segment[:-1]])
-            else:
-
-                scar1.length = leftlengths[0] + rightlengths[1]
-
-            # We have to register in the affected gene families that there has been as loss
-            # All genes affected must be returned
-
-            for gene in segment:
-                gene.active = False
-                self.gene_families_second[gene.gene_family].register_event(time, "L", ";".join(map(str,[lineage, gene.gene_id])))
-
-
-        def make_inversion_divisions(time, event):
-
-            lineage = event.lineage
-            chromosome = [x for x in self.all_genomes_second[lineage]][0] # This should be corrected, only works if the genomes have a single chromosome
-            
-            chromosome.obtain_flankings()
-            chromosome.obtain_locations()
-
-            c1 = event.sbpL
-            c2 = event.sbpR
-
-            r = chromosome.return_affected_region(event.sbpL, event.sbpR, RIGHT)
-
-            if r == None:
-                return None    
-
-            gpositions, igpositions, leftlengths, rightlengths, int1, int2 = r
-
-                # Get lengths from last intergene before modifying chromosome.
-            specificlen = chromosome.intergenes[-1].specific_flanking[1]
-            totallen = chromosome.intergenes[-1].total_flanking[1]
-
-            segment = chromosome.obtain_segment(gpositions)
-            chromosome.invert_segment(gpositions)
-
-            sleftlen, srightlen, tleftlen, trightlen = 0, 0, 0, 0
-            if gpositions[0] > gpositions[-1]:      #The inversion wraps:
-                sleftlen, srightlen, tleftlen, trightlen = \
-                    chromosome.inversion_wrap_lengths(gpositions)
-
-            inv = Inversion(int1, int2, c1, c2, specificlen, totallen, sleftlen,
-                            tleftlen, srightlen, trightlen, lineage, time)
-            
-            chromosome.event_history.append(inv)
-
-            scar1 = chromosome.intergenes[igpositions[0]]
-            scar2 = chromosome.intergenes[igpositions[-1]]
-
-            scar1.length = leftlengths[0] + rightlengths[0]
-            scar2.length = rightlengths[1] + leftlengths[1]
-
-            assert scar1.length == len(inv.afterL)
-            assert scar2.length == len(inv.afterR)      
-
-            for gene in segment:
-                self.gene_families_second[gene.gene_family].register_event(str(time), "I", ";".join(map(str,[lineage, gene.gene_id])))
-            
-            chromosome.obtain_flankings()
-            chromosome.obtain_locations()
-
-            chromosome.invert_divisions(c1,c2) # This function receives the two cuts and inverts all the divisions between them             
-            chromosome.update_flankings_divisions()
-                        
-        ######
+    def obtain_events_for_divisions(self):
+        """
+        Assign to every division the corresponding events
+        """
 
         self.all_genomes_second = dict()
         self.gene_families_second = self.initial_gene_families
         self.all_genomes_second["Initial"] = self.initial_genome
         self.all_genomes_second["Root"] = copy.deepcopy(self.initial_genome)
 
-       # We create a list of all the events (T and G) that we will order by time
+        # Now we need to add the genes and divisions in the right order to the initial genome
 
+        for chromosome in self.all_genomes_second["Root"]:
+            chromosome.fill_pieces()
+
+        chromosome.update_coordinates()
+        chromosome.update_specific_coordinates()
+
+        #chromosome.print_pieces()
+
+        # We create a list of all the events (T and G) that we will order by time
+ 
         all_events = list()
         all_events += [("T",x) for x in self.tree_events]
         for node in self.complete_tree.traverse():
-           genome = self.all_genomes[node.name]            
+           genome = self.all_genomes[node.name]           
            for chromosome in genome:
-               for event in chromosome.event_history: 
+               for event in chromosome.event_history:
                    all_events.append(("G", (event.time, event, chromosome)))
- 
+
        # We start with the initial genome, that we preserved in a copy of the initial genome in the main simulation
-       
+     
         genome = self.initial_genome
-        
+       
         for items in sorted(all_events, key=lambda x: float(x[1][0])): # This sorts the events by the time
 
-            # We unpack the events
-
+ 
+           # We unpack the events
+ 
             if items[0] == "T":
                 time, etype, lineages = items[1] # In the case that it is a species level event
             else:
                 time, event, chromosome = items[1]  # In the case that it is a genome level event
                 etype = event.etype
-            
-            # Species level events
-
+          
+           # Species level events
+ 
             if etype == "S":
-                make_speciation_divisions(time, lineages)
+                self.make_speciation_divisions(time, lineages)
             if etype == "E":
-                make_extinction_divisions(time, lineages)
+                self.make_extinction_divisions(time, lineages)
             if etype == "F":
-                make_end_divisions(time, lineages)
-
+                self.make_end_divisions(time, lineages)
+ 
             # Genome level events
-
+ 
             if etype == "D":
-                make_duplication_divisions(time, event)
+                self.make_duplication_divisions(time, event)
             if etype == "L":
-                make_loss_divisions(time, event)
+                self.make_loss_divisions(time, event)
             if etype == "I":
-                make_inversion_divisions(time, event)
+                self.make_inversion_divisions(time, event)
+
+
+
+    def make_speciation_divisions(self, time, lineages):
+        
+        pn, c1, c2 = lineages.split(";") # Parent, child1, child2
+        
+        genome_pn = self.all_genomes_second[pn]
+        genome1 = Genome()
+        genome2 = Genome()
+
+        self.all_genomes_second[c1] = genome1
+        self.all_genomes_second[c2] = genome2
+
+        for chromosome in genome_pn:
+ 
+            ch1 = CircularChromosome()
+            ch2 = CircularChromosome()
+ 
+            genome1.chromosomes.append(ch1)
+            genome2.chromosomes.append(ch2)
+ 
+            for piece in chromosome.pieces: # We iterate the pieces in the parent chromosome
+            
+                if piece.ptype == "Gene":
+                    
+                    # We just need to insert new genes in the children chromosomes. We just need to keep track of the length, the orientation and the total coordinates
+
+                    gene = piece # For the sake of clarity
+
+                    new_gene1 = Gene()
+                    new_gene2 = Gene()
+
+                    new_gene1.ptype = gene.ptype
+                    new_gene2.ptype = gene.ptype
+
+                    new_gene1.orientation = gene.orientation
+                    new_gene2.orientation = gene.orientation
+ 
+                    new_gene1.length = gene.length
+                    new_gene2.length = gene.length
+
+                    new_gene1.total_flanking = gene.total_flanking
+                    new_gene2.total_flanking = gene.total_flanking
+
+                    new_gene1.gene_family = gene.gene_family
+                    new_gene2.gene_family = gene.gene_family
+
+                    ch1.pieces.append(new_gene1)
+                    ch2.pieces.append(new_gene2)
+
+                if piece.ptype == "Divi":
+
+                    # I could save quite a few lines here doing a deep copy FIX
+
+                    division = piece
+
+                    # If the piece is a division, I need to keep track also of the identity within the gene family
+                    new_identity1 = self.all_division_families[str(division.division_family)].obtain_new_identifier()
+                    new_identity2 = self.all_division_families[str(division.division_family)].obtain_new_identifier()
+
+                    division1 = Division(new_identity1, division.division_family)
+                    division2 = Division(new_identity2, division.division_family)
+
+                    division1.total_flanking = division.total_flanking
+                    division2.total_flanking = division.total_flanking
+                    
+                    division1.specific_flanking = division.specific_flanking
+                    division2.specific_flanking = division.specific_flanking
+                    
+                    division1.orientation = division.orientation
+                    division2.orientation = division.orientation
+                    
+                    division1.length = division.length
+                    division2.length = division.length
+                    
+                    division1.ptype = division.ptype
+                    division2.ptype = division.ptype
+                    
+                    nodes = [pn,
+                                division.identity,
+                                c1,
+                                division1.identity,
+                                c2,
+                                division2.identity
+                                ]
+                    self.all_division_families[str(division.division_family)].register_event(str(time), "S", ";".join(map(str,nodes)))
+
+                    ch1.pieces.append(division1)
+                    ch2.pieces.append(division2)
+        
+        ch1.update_coordinates()   # FIX it suffices changing specific2total to an independent function
+        ch1.update_specific_coordinates()
+        ch2.update_coordinates()   # FIX it suffices changing specific2total to an independent function
+        ch2.update_specific_coordinates()
+ 
+
+
+    def make_extinction_divisions(self, time, lineages):
+        pass
+    def make_end_divisions(self, time, lineages):
+        pass
+    def make_duplication_divisions(self, time, lineages):
+        pass
+    def make_loss_divisions(self, time, lineages):
+        pass
+    def make_transfer_divisions(self, time, lineages):
+        pass
+    def make_transposition_divisions(self, time, lineages):
+        pass
+    
+    def make_inversion_divisions(self, time, event):
+        
+        lineage = event.lineage
+        
+        chromosome = [x for x in self.all_genomes_second[lineage]][0] 
+        
+        tcL = event.tbpL
+        tcR = event.tbpR
+        
+        sc1 = event.sbpL
+        sc2 = event.sbpR
+        # We invert the pieces between the two segment
+        print("Specific coordinates of event")
+        print(sc1, sc2)
+        print("Total coordinates of event")
+        print(tcL, tcR)
+        print("What I think it should happen")
+        print(chromosome.specific2total[sc1], chromosome.specific2total[sc2])
+        
+        tcL = chromosome.specific2total[sc1]
+        tcR = chromosome.specific2total[sc2]
+
+        start = False
+        end = False
+
+        pieces_to_invert = list()
+        indexes_to_invert = list()
+        genes = [piece for piece in chromosome.pieces if piece.ptype == "Gene"]
+        gene2index = {gene:index for index, gene in enumerate(genes)}
+
+        # If the event affects at the end or the beginning of the chromosome:
+
+        if tcL == chromosome.pieces[-1].total_flanking[1]:
+            tcL = 0
+        
+        if tcR == 0:
+            tcR = chromosome.pieces[-1].total_flanking[1]
+
+        wrapping = False
+        
+        for index, piece in enumerate(itertools.cycle(chromosome.pieces)):               
+           
+            pfL, pfR = piece.total_flanking
+            #print(pfL, pfR, "", tcL,tcR)
+            
+            if pfL == tcL:
+                start = True
+            if start == True:
+                if index >= len(chromosome.pieces): # We are in the second cycle
+                    indexes_to_invert.append(index - len(chromosome.pieces))
+                    wrapping = True
+                else:
+                    indexes_to_invert.append(index)
+                pieces_to_invert.append(piece)
+            if pfR == tcR and start == True:
+                end = True
+            if end == True:
+                break
+        
+        pieces_to_invert = list(reversed(copy.deepcopy(pieces_to_invert)))
+        
+        for index, replacement in zip(indexes_to_invert, pieces_to_invert):
+            chromosome.pieces[index] = replacement
+            replacement.change_sense()
+
+        # Now we adjust the indexes if there has been a warpping event
+
+        if wrapping == True:
+
+            # We search the index position of a gene not affected by the event
+
+            gene_ref_index = 0
+            gene_ref = None
+
+            for piece in chromosome.pieces:
+                if piece.ptype == "Gene":
+                    gene_ref_index +=1
+                    gene_ref = piece
+                    if piece not in pieces_to_invert:
+                        break
+
+            # Now we start adjusting the pieces until there are no divisions in the beginning
+            # and the unaffected pieces remain in the same index as before
+            
+            while (chromosome.pieces[0].ptype == "Divi") or chromosome.get_index_gene(gene_ref) != gene2index[gene_ref]:
                 
+                piece = (chromosome.pieces).pop(0)
+                (chromosome.pieces).append(piece)
 
+        
+        chromosome.update_coordinates()
+        chromosome.update_specific_coordinates()
+        chromosome.print_pieces()
 
+    
     def write_division_trees(self, division_tree_folder):
 
         """

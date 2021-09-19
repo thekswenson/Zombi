@@ -91,7 +91,7 @@ class TestDivisions2(unittest.TestCase): # In a slightly more compex tree
 
     event1 = ("G", 0.624, "I", "Root", (19, 1, RIGHT))
     event2 = ("G", 1.073, "I", "n1", (15, 5, LEFT))
-    
+
     self.gss.run_f_debug([event1, event2])
     self.gss.obtain_divisions() 
     self.assertEqual(self.gss.initial_divisions,
@@ -101,24 +101,32 @@ class TestDivisions2(unittest.TestCase): # In a slightly more compex tree
 
     print("***")
 
-    #event1 = ("G", 1.073, "I", "n1", (18, 2, RIGHT))
-    event1 = ("G", 1.073, "I", "n1", (2, 18, LEFT))
-    event2 = ("G", 1.075, "I", "n1", (5, 10, RIGHT))
-    event3 = ("G", 1.076, "D", "n1", (8, 9, RIGHT))
-    event4 = ("G", 1.0766, "I", "n1", (9,16, RIGHT))
+    #events_file = "/Users/aadavin/Desktop/Krister/Zombi/test/Events.tsv"
     
-    #self.gss.run_f_debug([event1, event2, event3])
-    #self.gss.run_f_debug([event1, event2])
-    self.gss.run_f_debug([event1, event2, event3, event4])
-    #self.gss.run_f_debug([event2])
-    #self.gss.run_f_debug([])
+    #events = self.gss.read_genome_events_file(events_file)
+
+    event1 = ("G", 0.024, "D", "Root", (2,12, RIGHT))
+    event2 = ("G", 0.025, "I", "Root", (2, 6, RIGHT))
+    event3 = ("G", 0.026, "D", "Root", (3, 7, RIGHT))
+    event4 = ("G", 0.027, "I", "Root", (2, 11, RIGHT))
+    event5 = ("G", 0.028, "D", "Root", (9, 15, RIGHT))
+    event6 = ("G", 0.029, "I", "Root", (8, 15, RIGHT))
+
+  
+    #self.gss.run_f_debug([event1, event2, event3, event4, event5, event6])  
+
+    #self.gss.run_f_debug([event1]) 
+    # 
+    #  
+
+    self.gss.run_f()
     self.gss.obtain_divisions() 
-    #self.assertEqual(self.gss.initial_divisions,
-    #                 [(0,3),(4,6),(6,7),(8,9),(9,11),(12,15),(16,19)])
-    
     self.gss.obtain_events_for_divisions() 
+  
     for ch in self.gss.all_genomes_second["n1"]:
          for intergene in ch.iter_intergenes():
+             if len(intergene) == 0:
+               print(intergene)
              for division in intergene:
                  print(intergene, len(intergene), division, len(division))
 

@@ -1,6 +1,5 @@
 import random
 import ete3
-import itertools
 from functools import reduce
 from typing import List, Tuple, Optional, TypeVar
 
@@ -417,6 +416,7 @@ class Gene():
         self.end: int = None         #: pythonic (non-inclusive end)
         self.total_flanking: T_PAIR = None      #: not pythonic (both inclusive)
         self.specific_flanking: T_PAIR = None   #: not pythonic (both inclusive)
+        self.ptype = "Gene" # For debugging purposes
 
     def determine_orientation(self):
 
@@ -441,6 +441,9 @@ class Gene():
         #myname = "_".join(map(str, (self.gene_family, self.length)))
         return myname
 
+    def __len__(self):
+        return self.length
+
 
 class Division():
     """
@@ -457,7 +460,9 @@ class Division():
         self.identity = identity # Specific identifier of this division
         self.division_family = division_family # The name of the division family
         self.specific_flanking: T_PAIR = specific_flanking   #: not pythonic (both inclusive)
-        self.size = self._get_size()
+        self.total_flanking = None
+        self.ptype = "Divi" # Piece type, for debugging purposes
+        self.length = None
 
     def change_sense(self):
 
@@ -466,14 +471,15 @@ class Division():
         elif self.orientation == "-":
             self.orientation = "+"
 
-    def _get_size(self):
-        return int(abs(self.specific_flanking[1] - self.specific_flanking[0]))
+    def get_length(self):
+        self.length =  int(abs(self.specific_flanking[1] - self.specific_flanking[0]))
         
     def __str__(self):
         return  str(self.division_family) + "_" + str(self.identity) + "_" + str(self.specific_flanking)
 
     def __len__(self):
-        return self.size
+    
+        return self.length
 
 
 class Intergene():
@@ -532,6 +538,7 @@ class Intergene():
         """
         division = Division(identity, division_family, specific_flanking)
         self.divisions.append(division)
+        return division
         
     def __str__(self):
 
@@ -820,6 +827,8 @@ class Chromosome():
 
         self.event_history: List = []
 
+        self.pieces = list() # In the F mode, keeps a list of genes and divisions
+
     def obtain_total_itergenic_length(self):
 
         total_length = 0
@@ -829,8 +838,101 @@ class Chromosome():
 
     def select_random_position(self):
 
-
         return numpy.random.randint(len(self.genes))
+
+    def fill_pieces(self):
+        """
+        Once we knwo divisions and genes, we can use this function
+        to fill them into the list of pieces in the right order,
+        and obtain the total flankings of all pieces
+        """
+        for gene, intergene in zip(self.genes, self.intergenes):
+            self.pieces.append(gene)
+            right_bp = gene.total_flanking[1] 
+            for division in intergene:
+                division.total_flanking = (right_bp, right_bp + len(division))
+                right_bp =  right_bp + len(division)
+                self.pieces.append(division) 
+
+    def get_index_gene(self,search_gene):
+        """
+        Obtain the index of the gene in the pieces
+        The index refers only at the genes, so
+        intergenic divisions are ignored
+        """
+        genes = [piece for piece in self.pieces if piece.ptype == "Gene"]
+        return (genes.index(search_gene))
+
+    def print_pieces(self):       
+        """
+        For debugging purposes. Print all pieces in the genome
+        """
+        for piece in self.pieces:
+            if piece.ptype == "Gene":
+                print(piece.ptype, piece.total_flanking, piece.length, piece.orientation, piece.gene_family) # I should change the name to only Family
+            else:
+                print(piece.ptype, piece.total_flanking, piece.length, piece.orientation, piece.division_family, piece.specific_flanking) 
+
+    def update_coordinates(self):
+
+        """
+        Update the coordinates of the genes and the divisions
+        """
+        
+        # First the total flankings
+
+        right_bp = len(self.pieces[0])
+        self.pieces[0].total_flanking = (0, right_bp)
+        for piece in self.pieces[1:]:
+            piece.total_flanking = (right_bp, right_bp + len(piece))
+            right_bp =  right_bp + len(piece)
+
+    def update_specific_coordinates(self):
+
+        """
+        Get the specific coordinates of the intergenes
+        """
+        
+        first_intergene = True
+        adjacent_gene = False
+        adjacent_division = False
+        coordinate_adjustment = 0 
+
+        self.specific2total = dict()
+
+        for piece in self.pieces:
+    
+            if piece.ptype == "Gene":
+                adjacent_division = False
+                if adjacent_gene == True:
+                    coordinate_adjustment += 1
+                adjacent_gene = True
+                continue
+
+            elif piece.ptype == "Divi":
+                adjacent_gene = False
+
+                if first_intergene == True:
+                    
+                    adjacent_division = True
+                    first_intergene = False
+                    piece.specific_flanking = (coordinate_adjustment, coordinate_adjustment + len(piece))
+                    right_bp = coordinate_adjustment + len(piece) 
+                    coordinate_adjustment = 0
+                    
+                else:
+
+                    if adjacent_division == False:
+                        right_bp += 1
+                    adjacent_division = True
+                    piece.specific_flanking = (right_bp +  coordinate_adjustment, right_bp + coordinate_adjustment + len(piece))
+                    right_bp = right_bp + coordinate_adjustment + len(piece)
+                    coordinate_adjustment = 0
+
+                self.specific2total[piece.specific_flanking[0]] = piece.total_flanking[0]
+                self.specific2total[piece.specific_flanking[1]] = piece.total_flanking[1]
+        
+        
 
     def obtain_flankings(self):
         """
@@ -867,6 +969,7 @@ class Chromosome():
                 self.intergenes[i].specific_flanking = (lbi, ubi)
 
             #self.intergenes[i].total_flanking = (ub, 0)
+            
 
     def obtain_locations(self):
         """
@@ -875,7 +978,7 @@ class Chromosome():
         genome. In the process, set the "flanking" endpoints for each of the
         genes and intergenes (based on their length).
         """
-        self.obtain_flankings() # Redundant FIX
+        self.obtain_flankings()
         self.map_of_locations = list()
 
         for i in range(len(self.genes)):
@@ -1319,11 +1422,14 @@ class CircularChromosome(Chromosome):
         divisions_right = list()
         divisions_to_invert = list()
         affected_intergenes = list()
+
+        cycle = 0
         
         for intergene in itertools.cycle(self.iter_intergenes()):
+            cycle += 1
 
-            if len(intergene) == 0:
-
+            if len(intergene.divisions) == 0:
+                
                 bp = intergene.specific_flanking[0] # breakpoint
                 if bp == cut1:
                     start = True
@@ -1334,7 +1440,6 @@ class CircularChromosome(Chromosome):
             for division in intergene:
 
                 sf1, sf2 = division.specific_flanking # We get the flankings of the divisions
-                #print(cut1, cut2, sf1, sf2)
             
                 if cut1 == sf1 and cut2 == sf2:
                     divisions_to_invert.append(division)
@@ -1377,19 +1482,14 @@ class CircularChromosome(Chromosome):
                 
             if end == True:
                 break    
-        
 
 
-        # We keep track also of all divisions
-        
-        #print([str(x) for x in divisions_to_invert])
         all_divisions = list()
     
         for intergene in affected_intergenes:
             for division in intergene:
                 all_divisions.append((intergene, division))
        
-
         #  We prepare the new list with the right order
         
         divisions_left = [division for division in affected_intergenes[0] if division not in divisions_to_invert]
@@ -1405,9 +1505,7 @@ class CircularChromosome(Chromosome):
         for division in right_order_divisions:
             for intergene in affected_intergenes:
                 empty_space = len(intergene) - sum([len(division) for division in intergene])
-                
                 if empty_space >= len(division):
-                    
                     if division in divisions_to_invert:
                         division.change_sense()
                     (intergene.divisions).append(division)    
