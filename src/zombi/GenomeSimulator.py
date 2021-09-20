@@ -1215,10 +1215,7 @@ class GenomeSimulator():
 
                     lineage = nodes
                     
-                    for ch in self.all_genomes[lineage]:
-                        ch.obtain_flankings()
-                        ch.obtain_locations()
-
+                    self.update_genome_indices(lineage)
                     self.make_duplication_within_intergene(ch, c1, c2, d, lineage, time)
 
                 elif event == "T":
@@ -1236,9 +1233,7 @@ class GenomeSimulator():
                 elif event == "I":
 
                     lineage = nodes
-                    for ch in self.all_genomes[lineage]:
-                        ch.obtain_flankings()
-                        ch.obtain_locations()
+                    self.update_genome_indices(lineage)
 
                     #for intergene in ch.iter_intergenes():
                     #    print(intergene)
@@ -1260,6 +1255,16 @@ class GenomeSimulator():
                                                      lineage, time)
 
                     return "O", lineage
+
+    def update_genome_indices(self, lineage):
+        """
+        Update the indices for genes and intergenes. This should be called after
+        every rearrangement (NOTE: why is it not called within the rearrangement
+        code?).
+        """
+        for ch in self.all_genomes[lineage]:
+            ch.obtain_flankings()
+            ch.obtain_locations()
     
     def generate_new_rates(self):
 
@@ -1657,9 +1662,7 @@ class GenomeSimulator():
         lineage = random.choice(list(self.active_genomes))
         event = self.choose_event(duplication, transfer, loss, inversion, transposition, origination)
 
-        for ch in self.all_genomes[lineage]:
-            ch.obtain_flankings()
-            ch.obtain_locations()
+        self.update_genome_indices(lineage)
 
         if event == "D":
 
@@ -2999,6 +3002,11 @@ class GenomeSimulator():
 
             I0 I1 G2-I1-G1 J0 J1.
 
+        Notes
+        -----
+            Must update coordinates with `self.update_genome_indices` before
+            calling this.
+
         Parameters
         ----------
         c1 : int
@@ -3008,7 +3016,7 @@ class GenomeSimulator():
         d : T_DIR
             the direction, either left or right
         lineage : str
-            the linege, which is name of the pendnt node
+            the linege, which is the name of the pendant node
         time : float
             the time stamp of the event
         """
