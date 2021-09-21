@@ -1388,12 +1388,6 @@ class CircularChromosome(Chromosome):
         affected_genes : List[int]
             the indices of genes to be inverted
 
-        Returns
-        -------
-        Tuple[int, int]
-            if the inversion wraps around (`affected_genes` contains indices
-            at the beginning and end of the sequence) then return the 
-
         Notes
         -----
         `self.intergenes` is not affected
