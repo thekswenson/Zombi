@@ -1238,6 +1238,8 @@ class GenomeSimulator():
                     #for intergene in ch.iter_intergenes():
                     #    print(intergene)
 
+                    ch = self.all_genomes[lineage].chromosomes[0] # FIX. The function does not really need ch
+
                     self.make_inversion_intergenic(ch, c1, c2, d, lineage, time)
 
                 elif event == "P":
@@ -1263,6 +1265,16 @@ class GenomeSimulator():
         code?).
         """
         for ch in self.all_genomes[lineage]:
+            ch.obtain_flankings()
+            ch.obtain_locations()
+    
+    def update_genome_indices_second(self, lineage):
+        """
+        Update the indices for genes and intergenes. This should be called after
+        every rearrangement (NOTE: why is it not called within the rearrangement
+        code?). This is to be used in the second forward simulation
+        """
+        for ch in self.all_genomes_second[lineage]:
             ch.obtain_flankings()
             ch.obtain_locations()
     
@@ -3289,16 +3301,24 @@ class GenomeSimulator():
                 
                 # This maps to the top of the branch all the cuts along that
                 # branch.  We traverse from the end to the beginning:
+                print("History:")
                 reverse_history = list(reversed(chromosome.event_history))
                 for i, event1 in enumerate(reverse_history):
+                                        
                     sc1 = event1.sbpL
                     sc2 = event1.sbpR
+                    print("The event is:")
+                    print(sc1, sc2)
                     # Map the cuts through the events that are above:
                     for event2 in reverse_history[i+1:]:
                         sc1 = event2.afterToBeforeS(sc1)
                         sc2 = event2.afterToBeforeS(sc2)
+                        print("And it becomes:")
+                        print(sc1, sc2)
                     new_cuts.add(sc1)
                     new_cuts.add(sc2)
+                    print("And I am adding")
+                    print(sc1, sc2)
 
                 # This maps to the top of the branch all the cuts that were
                 # acquired from previous nodes
@@ -3342,6 +3362,8 @@ class GenomeSimulator():
         print("DIVISIONS AT THE ROOT")
         for initial_specific_flanking in initial_specific_flankings:
             c1, c2 = initial_specific_flanking
+            #print("Initial flankings")
+            #print(c1, c2)
 
             # We need to ignore the cuts where c1 is the right most extreme of
             # an intergene and c2 is the left most extreme of the next intergene
@@ -3537,6 +3559,8 @@ class GenomeSimulator():
     def make_inversion_divisions(self, time, event):
         
         lineage = event.lineage
+
+        self.update_genome_indices_second(lineage)
         
         chromosome = [x for x in self.all_genomes_second[lineage]][0] 
         
@@ -3566,17 +3590,21 @@ class GenomeSimulator():
 
         # If the event affects at the end or the beginning of the chromosome:
 
+        wrapping = False
+
         if tcL == chromosome.pieces[-1].total_flanking[1]:
             tcL = 0
+            wrapping = True
         
         if tcR == 0:
             tcR = chromosome.pieces[-1].total_flanking[1]
-
-        wrapping = False
+            wrapping = True
+        
         
         for index, piece in enumerate(itertools.cycle(chromosome.pieces)):               
            
             pfL, pfR = piece.total_flanking
+            
             #print(pfL, pfR, "", tcL,tcR)
             
             if pfL == tcL:
@@ -3626,6 +3654,9 @@ class GenomeSimulator():
         
         chromosome.update_coordinates()
         chromosome.update_specific_coordinates()
+        #chromosome.obtain_flankings()
+        #chromosome.obtain_locations()
+        
         chromosome.print_pieces()
 
     
