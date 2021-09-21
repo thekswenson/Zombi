@@ -24,12 +24,15 @@ class TestDivisions(unittest.TestCase):
   
   def test_divisions(self):
 
-      event1 = ("G", 1.22, "I", "n1", (16, 10, RIGHT))
-      event2 = ("G", 1.233, "I", "n1", (3, 14, RIGHT))
+      event0 = ("G", 1.21, "I", "n1", (1, 9, RIGHT))
+      event1 = ("G", 1.22, "I", "n1", (15, 6, RIGHT))
+      event2 = ("G", 1.233, "I", "n1", (11, 1, RIGHT))
+      event3 = ("G", 1.234, "I", "n1", (8, 17, RIGHT))
 
+      #
       #self.gss.run_f()
-      #self.gss.run_f_debug([event1,])
-      self.gss.run_f_debug([event1, event2])  
+      #self.gss.run_f_debug([event1,event2])
+      self.gss.run_f_debug([event0, event1, event2, event3])  
       self.gss.obtain_divisions()       
       self.gss.obtain_events_for_divisions()
 
