@@ -1265,7 +1265,6 @@ class GenomeSimulator():
         code?).
         """
         for ch in self.all_genomes[lineage]:
-            ch.obtain_flankings()
             ch.obtain_locations()
     
     def update_genome_indices_second(self, lineage):
@@ -3045,7 +3044,7 @@ class GenomeSimulator():
         totallen = chromosome.intergenes[-1].total_flanking[1]
 
         segment = chromosome.obtain_segment(gpositions)
-        chromosome.invert_segment(gpositions)
+        chromosome.invert_segment(gpositions, igpositions)
 
         if d == LEFT:
             leftlengths, rightlengths = rightlengths, leftlengths

@@ -432,6 +432,8 @@ class Gene():
             self.orientation = "-"
         elif self.orientation == "-":
             self.orientation = "+"
+        else:
+            raise(Exception('unexpected orientation "{self.orientation}"'))
 
     def __str__(self):
 
@@ -956,7 +958,7 @@ class Chromosome():
                 lb = self.intergenes[i-1].total_flanking[1]
                 ub = lb + self.genes[i].length
 
-                lbg = self.genes[i-1].specific_flanking[1] + 1 #NOTE: why +1 ?
+                lbg = self.genes[i-1].specific_flanking[1] + 1
                 ubg = lbg + self.genes[i].length
 
                 self.genes[i].total_flanking = (lb, ub)
@@ -1379,18 +1381,18 @@ class CircularChromosome(Chromosome):
         for i, x in enumerate(segment):
             self.genes.insert(position + i, x)
 
-    def invert_segment(self, affected_genes: List[int]):
+    def invert_segment(self, affected_genes: List[int],
+                       affected_intergenes: List[int]=[]):
         """
-        Invert the genes in `self.genes`.
+        Invert the genes in `self.genes`. Invert all but the first and last
+        intergenes in `self.intergenes` if `affected_intergenes` is provided.
 
         Parameters
         ----------
         affected_genes : List[int]
             the indices of genes to be inverted
-
-        Notes
-        -----
-        `self.intergenes` is not affected
+        affected_intergenes : List[int]
+            the indices of intergenes to be inverted
         """
 
         segment = [self.genes[x] for x in affected_genes]
@@ -1403,6 +1405,12 @@ class CircularChromosome(Chromosome):
         for i,x in enumerate(affected_genes):
             self.genes[x] = reversed_segment[i]
 
+        if affected_intergenes:         #Now reverse the intergenes:
+            intergenes_reversed = [self.intergenes[x]
+                                   for x in reversed(affected_intergenes[1:-1])]
+
+            for revi, i in enumerate(affected_intergenes[1:-1]):
+                self.intergenes[i] = intergenes_reversed[revi]
     
     def invert_divisions(self, cut1, cut2):
         """
