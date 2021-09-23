@@ -378,7 +378,7 @@ class TestEvent(unittest.TestCase):
                      'intergene breakpoint mismap')
 
       #Do second inversion:
-    self.gss.update_genome_indices(lineage)
+    ch.obtain_locations()
     self.gss.make_inversion_intergenic(ch, 1, 11, RIGHT, lineage, 0.0)
     inversion2: Inversion = ch.event_history[1]
 
@@ -467,7 +467,7 @@ class TestEvent(unittest.TestCase):
                      'intergene breakpoint mismap')
 
       #Do second inversion:
-    self.gss.update_genome_indices(lineage)
+    ch.obtain_locations()
     self.gss.make_inversion_intergenic(ch, 10, 3, RIGHT, lineage, 0.0)
     inversion2: Inversion = ch.event_history[1]
 
@@ -530,7 +530,7 @@ class TestEvent(unittest.TestCase):
                      'fifth intergene length mismatch after inversion')
 
       #Do second inversion:
-    self.gss.update_genome_indices(lineage)
+    ch.obtain_locations()
     self.gss.make_inversion_intergenic(ch, 15, 6, RIGHT, lineage, 0.0)
     inv2: Inversion = ch.event_history[1]
 
@@ -548,6 +548,12 @@ class TestEvent(unittest.TestCase):
                      'fifth intergene length mismatch after inversion')
 
       #Specific coordinate mapping:
+    self.assertEqual(inv2.afterToBeforeS(0), 19,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inv2.afterToBeforeS(1), 18,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inv2.afterToBeforeS(5), 7,
+                     'intergene breakpoint mismap')
     self.assertEqual(inv1.afterToBeforeS(inv2.afterToBeforeS(5)), 3,
                      'intergene breakpoint mismap')
     self.assertEqual(inv1.afterToBeforeS(inv2.afterToBeforeS(18)), 1,
@@ -568,7 +574,7 @@ class TestEvent(unittest.TestCase):
                      'intergene breakpoint mismap')
 
       #Do third inversion:
-    self.gss.update_genome_indices(lineage)
+    ch.obtain_locations()
     self.gss.make_inversion_intergenic(ch, 11, 1, RIGHT, lineage, 0.0)
     inv3: Inversion = ch.event_history[2]
 

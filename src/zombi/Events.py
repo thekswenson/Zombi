@@ -1036,8 +1036,8 @@ class Inversion(EventTwoCuts):
             gene and intergenes that will end up at the end of the genome
             after the inversion.
         ssecondlen: int
-            if this inversion wraps, then this is the specific length of the
-            gene and intergenes that will end up at the begining of the genome
+            if this inversion wraps, then this is the number of intergene
+            specific coordinates that will end up at the begining of the genome
             after the inversion.
         tsecondlen: int
             if this inversion wraps, then this is the total length of the

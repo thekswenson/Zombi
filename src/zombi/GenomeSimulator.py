@@ -3043,9 +3043,6 @@ class GenomeSimulator():
         specificlen = chromosome.intergenes[-1].specific_flanking[1]
         totallen = chromosome.intergenes[-1].total_flanking[1]
 
-        segment = chromosome.obtain_segment(gpositions)
-        chromosome.invert_segment(gpositions, igpositions)
-
         if d == LEFT:
             leftlengths, rightlengths = rightlengths, leftlengths
             int1, int2 = int2, int1
@@ -3060,6 +3057,9 @@ class GenomeSimulator():
                         tleftlen, srightlen, trightlen, lineage, time)
 
         chromosome.event_history.append(inv)
+
+        segment = chromosome.obtain_segment(gpositions)
+        chromosome.invert_segment(gpositions, igpositions)
 
         scar1 = chromosome.intergenes[igpositions[0]]
         scar2 = chromosome.intergenes[igpositions[-1]]
