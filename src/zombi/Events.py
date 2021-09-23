@@ -1153,7 +1153,7 @@ class Inversion(EventTwoCuts):
                     return self.assertS(self.swraplen - (right_of_bp - self.sbpR - 1))
 
             elif sc >= self.afterR.s_bp:
-                return self.assertS(sc -self.sshift)
+                return self.assertS(sc - self.sshift)
 
             else:                               # sc in -S2 -I1
                 left_of_bp = self.afterR.s_bp - sc

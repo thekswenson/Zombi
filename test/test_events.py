@@ -589,6 +589,10 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(ch.intergenes[4].length, 2,
                      'fifth intergene length mismatch after inversion')
 
+    self.assertEqual(inv1.afterToBeforeS(inv2.afterToBeforeS(inv3.afterToBeforeS(8))), 4,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inv1.afterToBeforeS(inv2.afterToBeforeS(inv3.afterToBeforeS(17))), 0,
+                     'intergene breakpoint mismap')
 
   # TANDEM DUPLICATIONS - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   def test_tandemdup_1(self):
