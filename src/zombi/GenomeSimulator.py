@@ -1228,8 +1228,6 @@ class GenomeSimulator():
                         pseudo = True
                     self.make_loss_intergenic(ch, c1, c2, d, lineage, time, pseudo)
 
-                    return "L", lineage
-
                 elif event == "I":
 
                     lineage = nodes
@@ -1243,11 +1241,16 @@ class GenomeSimulator():
                     self.make_inversion_intergenic(ch, c1, c2, d, lineage, time)
 
                 elif event == "P":
+                    
+                    lineage = nodes
+                    self.update_genome_indices(lineage)
+                    ch = self.all_genomes[lineage].chromosomes[0] 
 
-                    c3 = ch.select_random_intergenic_coordinate_excluding(c1, c2, d)
+                    #c3 = ch.select_random_intergenic_coordinate_excluding(c1, c2, d)
+                    c3 = 12 # FIX
+                    
                     self.make_transposition_intergenic(ch, c1, c2, d, c3, lineage, time)
-
-                    return "P", lineage
+    
 
                 elif event == "O":
                         
@@ -1256,7 +1259,7 @@ class GenomeSimulator():
                     self.make_origination_intergenic(ch, intergene_coordinate,
                                                      lineage, time)
 
-                    return "O", lineage
+
 
     def update_genome_indices(self, lineage):
         """
@@ -3282,6 +3285,8 @@ class GenomeSimulator():
         Obtain the divisions at the root
         """
         # (Need to traverse in a different way once we simulate transfers)
+        print(self.all_genomes)
+
         for node in self.complete_tree.traverse("postorder"):
             
             genome = self.all_genomes[node.name]            
@@ -3300,27 +3305,25 @@ class GenomeSimulator():
                 
                 # This maps to the top of the branch all the cuts along that
                 # branch.  We traverse from the end to the beginning:
-                print("History:")
+                #print("History:")
                 reverse_history = list(reversed(chromosome.event_history))
                 for i, event1 in enumerate(reverse_history):
                                         
                     sc1 = event1.sbpL
                     sc2 = event1.sbpR
-                    print("The event is:")
-                    print(sc1, sc2)
+
                     # Map the cuts through the events that are above:
                     for event2 in reverse_history[i+1:]:
                         sc1 = event2.afterToBeforeS(sc1)
                         sc2 = event2.afterToBeforeS(sc2)
-                        print("And it becomes:")
-                        print(sc1, sc2)
+
                     new_cuts.add(sc1)
                     new_cuts.add(sc2)
-                    print("And I am adding")
-                    print(sc1, sc2)
+
 
                 # This maps to the top of the branch all the cuts that were
                 # acquired from previous nodes
+
                 for cut in node.cuts:
                     for event in reverse_history:
                         cut = event.afterToBeforeS(cut)
@@ -3445,7 +3448,8 @@ class GenomeSimulator():
             if etype == "I":
                 self.make_inversion_divisions(time, event)
 
-
+            if etype == "P":
+                self.make_inversion_divisions(time, event)
 
     def make_speciation_divisions(self, time, lineages):
         
@@ -3541,7 +3545,6 @@ class GenomeSimulator():
         ch2.update_specific_coordinates()
  
 
-
     def make_extinction_divisions(self, time, lineages):
         pass
     def make_end_divisions(self, time, lineages):
@@ -3552,33 +3555,15 @@ class GenomeSimulator():
         pass
     def make_transfer_divisions(self, time, lineages):
         pass
-    def make_transposition_divisions(self, time, lineages):
-        pass
-    
-    def make_inversion_divisions(self, time, event):
-        
-        lineage = event.lineage
 
-        self.update_genome_indices_second(lineage)
+    def make_transposition_divisions(self, time, event):
         
+        lineage = event.lineage        
         chromosome = [x for x in self.all_genomes_second[lineage]][0] 
         
         tcL = event.tbpL
         tcR = event.tbpR
         
-        sc1 = event.sbpL
-        sc2 = event.sbpR
-        # We invert the pieces between the two segment
-        print("Specific coordinates of event")
-        print(sc1, sc2)
-        print("Total coordinates of event")
-        print(tcL, tcR)
-        print("What I think it should happen")
-        print(chromosome.specific2total[sc1], chromosome.specific2total[sc2])
-        
-        tcL = chromosome.specific2total[sc1]
-        tcR = chromosome.specific2total[sc2]
-
         start = False
         end = False
 
@@ -3604,7 +3589,87 @@ class GenomeSimulator():
            
             pfL, pfR = piece.total_flanking
             
-            #print(pfL, pfR, "", tcL,tcR)
+            if pfL == tcL:
+                start = True
+            if start == True:
+                if index >= len(chromosome.pieces): # We are in the second cycle
+                    indexes_to_invert.append(index - len(chromosome.pieces))
+                    wrapping = True
+                else:
+                    indexes_to_invert.append(index)
+                pieces_to_invert.append(piece)
+            if pfR == tcR and start == True:
+                end = True
+            if end == True:
+                break
+        
+        pieces_to_invert = list(reversed(copy.deepcopy(pieces_to_invert)))
+        
+        for index, replacement in zip(indexes_to_invert, pieces_to_invert):
+            chromosome.pieces[index] = replacement
+            replacement.change_sense()
+
+        # Now we adjust the indexes if there has been a wrapping event
+
+        if wrapping == True:
+
+            # We search the index position of a gene not affected by the event
+
+            gene_ref_index = 0
+            gene_ref = None
+
+            for piece in chromosome.pieces:
+                if piece.ptype == "Gene":
+                    gene_ref_index +=1
+                    gene_ref = piece
+                    if piece not in pieces_to_invert:
+                        break
+
+            # Now we start adjusting the pieces until there are no divisions in the beginning
+            # and the unaffected pieces remain in the same index as before
+            
+            while (chromosome.pieces[0].ptype == "Divi") or chromosome.get_index_gene(gene_ref) != gene2index[gene_ref]:
+                piece = (chromosome.pieces).pop(0)
+                (chromosome.pieces).append(piece)
+
+        #chromosome.update_specific_coordinates()
+        chromosome.update_coordinates()
+    
+    
+    
+
+    def make_inversion_divisions(self, time, event):
+        
+        lineage = event.lineage        
+        chromosome = [x for x in self.all_genomes_second[lineage]][0] 
+        
+        tcL = event.tbpL
+        tcR = event.tbpR
+        
+        start = False
+        end = False
+
+        pieces_to_invert = list()
+        indexes_to_invert = list()
+        genes = [piece for piece in chromosome.pieces if piece.ptype == "Gene"]
+        gene2index = {gene:index for index, gene in enumerate(genes)}
+
+        # If the event affects at the end or the beginning of the chromosome:
+
+        wrapping = False
+
+        if tcL == chromosome.pieces[-1].total_flanking[1]:
+            tcL = 0
+            wrapping = True
+        
+        if tcR == 0:
+            tcR = chromosome.pieces[-1].total_flanking[1]
+            wrapping = True
+        
+        
+        for index, piece in enumerate(itertools.cycle(chromosome.pieces)):               
+           
+            pfL, pfR = piece.total_flanking
             
             if pfL == tcL:
                 start = True
@@ -3626,7 +3691,7 @@ class GenomeSimulator():
             chromosome.pieces[index] = replacement
             replacement.change_sense()
 
-        # Now we adjust the indexes if there has been a warpping event
+        # Now we adjust the indexes if there has been a wrapping event
 
         if wrapping == True:
 
@@ -3646,18 +3711,12 @@ class GenomeSimulator():
             # and the unaffected pieces remain in the same index as before
             
             while (chromosome.pieces[0].ptype == "Divi") or chromosome.get_index_gene(gene_ref) != gene2index[gene_ref]:
-                
                 piece = (chromosome.pieces).pop(0)
                 (chromosome.pieces).append(piece)
 
-        
+        #chromosome.update_specific_coordinates()
         chromosome.update_coordinates()
-        chromosome.update_specific_coordinates()
-        #chromosome.obtain_flankings()
-        #chromosome.obtain_locations()
         
-        chromosome.print_pieces()
-
     
     def write_division_trees(self, division_tree_folder):
 

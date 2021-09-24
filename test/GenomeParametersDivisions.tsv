@@ -14,7 +14,7 @@ LOSS f:0
 #
 ## The next three events use always genome-wise rates
 #
-INVERSION f:10
+INVERSION f:1000
 TRANSPOSITION f:0
 ORIGINATION f:0
 #
