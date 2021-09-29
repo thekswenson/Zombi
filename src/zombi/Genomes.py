@@ -880,8 +880,6 @@ class Chromosome():
         """
         Update the coordinates of the genes and the divisions
         """
-        
-        # First the total flankings
 
         right_bp = len(self.pieces[0])
         self.pieces[0].total_flanking = (0, right_bp)
