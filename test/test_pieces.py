@@ -80,12 +80,24 @@ class TestDivisions(unittest.TestCase):
   def test_transpositions1(self):
      
       event1 = ("G", 0.028, "P", "Root", (5, 9, RIGHT))
-      self.gss.run_f_debug([event1]) 
+      #self.gss.run_f() 
+      #self.gss.obtain_divisions()       
+      #self.gss.obtain_events_for_divisions()
+
+  def test_genetrees(self):
+     
+      event1 = ("G", 0.028, "P", "Root", (5, 9, RIGHT))
+      
+      self.gss.run_f() 
       self.gss.obtain_divisions()       
       self.gss.obtain_events_for_divisions()
-
       
       
+      division_trees_folder = os.path.join('test/TestDivisions1/', "Division_trees")
+      
+      self.gss.write_division_trees('test/TestDivisions1/')
+      self.gss.write_division_coordinates('test/TestDivisions1/')
+      print(self.gss.all_division_families["1"].events)
 
 if __name__ == '__main__':
     unittest.main()

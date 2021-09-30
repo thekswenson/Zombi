@@ -3285,7 +3285,6 @@ class GenomeSimulator():
         Obtain the divisions at the root
         """
         # (Need to traverse in a different way once we simulate transfers)
-        print(self.all_genomes)
 
         for node in self.complete_tree.traverse("postorder"):
             
@@ -3361,12 +3360,8 @@ class GenomeSimulator():
         
         self.initial_divisions = list()         # For debugging purposes
         
-        print("DIVISIONS AT THE ROOT")
         for initial_specific_flanking in initial_specific_flankings:
             c1, c2 = initial_specific_flanking
-            #print("Initial flankings")
-            #print(c1, c2)
-
             # We need to ignore the cuts where c1 is the right most extreme of
             # an intergene and c2 is the left most extreme of the next intergene
             if (c1, c2) in cuts_to_ignore:
@@ -3381,7 +3376,7 @@ class GenomeSimulator():
             division_family.register_event(0, "O", "Root") # We register the origination 
             division.get_length()
 
-            print(division)
+            #print(division)
             
             self.all_division_families[str(fam_id)] = division_family
     
@@ -3420,7 +3415,7 @@ class GenomeSimulator():
         genome = self.initial_genome
        
         for items in sorted(all_events, key=lambda x: float(x[1][0])): # This sorts the events by the time
-
+            print(items)
  
            # We unpack the events
  
@@ -3437,6 +3432,7 @@ class GenomeSimulator():
             if etype == "E":
                 self.make_extinction_divisions(time, lineages)
             if etype == "F":
+                
                 self.make_end_divisions(time, lineages)
  
             # Genome level events
@@ -3535,7 +3531,7 @@ class GenomeSimulator():
                                 division2.identity
                                 ]
                     self.all_division_families[str(division.division_family)].register_event(str(time), "S", ";".join(map(str,nodes)))
-
+                    
                     ch1.pieces.append(division1)
                     ch2.pieces.append(division2)
         
@@ -3547,8 +3543,16 @@ class GenomeSimulator():
 
     def make_extinction_divisions(self, time, lineages):
         pass
+
     def make_end_divisions(self, time, lineages):
-        pass
+        
+        chromosome = [x for x in self.all_genomes_second[lineages]][0]
+
+        for piece in chromosome.pieces:
+            if piece.ptype == "Divi":
+                self.all_division_families[str(piece.division_family)].register_event(str(time), "F", str(lineages) + ";" + str(piece.identity)) 
+            
+
     def make_duplication_divisions(self, time, lineages):
         pass
     def make_loss_divisions(self, time, lineages):

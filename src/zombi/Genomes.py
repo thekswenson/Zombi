@@ -465,6 +465,7 @@ class Division():
         self.total_flanking = None
         self.ptype = "Divi" # Piece type, for debugging purposes
         self.length = None
+        self.species = ""
 
     def change_sense(self):
 
