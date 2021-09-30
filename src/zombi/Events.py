@@ -756,7 +756,7 @@ class Transposition(EventTwoCuts):
         time: float
             the time at which it happened
         """
-        super().__init__(int1, int2, sbp1, sbp2, swraplen, twraplen, INV,
+        super().__init__(int1, int2, sbp1, sbp2, swraplen, twraplen, POS,
                          lineage, time)
         self.beforeH: Interval = int3
         self.sbpH = sbp3

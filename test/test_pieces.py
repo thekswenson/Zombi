@@ -69,35 +69,88 @@ class TestDivisions(unittest.TestCase):
       event15 = ("G", 1.47, "I", "n1", (13, 18, RIGHT))
 
       
-      self.gss.run_f_debug([event1,event2])
+      #self.gss.run_f_debug([event1,event2])
       #self.gss.run_f_debug([event1,  event4, event9])  
-      self.gss.obtain_divisions()       
-      self.gss.obtain_events_for_divisions()
+      #self.gss.obtain_divisions()       
+      #self.gss.obtain_events_for_divisions()
 
       #for ch in self.gss.all_genomes_second["n1"]:
       #    ch.print_pieces()      
    
-  def test_transpositions1(self):
-     
-      event1 = ("G", 0.028, "P", "Root", (5, 9, RIGHT))
-      #self.gss.run_f() 
-      #self.gss.obtain_divisions()       
-      #self.gss.obtain_events_for_divisions()
 
   def test_genetrees(self):
      
       event1 = ("G", 0.028, "P", "Root", (5, 9, RIGHT))
       
-      self.gss.run_f() 
+      #self.gss.run_f() 
+      #self.gss.obtain_divisions()       
+      #self.gss.obtain_events_for_divisions()
+      
+      #division_trees_folder = os.path.join('test/TestDivisions1/', "Division_trees")
+      
+      #self.gss.write_division_trees('test/TestDivisions1/')
+      #self.gss.write_division_coordinates('test/TestDivisions1/')
+      #print(self.gss.all_division_families["1"].events)
+
+
+class TestTranspositions(unittest.TestCase):
+
+  def setUp(self, genome_file=TEST_GENOME):
+    params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
+    events_file = os.path.join(TEST_FOLDER1, 'T/Events.tsv')
+    self.gss = GenomeSimulator(params, events_file, genome_file)
+
+  def test_transpositions1(self):
+     
+      event1 = ("G", 0.028, "P", "Root", (5, 9, 12, RIGHT))
+      #event1 = ("G", 0.028, "P", "Root", (15, 5, 12, RIGHT))
+
+      self.gss.run_f_debug([event1]) 
+
+      # The event is placed in tbpH
+      
       self.gss.obtain_divisions()       
       self.gss.obtain_events_for_divisions()
+
+      #for ch in self.gss.all_genomes["n1"]:
+      #    for gene, intergene in zip(ch.genes, ch.intergenes):
+      #        print("Gene", gene.total_flanking, gene.gene_family)
+      #        print("Intergene", intergene.total_flanking)
+
+      for ch in self.gss.all_genomes_second["n1"]:
+          ch.print_pieces() 
+
+
+class TestDuplications(unittest.TestCase):
+
+  def setUp(self, genome_file=TEST_GENOME):
+    params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
+    events_file = os.path.join(TEST_FOLDER1, 'T/Events.tsv')
+    self.gss = GenomeSimulator(params, events_file, genome_file)
+
+  def test_transpositions1(self):
+     
+      #event1 = ("G", 0.028, "P", "Root", (5, 9, RIGHT))
+      #event1 = ("G", 0.028, "P", "Root", (15, 5, 12, RIGHT))
+      event1 = ("G", 0.028, "D", "Root", (5, 9, RIGHT))
+      event2 = ("G", 0.029, "D", "Root", (9, 14, RIGHT))
+
+      self.gss.run_f_debug([event1, event2]) 
+
+      # The event is placed in tbpH
       
-      
-      division_trees_folder = os.path.join('test/TestDivisions1/', "Division_trees")
-      
-      self.gss.write_division_trees('test/TestDivisions1/')
-      self.gss.write_division_coordinates('test/TestDivisions1/')
-      print(self.gss.all_division_families["1"].events)
+      self.gss.obtain_divisions()       
+      self.gss.obtain_events_for_divisions()
+
+      #for ch in self.gss.all_genomes["n1"]:
+      #    for gene, intergene in zip(ch.genes, ch.intergenes):
+      #        print("Gene", gene.total_flanking, gene.gene_family)
+      #        print("Intergene", intergene.total_flanking)
+      print("****")
+      for ch in self.gss.all_genomes_second["n1"]:
+          ch.print_pieces() 
+      print("****")
+
 
 if __name__ == '__main__':
     unittest.main()
