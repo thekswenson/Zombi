@@ -131,6 +131,7 @@ class GenomeSimulator():
                             line = "\t".join(list(map(str, [piece.gene_family, piece.ptype, piece.gene_id, piece.length, piece.total_flanking[0], piece.total_flanking[1], piece.orientation ]))) + "\n"
                         else:
                             line = "\t".join(list(map(str, [piece.division_family, piece.ptype, piece.identity, piece.length, piece.total_flanking[0], piece.total_flanking[1], piece.orientation ]))) + "\n"
+                        f.write(line)
     
     def write_genome_info(self, genome_folder:str,
                                filename="InitialGenome_info.tsv"):
