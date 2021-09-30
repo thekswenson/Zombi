@@ -3546,7 +3546,14 @@ class GenomeSimulator():
  
 
     def make_extinction_divisions(self, time, lineages):
-        pass
+        
+        chromosome = [x for x in self.all_genomes_second[lineages]][0] 
+
+        for piece in chromosome.pieces:
+            if piece.ptype == "Divi":
+                division_family = str(piece.division_family)
+                self.all_division_families[division_family].register_event(str(time), "E", ";".join(map(str,[lineages, piece.identity])))
+
 
     def make_end_divisions(self, time, lineages):
         
@@ -3631,7 +3638,26 @@ class GenomeSimulator():
         chromosome.update_coordinates()
         
     def make_loss_divisions(self, time, lineages):
-        pass
+
+        lineage = event.lineage        
+        chromosome = [x for x in self.all_genomes_second[lineage]][0] 
+        
+        tcL = event.tbpL
+        tcR = event.tbpR
+
+        pieces_to_lose, indexes_to_lose, wrapping = self.select_pieces(chromosome, tcL, tcR)
+
+        chromosome.pieces = [piece for piece in chromosome.pieces if piece not in pieces_to_lose]
+
+        for piece in pieces_to_lose:
+            if piece.ptype == "Divi":
+                division_family = str(piece.division_family)
+                self.all_division_families[division_family].register_event(str(time), "L", ";".join(map(str,[lineage, piece.identity])))
+
+        chromosome.update_specific_coordinates()
+        chromosome.update_coordinates()
+
+        
     def make_transfer_divisions(self, time, lineages):
         pass
 
