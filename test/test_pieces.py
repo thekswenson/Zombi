@@ -130,26 +130,35 @@ class TestDuplications(unittest.TestCase):
 
   def test_transpositions1(self):
      
-      #event1 = ("G", 0.028, "P", "Root", (5, 9, RIGHT))
-      #event1 = ("G", 0.028, "P", "Root", (15, 5, 12, RIGHT))
-      event1 = ("G", 0.028, "D", "Root", (5, 9, RIGHT))
-      event2 = ("G", 0.029, "D", "Root", (9, 14, RIGHT))
+      event1 = ("G", 0.028, "D", "Root", (10, 5, RIGHT))
+      event2 = ("G", 0.0283, "D", "Root", (5, 9, RIGHT))
+      event3 = ("G", 0.0284, "D", "Root", (18, 24, RIGHT))
+      event4 = ("G", 0.02841, "L", "Root", (2, 9, RIGHT))
+      event5 = ("G", 0.02842, "L", "Root", (13, 23, RIGHT))
+      event6 = ("G", 0.02843, "L", "Root", (31, 2, RIGHT))
+      event7 = ("G", 0.02845, "I", "Root", (1, 4, RIGHT))
 
       self.gss.run_f_debug([event1, event2]) 
-
+      
+      # self.gss.run_f() 
       # The event is placed in tbpH
       
       self.gss.obtain_divisions()       
       self.gss.obtain_events_for_divisions()
 
-      #for ch in self.gss.all_genomes["n1"]:
-      #    for gene, intergene in zip(ch.genes, ch.intergenes):
-      #        print("Gene", gene.total_flanking, gene.gene_family)
-      #        print("Intergene", intergene.total_flanking)
       print("****")
       for ch in self.gss.all_genomes_second["n1"]:
           ch.print_pieces() 
       print("****")
+      
+      for ch in self.gss.all_genomes["n1"]:
+          for gene, intergene in zip(ch.genes, ch.intergenes):
+              print("Gene", gene.total_flanking, gene.gene_family)
+              print("Intergene", intergene.total_flanking)
+      print("^^^")
+      print("^^^")
+      
+      
 
 
 if __name__ == '__main__':

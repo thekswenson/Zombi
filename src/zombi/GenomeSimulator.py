@@ -105,39 +105,32 @@ class GenomeSimulator():
                             f.write(line)
                             i += 1
         
-    def write_division_coordinates(self, genome_folder):
+    def write_pieces_coordinates(self, genome_folder):
+
+        """
+        Write a TSV file with containing all the pieces of the genome 
+        (divisions in intergenes and genes)
+        For clarity: genomes have genes and intergenes. Intergenes are divided in divisions. 
+        Genes and divisions are both called pieces
+        """
 
         if not os.path.isdir(genome_folder):
             os.mkdir(genome_folder)
 
         for genome_name, genome in self.all_genomes_second.items():
 
-            with open(os.path.join(genome_folder, genome_name + "_DIVISIONS.tsv"), "w") as f:
+            with open(os.path.join(genome_folder, genome_name + "_PIECES.tsv"), "w") as f:
 
-                header = ["DIVISION_FAMILY", "TYPE", "IDENTITY", "LENGTH", "FLANKING_LEFT_SPECIFIC", "FLANKING_RIGHT_SPECIFIC", "TOTAL_LEFT", "TOTAL_RIGHT", "ORIENTATION"]
+                header = ["FAMILY", "TYPE", "IDENTITY", "LENGTH", "TOTAL_LEFT", "TOTAL_RIGHT", "ORIENTATION"]
                 header = "\t".join(map(str, header)) + "\n"
                 f.write(header)
 
                 for chromosome in genome:
-                    chromosome.obtain_locations()
-
-                    for gene, intergene in zip(chromosome, chromosome.iter_intergenes()):
-
-                        scl, scr = gene.total_flanking
-                        tcl, tcr = gene.specific_flanking
-                        line = "\t".join(list(map(str, [gene.gene_family, "GENE", gene.gene_id, gene.length, scl, scr, tcl, tcr, gene.orientation ]))) + "\n"
-                        f.write(line)
-
-                        for division in intergene:
-
-                            scl = division.specific_flanking[0]
-                            scr = division.specific_flanking[1]
-                            tcl = chromosome.return_total_coordinate_from_specific_coordinate(scl)
-                            tcr = chromosome.return_total_coordinate_from_specific_coordinate(scr)
-
-                            line = "\t".join(list(map(str, [division.division_family, "DIVISION", division.identity, len(division), scl, scr, tcl, tcr, division.orientation ]))) + "\n"
-                            f.write(line)
-
+                    for piece in chromosome.pieces:
+                        if piece.ptype == "Gene":
+                            line = "\t".join(list(map(str, [piece.gene_family, piece.ptype, piece.gene_id, piece.length, piece.total_flanking[0], piece.total_flanking[1], piece.orientation ]))) + "\n"
+                        else:
+                            line = "\t".join(list(map(str, [piece.division_family, piece.ptype, piece.identity, piece.length, piece.total_flanking[0], piece.total_flanking[1], piece.orientation ]))) + "\n"
     
     def write_genome_info(self, genome_folder:str,
                                filename="InitialGenome_info.tsv"):
@@ -3434,17 +3427,23 @@ class GenomeSimulator():
                 self.make_speciation_divisions(time, lineages)
             if etype == "E":
                 self.make_extinction_divisions(time, lineages)
-            if etype == "F":
-                
+            if etype == "F":               
                 self.make_end_divisions(time, lineages)
  
             # Genome level events
  
             if etype == "D":
+                print("duplication")
+                print(event.sbpL, event.sbpR)
                 self.make_duplication_divisions(time, event)
             if etype == "L":
+                print("loss")
+                print(event.sbpL, event.sbpR)
                 self.make_loss_divisions(time, event)
             if etype == "I":
+                
+                print("inversion")
+                print(event.sbpL, event.sbpR)
                 self.make_inversion_divisions(time, event)
             if etype == "P":
                 self.make_transposition_divisions(time, event)
@@ -3626,18 +3625,19 @@ class GenomeSimulator():
         for piece1, piece2 in zip(pieces_to_duplicate, pieces_duplicated):
             if piece1.ptype == "Divi":
                 division_family = str(piece1.division_family)
+                parent_id = piece1.identity
                 new_id1 = self.all_division_families[division_family].obtain_new_identifier()
                 new_id2 = self.all_division_families[division_family].obtain_new_identifier()
                 piece1.identity = new_id1
                 piece2.identity = new_id2
-                self.all_division_families[division_family].register_event(str(time), "D", ";".join(map(str,[lineage, new_id1, lineage, new_id2])))
+                self.all_division_families[division_family].register_event(str(time), "D", ";".join(map(str,[lineage, parent_id, lineage, new_id1, lineage, new_id2])))
 
         chromosome.pieces = chromosome.pieces[0:insert_index] + pieces_duplicated + chromosome.pieces[insert_index:] 
 
         chromosome.update_specific_coordinates()
         chromosome.update_coordinates()
         
-    def make_loss_divisions(self, time, lineages):
+    def make_loss_divisions(self, time, event):
 
         lineage = event.lineage        
         chromosome = [x for x in self.all_genomes_second[lineage]][0] 
@@ -3653,12 +3653,17 @@ class GenomeSimulator():
             if piece.ptype == "Divi":
                 division_family = str(piece.division_family)
                 self.all_division_families[division_family].register_event(str(time), "L", ";".join(map(str,[lineage, piece.identity])))
+        
+        if wrapping == True:
 
+            while chromosome.pieces[0].ptype == "Divi":
+                chromosome.pieces = chromosome.pieces[1:] + [chromosome.pieces[0]]
+            
         chromosome.update_specific_coordinates()
         chromosome.update_coordinates()
 
         
-    def make_transfer_divisions(self, time, lineages):
+    def make_transfer_divisions(self, time, event):
         pass
 
     def make_transposition_divisions(self, time, event):    
