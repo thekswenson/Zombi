@@ -1,3 +1,4 @@
+import itertools
 import random
 import ete3
 from functools import reduce

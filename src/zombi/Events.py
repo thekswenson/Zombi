@@ -721,7 +721,9 @@ class Transposition(EventTwoCuts):
     afterR: Interval
         the intergenic interval to the right of the transposed segment
     afterH: Interval
-        here is where the segment was moved from (I0 J1)
+        here is where the segment was moved from (I0 J1). this is not set
+        when the "here" breakpoint is in the same location as the left
+        (int3 == int2) or right (int2 == int1) breakpoint
     numintergenes: int
         the total number of intergenes in the chromosome
     """
@@ -770,6 +772,7 @@ class Transposition(EventTwoCuts):
 
         self.setAfter()
 
+
     def setAfter(self):
         """
         Set the three intergenic regions that exist after the Transposition.
@@ -783,18 +786,36 @@ class Transposition(EventTwoCuts):
         J0 J1. K is split at 
         Then we have
 
-            I0 I1 S J0 J1 ... K0 K1
+            ... I0 I1 S J0 J1 ... K0 K1 ...
             (K0 K1 ... I0 I1 S J0 J1)
 
         and the transposition produces
 
-            I0 J1 ... K0 I1 S J0 K1
+            ... I0 J1 ... K0 I1 S J0 K1 ...
             (K0 I1 S J0 K1 ... I0 J1).
 
         When a transposition wraps around it looks like this
 
             S1 J0 J1 ... K0 K1 ... I0 I1 S0 becomes
             ... K0 I1 S0 S1 J0 K1 ... I0 J1
+
+
+        Notes
+        -----
+
+        The following cases (and the other two when they wrap) were implemented,
+        but not tested, since the cases will never bet evoked by the simulator:
+        
+        When a transposition is placed within the same left intergene then
+        
+            ... I0l I0r I1 S J0 J1 ...  becomes
+            ... I0l I1 S J0 I0r J1 ...
+        
+        When a transposition is placed within the same right intergene then
+        
+            ... I0 I1 S J0 J1l J1r ...  becomes
+            ... I0 J1l I1 S J0 J1r ...
+        
         """
         lenI0 = self.sbpL - self.beforeL.sc1
         lenI1 = self.beforeL.sc2 - self.sbpL
@@ -831,6 +852,22 @@ class Transposition(EventTwoCuts):
         self.lenSt = lenSt
 
         if self.wraps():
+            if self.beforeH.specificPair() == self.beforeR.specificPair():
+                    #S1 J0 J1l J1r ... I0 I1 S0
+                raise(NotImplementedError('implemented but not tested'))
+                self.setAfter_S1_J0_J1l_J1r__I0_I1_S0(lenI0, lenI1, lenJ0,
+                                                      lenJ1, lenS0s, lenS1s,
+                                                      lenS0t, lenS1t)
+                return
+            if self.beforeH.specificPair() == self.beforeL.specificPair():
+                raise(NotImplementedError('implemented but not tested'))
+                    #S1 J0 J1 ... I0l I0r I1 S0
+                self.setAfter_S1_J0_J1__I0l_I0r_I1_S0(lenI1, lenJ0, lenJ1,
+                                                      lenS0s, lenS1s,
+                                                      lenS0t, lenS1t)
+                return
+
+                                #S1 J0 J1 ... K0 K1 ... I0 I1 S0
             s_herestart = self.beforeL.sc1 + lenI1 + lenS0s - lenJ1
             s_hereend = s_herestart + lenI0 + lenJ1
             t_herestart = self.beforeL.tc1 + lenI1 + lenS0t - lenJ1
@@ -850,8 +887,18 @@ class Transposition(EventTwoCuts):
             leftposition = 0
             rightposition = self.beforeH.position + (self.numintergenes - self.beforeL.position - 1)
             hereposition = self.numintergenes - 1
-        else:
-            if self.sbpH > self.sbpR:   # I0 I1 S J0 J1 ... K0 K1
+
+        else:                                       # Not wrapping:
+            if self.beforeH == self.beforeR:        # I0 I1 S J0 J1l J1r
+                self.setAfter_I0_I1_S_J0_J1l_J1r(lenI0, lenI1, lenJ0)
+                raise(NotImplementedError('implemented but not tested'))
+                return
+            elif self.beforeH == self.beforeL:      # I0l I0r I1 S J0 J1
+                raise(NotImplementedError('implemented but not tested'))
+                self.setAfter_I0l_I0r_I1_S_J0_J1(lenJ0)
+                return
+
+            if self.sbpH > self.sbpR:               # I0 I1 S J0 J1 ... K0 K1
                 s_herestart = self.beforeL.sc1
                 s_hereend = s_herestart + lenI0 + lenJ1
                 t_herestart = self.beforeL.tc1
@@ -866,7 +913,7 @@ class Transposition(EventTwoCuts):
                 rightposition = self.beforeR.position
                 hereposition = self.beforeL.position
 
-            elif self.sbpH < self.sbpL: # K0 K1 ... I0 I1 S J0 J1
+            elif self.sbpH < self.sbpL:             # K0 K1 ... I0 I1 S J0 J1
                 s_herestart = self.beforeL.sc1 + lenI1 + lenJ0 + lenSs
                 s_hereend = s_herestart + lenI0 + lenJ1
                 t_herestart = self.beforeL.tc1 + lenI1 + lenJ0 + lenSt
@@ -880,9 +927,6 @@ class Transposition(EventTwoCuts):
                 leftposition = self.beforeH.position
                 rightposition = leftposition + Spositions
                 hereposition = self.beforeR.position
-
-            else:
-                raise(Exception('unexpected relationship between bp coordinates'))
 
             s_rightstart = s_leftend + lenSs
             s_rightend = s_rightstart + lenJ0 + lenK1
@@ -902,6 +946,7 @@ class Transposition(EventTwoCuts):
                                leftposition, 'I', tbreakL, sbreakL)
         self.afterR = Interval(t_rightstart, t_rightend, s_rightstart, s_rightend,
                                rightposition, 'I', tbreakR, sbreakR)
+
 
     def afterToBeforeS(self, sc: int) -> int:
         """
@@ -949,6 +994,7 @@ class Transposition(EventTwoCuts):
                 else:
                     return sc
 
+
     def afterToBeforeT(self, tc: int) -> int:
         """
         Given a total breakpoint coordinate after this Transposition, return the
@@ -993,6 +1039,177 @@ class Transposition(EventTwoCuts):
                     return tc - (self.lenI1 + self.lenSt + self.lenJ0)
                 else:
                     return tc
+
+
+    def setAfter_S1_J0_J1l_J1r__I0_I1_S0(self, lenI0, lenI1, lenJ0, lenJ1,
+                                         lenS0s, lenS1s, lenS0t, lenS1t):
+        """
+        Set `self.afterL`, `self.afterR`, and `self.afterH` for the case
+        where the segment is translocated into the right breakpoint region and
+        the tranlocated region wraps.
+
+            S1 J0 J1l J1r ... I0 I1 S0  becomes
+            ... I0 J1l I1 S0 S1 J0 J1r
+        """
+        lenJ1l = self.sbpH - self.sbpR
+        s_leftstart = self.beforeL.sc1 - (lenS1s + lenJ0 + lenJ1)
+        s_leftend = s_leftstart - lenJ1l
+        t_leftstart = self.beforeL.tc1 - (lenS1t + lenJ0 + lenJ1)
+        t_leftend = t_leftstart - lenJ1l
+
+        s_herestart, s_hereend = s_leftstart, s_leftend
+        t_herestart, t_hereend = t_leftstart, t_leftend
+
+        lenJ1r = self.beforeH.sc2 - self.sbpH
+        s_rightstart = self.beforeR.sc1 + lenI0 + lenJ1l + lenI1 + lenS0s
+        s_rightend = s_rightstart + lenJ0 + lenJ1r
+        t_rightstart = self.beforeR.tc1 + lenI0 + lenJ1l + lenI1 + lenS0t
+        t_rightend = t_rightstart + lenJ0 + lenJ1r
+
+        leftposition = self.beforeL.position - self.beforeR.position - 1
+        rightposition = self.numintergenes - 1
+        hereposition = leftposition
+
+        sbreakH = s_leftstart + lenI0
+        sbreakR = s_rightend + lenJ0
+        sbreakL = s_leftstart + lenI0 + lenJ1l
+        tbreakH = t_leftstart + lenI0
+        tbreakR = t_rightend + lenJ0
+        tbreakL = t_leftstart + lenI0 + lenJ1l
+
+        self.afterH = Interval(t_herestart, t_hereend, s_herestart, s_hereend,
+                               hereposition, 'I', tbreakH, sbreakH)
+        self.afterL = Interval(t_leftstart, t_leftend, s_leftstart, s_leftend,
+                               leftposition, 'I', tbreakL, sbreakL)
+        self.afterR = Interval(t_rightstart, t_rightend, s_rightstart, s_rightend,
+                               rightposition, 'I', tbreakR, sbreakR)
+
+
+    def setAfter_S1_J0_J1__I0l_I0r_I1_S0(self, lenI1, lenJ0, lenJ1,
+                                         lenS0s, lenS1s, lenS0t, lenS1t):
+        """
+        Set `self.afterL`, `self.afterR`, and `self.afterH` for the case
+        where the segment is translocated into the right breakpoint region and
+        the tranlocated region wraps.
+
+            S1 J0 J1 ... I0l I0r I1 S0  becomes
+            ... I0l I1 S0 S1 J0 I0r J1
+        """
+        lenI0l = self.sbpH - self.beforeH.sc1
+        s_leftstart = self.beforeL.sc1 - lenS1s - lenJ0 - lenJ1
+        s_leftend = s_leftstart + lenI0l + lenI1
+        t_leftstart = self.beforeL.tc1 - lenS1t - lenJ0 - lenJ1
+        t_leftend = t_leftstart + lenI0l + lenI1
+
+        lenI0r = self.sbpL - self.sbpH
+        s_rightstart = self.beforeR.sc1 + lenS0s + lenI1 + lenI0l
+        s_rightend = s_rightstart + lenJ0 + lenI0r + lenJ1
+        t_rightstart = self.beforeR.tc1 + lenS0t + lenI1 + lenI0l
+        t_rightend = t_rightstart + lenJ0 + lenI0r + lenJ1
+
+        s_herestart = s_rightstart
+        s_hereend = s_rightend
+        t_herestart = t_rightstart
+        t_hereend = t_rightend
+
+        leftposition = self.beforeL.position - self.beforeR.position - 1
+        rightposition = self.numintergenes - 1
+        hereposition = rightposition
+
+        sbreakL = s_leftstart + lenI0l
+        sbreakR = s_rightstart + lenJ0
+        sbreakH = s_herestart + lenJ0 + lenI0r
+        tbreakL = t_leftstart + lenI0l
+        tbreakR = t_rightstart + lenJ0
+        tbreakH = t_herestart + lenJ0 + lenI0r
+        
+        self.afterH = Interval(t_herestart, t_hereend, s_herestart, s_hereend,
+                               hereposition, 'I', tbreakH, sbreakH)
+        self.afterL = Interval(t_leftstart, t_leftend, s_leftstart, s_leftend,
+                               leftposition, 'I', tbreakL, sbreakL)
+        self.afterR = Interval(t_rightstart, t_rightend, s_rightstart, s_rightend,
+                               rightposition, 'I', tbreakR, sbreakR)
+
+
+    def setAfter_I0_I1_S_J0_J1l_J1r(self, lenI0, lenI1, lenJ0):
+        """
+        Set `self.afterL`, `self.afterR`, and `self.afterH` for the case
+        where the segment is translocated into the right breakpoint region.
+        """
+        lenJ1l = self.sbpH - self.sbpR
+        s_leftstart = self.beforeL.sc1
+        s_leftend = s_leftstart + lenI0 + lenJ1l + lenI1
+        t_leftstart = self.beforeL.tc1
+        t_leftend = t_leftstart + lenI0 + lenJ1l + lenI1
+
+        s_rightstart = self.beforeR.sc1 + lenJ1l
+        s_rightend = self.beforeR.sc2
+        t_rightstart = self.beforeR.tc1 + lenJ1l
+        t_rightend = self.beforeR.tc2
+
+        s_herestart = s_leftstart
+        s_hereend = s_leftend
+        t_herestart = t_leftstart
+        t_hereend = t_leftend
+
+        sbreakL = s_leftstart + lenI0 + lenJ1l
+        sbreakH = s_leftstart + lenI0
+        sbreakR = s_rightstart + lenJ0
+        tbreakL = t_leftstart + lenI0 + lenJ1l
+        tbreakH = t_leftstart + lenI0
+        tbreakR = t_rightstart + lenJ0
+
+        leftposition = self.beforeL.position
+        rightposition = self.beforeR.position
+        hereposition = self.beforeH.position
+
+        self.afterH = Interval(t_herestart, t_hereend, s_herestart, s_hereend,
+                               hereposition, 'I', tbreakH, sbreakH)
+        self.afterL = Interval(t_leftstart, t_leftend, s_leftstart, s_leftend,
+                               leftposition, 'I', tbreakL, sbreakL)
+        self.afterR = Interval(t_rightstart, t_rightend, s_rightstart, s_rightend,
+                               rightposition, 'I', tbreakR, sbreakR)
+
+
+    def setAfter_I0l_I0r_I1_S_J0_J1(self, lenJ0):
+        """
+        Set `self.afterL`, `self.afterR`, and `self.afterH` for the case
+        where the segment is translocated into the left breakpoint region.
+        """
+        lenI0r = self.sbpL - self.sbpH
+        s_leftstart = self.beforeL.sc1
+        s_leftend = self.beforeL.sc2 - lenI0r
+        t_leftstart = self.beforeL.tc1
+        t_leftend = self.beforeL.tc2 - lenI0r
+
+        s_rightstart = self.beforeR.sc1 - lenI0r
+        s_rightend = self.beforeR.sc2
+        t_rightstart = self.beforeR.tc1 - lenI0r
+        t_rightend = self.beforeR.tc2
+
+        s_herestart = s_rightstart
+        s_hereend = s_rightend
+        t_herestart = t_rightstart
+        t_hereend = t_rightend
+
+        sbreakL = self.sbpH
+        sbreakR = s_rightstart + lenJ0
+        sbreakH = s_rightstart + lenJ0 + lenI0r
+        tbreakL = self.tbpH
+        tbreakR = t_rightstart + lenJ0
+        tbreakH = t_rightstart + lenJ0 + lenI0r
+
+        leftposition = self.beforeL.position
+        rightposition = self.beforeR.position
+        hereposition = self.beforeH.position
+
+        self.afterH = Interval(t_herestart, t_hereend, s_herestart, s_hereend,
+                               hereposition, 'I', tbreakH, sbreakH)
+        self.afterL = Interval(t_leftstart, t_leftend, s_leftstart, s_leftend,
+                               leftposition, 'I', tbreakL, sbreakL)
+        self.afterR = Interval(t_rightstart, t_rightend, s_rightstart, s_rightend,
+                               rightposition, 'I', tbreakR, sbreakR)
+
 
 #-- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - --
 class Inversion(EventTwoCuts):
