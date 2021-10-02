@@ -3081,8 +3081,8 @@ class GenomeSimulator():
         for gene in segment:
             self.all_gene_families[gene.gene_family].register_event(str(time), "P", ";".join(map(str,[lineage, gene.gene_id])))
 
-    def make_transposition_intergenic(self, chromosome, c1, c2, d: T_DIR, c3,
-                                      lineage, time):
+    def make_transposition_intergenic(self, chromosome: CircularChromosome,
+                                      c1, c2, d: T_DIR, c3, lineage, time):
 
         r = chromosome.return_affected_region(c1, c2, d)
 
@@ -3094,14 +3094,15 @@ class GenomeSimulator():
         segment = chromosome.obtain_segment(gpositions)
         intergene_segment = chromosome.obtain_intergenic_segment(igpositions[1:])
 
-        interval3 = chromosome.return_location_by_coordinate(c3, True)
+        hereint = chromosome.return_location_by_coordinate(c3, True)
 
-        scar1 = chromosome.intergenes[igpositions[0]]
-        scar2 = chromosome.intergenes[interval3.position]
-        scar3 = chromosome.intergenes[igpositions[-1]]
+        scar1 = chromosome.intergenes[igpositions[0]]    #stays put
+        scar2 = chromosome.intergenes[hereint.position]  #left ig after transp
+        scar3 = chromosome.intergenes[igpositions[-1]]   #right ig after transp
+        assert scar3 != scar1 and scar2 != scar1, "segment can't be placed next to itself"
 
         new_segment = list()
-        new_intergene_segment = list()
+        transposed_intergenes = list()
 
         # Get old lengths from last intergene before modifying chromosome.
 
@@ -3112,7 +3113,7 @@ class GenomeSimulator():
         # If we insert in the intergene i, the gene must occupy the position i - 1
         # We store it for reference
 
-        left_gene = chromosome.genes[interval3.position]
+        left_gene = chromosome.genes[hereint.position]
 
         # Now we pop the genes
 
@@ -3130,32 +3131,45 @@ class GenomeSimulator():
 
         # We save the position for insertion
 
-        left_intergene = chromosome.intergenes[interval3.position]
+        here_intergene = chromosome.intergenes[hereint.position]
+
+        # Remove the intergene segment (all intergenes except left breakpoint)
 
         for intergene in intergene_segment:
-            new_intergene_segment.append(chromosome.intergenes.pop(chromosome.intergenes.index(intergene)))
+            transposed_intergenes.append(chromosome.intergenes.pop(chromosome.intergenes.index(intergene)))
 
-        # And now we insert the genes at the right of the gene we saved before
+        # And now we insert the transposed intergenes to the right of the insert point
 
-        position = chromosome.intergenes.index(left_intergene) + 1
+        position = chromosome.intergenes.index(here_intergene) + 1
 
-        for i, intergene in enumerate(new_intergene_segment):
+        for i, intergene in enumerate(transposed_intergenes):
             chromosome.intergenes.insert(position + i, intergene)
 
         # Finally, we modify the segments so that they have the right length
 
-        r5 = (c3 - interval3.sc1, interval3.sc2 - c3)
+        herelengths = (c3 - hereint.sc1, hereint.sc2 - c3)
 
         if d == LEFT:
             leftlengths, rightlengths = rightlengths, leftlengths
             int1, int2 = int2, int1
             c1, c2 = c2, c1
 
-        scar1.length = leftlengths[0] + rightlengths[1]
-        scar2.length = leftlengths[1] + r5[0]
-        scar3.length = rightlengths[0] + r5[1]
+        if scar1 == scar3:    #Translocated segment placed in right intergene
+                              #(this will never get called unless we allow such a thing)
+            scar2.length = leftlengths[1] + (herelengths[0] - rightlengths[0]) + leftlengths[0]
+            scar3.length = rightlengths[0] + herelengths[1]
+            scar1 = scar2
+        elif scar1 == scar2:  #Translocated segment placed in left intergene
+                              #(this will never get called unless we allow such a thing)
+            scar2.length = leftlengths[1] + herelengths[0]
+            scar3.length = rightlengths[0] + (herelengths[1] - leftlengths[1]) + rightlengths[1]
+            scar1 = scar3
+        else:                 #Translocated segment placed in other intergene
+            scar1.length = leftlengths[0] + rightlengths[1]
+            scar2.length = leftlengths[1] + herelengths[0]
+            scar3.length = rightlengths[0] + herelengths[1]
 
-        trans = Transposition(int1, int2, c1, c2, interval3, c3, numintergenes,
+        trans = Transposition(int1, int2, c1, c2, hereint, c3, numintergenes,
                               specificlen, totallen, lineage, time)
 
         chromosome.event_history.append(trans)
@@ -3788,11 +3802,3 @@ class GenomeSimulator():
         with open(os.path.join(division_tree_folder, "Division_lengths.tsv"), "w") as f:
             for division_family_name, division_family in self.all_division_families.items():
                 f.write("\t".join(list(map(str,[division_family_name, len(division_family)]))) + "\n")
-
-    
-
-
-
-
-
-     
