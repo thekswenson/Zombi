@@ -3351,7 +3351,7 @@ class GenomeSimulator():
        
         all_cuts =  sorted(list(set(all_cuts))) # To remove possible repeated values
         initial_specific_flankings = zip(all_cuts, all_cuts[1:] + [all_cuts[0]])
-        fam_id = 0
+        self.division_fam_id = 0
         
         self.initial_divisions = list()         # For debugging purposes
         
@@ -3364,16 +3364,16 @@ class GenomeSimulator():
             
             self.initial_divisions.append((c1,c2))
             
-            fam_id += 1
+            self.division_fam_id += 1
             intergene = initial_chromosome.return_intergene_by_coordinate(c1)
-            division = intergene.create_division("1", fam_id, initial_specific_flanking) # Identifier is 1 in the beginning
-            division_family = DivisionFamily(fam_id, initial_specific_flanking)
+            division = intergene.create_division("1", self.division_fam_id, initial_specific_flanking) # Identifier is 1 in the beginning
+            division_family = DivisionFamily(self.division_fam_id, initial_specific_flanking)
             division_family.register_event(0, "O", "Root") # We register the origination 
             division.get_length()
 
             #print(division)
             
-            self.all_division_families[str(fam_id)] = division_family
+            self.all_division_families[str(self.division_fam_id)] = division_family
     
     def obtain_events_for_divisions(self):
         """
@@ -3434,17 +3434,10 @@ class GenomeSimulator():
             # Genome level events
  
             if etype == "D":
-                print("duplication")
-                print(event.sbpL, event.sbpR)
                 self.make_duplication_divisions(time, event)
             if etype == "L":
-                print("loss")
-                print(event.sbpL, event.sbpR)
                 self.make_loss_divisions(time, event)
             if etype == "I":
-                
-                print("inversion")
-                print(event.sbpL, event.sbpR)
                 self.make_inversion_divisions(time, event)
             if etype == "P":
                 self.make_transposition_divisions(time, event)
@@ -3648,20 +3641,42 @@ class GenomeSimulator():
 
         pieces_to_lose, indexes_to_lose, wrapping = self.select_pieces(chromosome, tcL, tcR)
 
-        chromosome.pieces = [piece for piece in chromosome.pieces if piece not in pieces_to_lose]
+        pseudo = event.pseudogenize
 
-        for piece in pieces_to_lose:
-            if piece.ptype == "Divi":
-                division_family = str(piece.division_family)
-                self.all_division_families[division_family].register_event(str(time), "L", ";".join(map(str,[lineage, piece.identity])))
+        if not pseudo:
+
+            chromosome.pieces = [piece for piece in chromosome.pieces if piece not in pieces_to_lose]
+
+            for piece in pieces_to_lose:
+                if piece.ptype == "Divi":
+                    division_family = str(piece.division_family)
+                    self.all_division_families[division_family].register_event(str(time), "L", ";".join(map(str,[lineage, piece.identity])))
+        else:
+            for index, piece in zip(indexes_to_lose, pieces_to_lose):
+                if piece.ptype == "Gene":
+
+                    # Replace with a new division family
+
+                    self.division_fam_id += 1
+
+                    division_family = DivisionFamily(self.division_fam_id, (0,0)) # FIX
+                    division_family.register_event(time, "O", lineage) # We register the origination. We need to register also the gene that is lost
+                    division = Division("1", self.division_fam_id, (0,0))
+                    division.species = lineage
+                    division.length = piece.length
+                    chromosome.pieces[index] = division
+
+                    self.all_division_families[str(self.division_fam_id)] = division_family
         
         if wrapping == True:
-
             while chromosome.pieces[0].ptype == "Divi":
                 chromosome.pieces = chromosome.pieces[1:] + [chromosome.pieces[0]]
             
         chromosome.update_specific_coordinates()
         chromosome.update_coordinates()
+
+            
+
 
         
     def make_transfer_divisions(self, time, event):
