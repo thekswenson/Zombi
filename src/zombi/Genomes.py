@@ -1,4 +1,3 @@
-import itertools
 import random
 import ete3
 from functools import reduce
@@ -407,8 +406,8 @@ class Gene():
 
         self.active = True
         self.orientation = ""
-        self.gene_family = ""
-        self.gene_id = ""
+        self.gene_family = "" # FIX this variable should have the same name that the division one
+        self.gene_id = ""  # FIX this variable should have the same name that the division one
         self.sequence = ""
         self.species = ""
         self.importance = 0
@@ -1047,13 +1046,25 @@ class Chromosome():
                     range2 = (self.intergenes[exclude[-1]].sc2 + 1,
                               self.intergenes[-1].sc2)
 
+                #if range1 == range2 == (0, 0):
+                #    return None
+
+                if sum([range1[1], range2[1] - range2[0]]) == 0:
+                    return None
+
                 r = random.choices([range1, range2],
                                    weights=[range1[1], range2[1] - range2[0]])
 
                 return random.randint(*r[0])
             else:                               # wrap around
-                return random.randint(self.intergenes[exclude[-1]].sc2 + 1,
+
+                try:
+
+                    return random.randint(self.intergenes[exclude[-1]].sc2 + 1,
                                       self.intergenes[exclude[0]].sc1 - 1)
+                except:
+
+                    return None
 
         t = sum([x.length for x in self.intergenes]) + len(self.intergenes) - 1
         return random.randint(0, t)

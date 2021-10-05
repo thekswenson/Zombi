@@ -763,7 +763,7 @@ class Transposition(EventTwoCuts):
         self.beforeH: Interval = int3
         self.sbpH = sbp3
         self.tbpH: int = int3.tc1 + (sbp3 - int3.sc1)
-
+    
         self.afterL: Interval = None
         self.afterR: Interval = None
         self.afterH: Interval = None

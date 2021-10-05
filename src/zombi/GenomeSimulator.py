@@ -1209,6 +1209,7 @@ class GenomeSimulator():
                     c1, c2, d = r
                 else:
                     c1, c2, c3, d = r
+
                  
                 if event == "D":
 
@@ -1244,6 +1245,7 @@ class GenomeSimulator():
                     lineage = nodes
                     self.update_genome_indices(lineage)
                     ch = self.all_genomes[lineage].chromosomes[0] 
+                    
                     self.make_transposition_intergenic(ch, c1, c2, d, c3, lineage, time)
     
 
@@ -1757,6 +1759,10 @@ class GenomeSimulator():
             ch, c1, c2, d = r
 
             c3 = ch.select_random_intergenic_coordinate_excluding(c1, c2, d)
+
+            if c3 == None:
+                return None
+
             self.make_transposition_intergenic(ch, c1, c2, d, c3, lineage, time)
 
             return "P", lineage
@@ -3319,15 +3325,20 @@ class GenomeSimulator():
                                         
                     sc1 = event1.sbpL
                     sc2 = event1.sbpR
-
                     # Map the cuts through the events that are above:
                     for event2 in reverse_history[i+1:]:
                         sc1 = event2.afterToBeforeS(sc1)
                         sc2 = event2.afterToBeforeS(sc2)
-
                     new_cuts.add(sc1)
                     new_cuts.add(sc2)
 
+                for i, event1 in enumerate(reverse_history): # We need to map also additional cuts 
+                                                             #(this could be done in the previous loop FIX)
+                    if event1.etype == "P": # Transpositions have an additional cut
+                        sc3 = event1.sbpH
+                        for event2 in reverse_history[i+1:]:
+                            sc3 = event2.afterToBeforeS(sc3)
+                        new_cuts.add(sc3)
 
                 # This maps to the top of the branch all the cuts that were
                 # acquired from previous nodes
@@ -3713,6 +3724,10 @@ class GenomeSimulator():
 
         tbpH = event.tbpH
         insert_after_this_piece = None
+        print("***")
+        print("Coordinates are")
+        print(tcL, tcR, tbpH)
+        
 
         for index, piece in enumerate(itertools.cycle(chromosome.pieces)):               
             pfL, pfR = piece.total_flanking
@@ -3728,6 +3743,17 @@ class GenomeSimulator():
 
         insert_index = chromosome.pieces.index(insert_after_this_piece) + 1 
         chromosome.pieces = chromosome.pieces[0:insert_index] + pieces_to_transpose + chromosome.pieces[insert_index:] 
+
+        # Now we adjust the indexes if there has been a wrapping event
+
+    
+        # Now we start adjusting the pieces until there are no divisions in the beginning
+        # and the unaffected pieces remain in the same index as before
+            
+        while (chromosome.pieces[0].ptype == "Divi"):
+                piece = (chromosome.pieces).pop(0)
+                (chromosome.pieces).append(piece)
+        
 
         chromosome.update_specific_coordinates()
         chromosome.update_coordinates()

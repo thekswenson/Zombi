@@ -10,12 +10,12 @@
 #
 DUPLICATION f:10
 TRANSFER f:0
-LOSS f:4
+LOSS f:5
 #
 ## The next three events use always genome-wise rates
 #
-INVERSION f:10
-TRANSPOSITION f:0
+INVERSION f:100
+TRANSPOSITION f:1000
 ORIGINATION f:0
 #
 ## Extensions. Extensions determine how many contiguous genes are affected by a single event
