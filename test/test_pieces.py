@@ -100,7 +100,6 @@ class TestTranspositions(unittest.TestCase):
     events_file = os.path.join(TEST_FOLDER1, 'T/Events.tsv')
     self.gss = GenomeSimulator(params, events_file, genome_file)
 
- 
 
 
 class TestDuplications(unittest.TestCase):
@@ -112,21 +111,19 @@ class TestDuplications(unittest.TestCase):
 
   def test_transpositions1(self):
      
-
       print("TEST")
-      event1 = ("G", 0.028, "P", "Root", (18, 0, 7, RIGHT))
-      event2 = ("G", 0.0283, "P", "Root", (17, 13, 16, RIGHT))
-      event3 = ("G", 0.0284, "D", "Root", (18, 24, RIGHT))
-      event4 = ("G", 0.02841, "L", "Root", (2, 9, RIGHT))
-      event5 = ("G", 0.02842, "L", "Root", (13, 23, RIGHT))
+      event1 = ("G", 0.028, "O", "Root", (2, RIGHT))
+      event2 = ("G", 0.0283, "D", "Root", (17, 3, RIGHT))
+      event3 = ("G", 0.0284, "D", "Root", (4, 24, RIGHT))
+      event4 = ("G", 0.02841, "I", "Root", (2, 9, RIGHT))
+      event5 = ("G", 0.02842, "I", "Root", (13, 23, RIGHT))
       event6 = ("G", 0.02843, "L", "Root", (31, 2, RIGHT))
       event7 = ("G", 0.02845, "I", "Root", (1, 4, RIGHT))
+      event8 = ("G", 0.028456, "I", "Root", (31, 4, RIGHT))
 
       #self.gss.run_f_debug([event1]) 
-      
       self.gss.run_f() 
       # The event is placed in tbpH
-      
       self.gss.obtain_divisions()       
       self.gss.obtain_events_for_divisions()
       

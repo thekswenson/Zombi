@@ -1046,8 +1046,6 @@ class Chromosome():
                     range2 = (self.intergenes[exclude[-1]].sc2 + 1,
                               self.intergenes[-1].sc2)
 
-                #if range1 == range2 == (0, 0):
-                #    return None
 
                 if sum([range1[1], range2[1] - range2[0]]) == 0:
                     return None

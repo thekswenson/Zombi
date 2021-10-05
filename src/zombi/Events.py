@@ -167,6 +167,7 @@ class Origination(EventOneCut):
             the time at which it happened
         """
         super().__init__(interval, sbp, ORIG, lineage, time)
+        self.interval = interval 
         self.afterL: Interval = None
         self.afterR: Interval = None
         self.genelen = genelen
