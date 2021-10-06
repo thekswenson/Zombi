@@ -1210,6 +1210,8 @@ class GenomeSimulator():
                     c1, c2, c3, d = r
                 elif event == "O":
                     c1, d = r
+                elif event == "T":
+                    c1, c2, c3, d, lineage_r = r
                 else:
                     c1, c2, d = r
                     
@@ -1222,8 +1224,17 @@ class GenomeSimulator():
                     self.make_duplication_within_intergene(ch, c1, c2, d, lineage, time)
 
                 elif event == "T":
-                    pass
 
+                    lineage = nodes
+                    ch = self.all_genomes[lineage].chromosomes[0] 
+                    chreceptor = self.all_genomes[lineage_r].chromosomes[0] 
+                    
+                    self.update_genome_indices(lineage)
+                    self.update_genome_indices(lineage_r)
+
+                    self.make_transfer_intergenic(ch, c1, c2, d, lineage, chreceptor,
+                                                  c3, lineage_r, time)
+                    
                 elif event == "L":
                     lineage = nodes
                     pseudo = False
@@ -3334,6 +3345,7 @@ class GenomeSimulator():
                         cuts = [event1.sbp]
                     elif event1.etype == "P":
                         cuts = [event1.sbpL, event1.sbpR, event1.sbpH]
+
                     else:
                         cuts = [event1.sbpL, event1.sbpR]
 
@@ -3442,7 +3454,7 @@ class GenomeSimulator():
             
            # We unpack the events
  
-            if items[0] == "T":
+            if items[0] == "T": # Tree event
                 time, etype, lineages = items[1] # In the case that it is a species level event
             else:
                 time, event, chromosome = items[1]  # In the case that it is a genome level event
@@ -3461,6 +3473,8 @@ class GenomeSimulator():
  
             if etype == "D":
                 self.make_duplication_divisions(time, event)
+            if etype == "T":
+                self.make_transfer_divisions(time, event)
             if etype == "L":
                 self.make_loss_divisions(time, event)
             if etype == "I":
@@ -3658,6 +3672,52 @@ class GenomeSimulator():
 
         chromosome.update_specific_coordinates()
         chromosome.update_coordinates()
+
+
+    def make_transfer_divisions(self, time, event):
+        
+        donor_lineage = event.lineage
+        recipient_lineage = event.receptorlineage        
+
+        donor_chromosome = [x for x in self.all_genomes_second[donor_lineage]][0] 
+        recipient_chromosome = [x for x in self.all_genomes_second[recipient_lineage]][0] 
+        
+        tcL = event.tbpL
+        tcR = event.tbpR
+
+        pieces_to_transfer, indexes_to_transfer, wrapping = self.select_pieces(donor_chromosome, tcL, tcR)
+
+        insert_after_this_piece = None        
+
+        for index, piece in enumerate(itertools.cycle(recipient_chromosome.pieces)):               
+            pfL, pfR = piece.total_flanking
+            if pfR == event.receptorsbp: 
+                insert_after_this_piece = piece
+                break
+
+        # We copy the pieces
+
+        pieces_transferred = copy.deepcopy(pieces_to_transfer)
+
+        # We update the identifiers of the transferred pieces
+
+        insert_index = indexes_to_transfer[-1] + 1
+
+        for piece1, piece2 in zip(pieces_to_transfer, pieces_transferred):
+            if piece1.ptype == "Divi":
+                division_family = str(piece1.division_family)
+                parent_id = piece1.identity
+                new_id1 = self.all_division_families[division_family].obtain_new_identifier()
+                new_id2 = self.all_division_families[division_family].obtain_new_identifier()
+                piece1.identity = new_id1
+                piece2.identity = new_id2
+                self.all_division_families[division_family].register_event(str(time), "T", ";".join(map(str,[donor_lineage, parent_id, donor_lineage, new_id1, recipient_lineage, new_id2]))) 
+
+        insert_index = recipient_chromosome.pieces.index(insert_after_this_piece) + 1 
+        recipient_chromosome.pieces = recipient_chromosome.pieces[0:insert_index] + pieces_to_transfer + recipient_chromosome.pieces[insert_index:]
+        recipient_chromosome.update_specific_coordinates()
+        recipient_chromosome.update_coordinates()
+    
         
     def make_loss_divisions(self, time, event):
 
@@ -3710,9 +3770,6 @@ class GenomeSimulator():
         chromosome.update_specific_coordinates()
         chromosome.update_coordinates()
 
-        
-    def make_transfer_divisions(self, time, event):
-        pass
 
     def make_transposition_divisions(self, time, event):    
         

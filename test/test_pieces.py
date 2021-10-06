@@ -24,7 +24,7 @@ class TestDivisions(unittest.TestCase):
   
   def test_divisions(self):
 
-      event0 = ("G", 1.21, "I", "n1", (1, 9, RIGHT))
+      event0 = ("G", 1.21, "D", "n1", (1, 9, RIGHT))
       event1 = ("G", 1.22, "I", "n1", (15, 6, RIGHT))
       event2 = ("G", 1.233, "I", "n1", (11, 1, RIGHT))
       event3 = ("G", 1.234, "I", "n1", (8, 17, RIGHT))
@@ -112,7 +112,7 @@ class TestDuplications(unittest.TestCase):
   def test_transpositions1(self):
      
       print("TEST")
-      event1 = ("G", 0.028, "O", "Root", (2, RIGHT))
+      event1 = ("G", 1.228, "T", "n1", (2,10, 5, RIGHT, "n2"))
       event2 = ("G", 0.0283, "D", "Root", (17, 3, RIGHT))
       event3 = ("G", 0.0284, "D", "Root", (4, 24, RIGHT))
       event4 = ("G", 0.02841, "I", "Root", (2, 9, RIGHT))
@@ -121,8 +121,8 @@ class TestDuplications(unittest.TestCase):
       event7 = ("G", 0.02845, "I", "Root", (1, 4, RIGHT))
       event8 = ("G", 0.028456, "I", "Root", (31, 4, RIGHT))
 
-      #self.gss.run_f_debug([event1]) 
-      self.gss.run_f() 
+      self.gss.run_f_debug([event1]) 
+      #self.gss.run_f() 
       # The event is placed in tbpH
       self.gss.obtain_divisions()       
       self.gss.obtain_events_for_divisions()
