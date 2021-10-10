@@ -437,7 +437,7 @@ class Gene():
 
     def __str__(self):
 
-        myname = "_".join(map(str, (self.species, self.gene_family, self.gene_id, self.length)))
+        myname = "_".join(map(str, (self.gene_family, self.length)))
         #myname = "_".join(map(str, (self.gene_family, self.orientation)))
         #myname = str(self.gene_family) + "_" + str(self.gene_id)
         #myname = "_".join(map(str, (self.gene_family, self.length)))
@@ -478,10 +478,9 @@ class Division():
         self.length =  int(abs(self.specific_flanking[1] - self.specific_flanking[0]))
         
     def __str__(self):
-        return  str(self.division_family) + "_" + str(self.identity) + "_" + str(self.specific_flanking)
+        return  str(self.division_family) + "_" + str(self.length) + "_" + str(self.specific_flanking)
 
     def __len__(self):
-    
         return self.length
 
 

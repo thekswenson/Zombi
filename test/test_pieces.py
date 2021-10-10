@@ -112,19 +112,24 @@ class TestDuplications(unittest.TestCase):
   def test_transpositions1(self):
      
       print("TEST")
-      event1 = ("G", 1.228, "T", "n1", (2,10, 5, RIGHT, "n2"))
-      event2 = ("G", 0.0283, "D", "Root", (17, 3, RIGHT))
-      event3 = ("G", 0.0284, "D", "Root", (4, 24, RIGHT))
-      event4 = ("G", 0.02841, "I", "Root", (2, 9, RIGHT))
-      event5 = ("G", 0.02842, "I", "Root", (13, 23, RIGHT))
-      event6 = ("G", 0.02843, "L", "Root", (31, 2, RIGHT))
+      event1 = ("G", 1.228, "T", "n2", (16, 15, 2, RIGHT, "n1"))
+      event2 = ("G", 1.229, "T", "n2", (14, 17, 3, RIGHT, "n1"))
+      event3 = ("G", 1.2293, "T", "n2", (6, 17, 1, RIGHT, "n1"))
+      event4 = ("G", 1.2294, "T", "n1", (5, 7, 12, RIGHT, "n2"))
+      event5 = ("G", 0.17, "D", "Root", (7, 13, RIGHT))
+      event6 = ("G", 1.26, "D", "n1",   (15, 4, RIGHT))
       event7 = ("G", 0.02845, "I", "Root", (1, 4, RIGHT))
       event8 = ("G", 0.028456, "I", "Root", (31, 4, RIGHT))
 
-      self.gss.run_f_debug([event1]) 
-      #self.gss.run_f() 
+      #self.gss.run_f_debug([event1, event3, event4 ]) 
+      #self.gss.run_f_debug([event1,event3, event4]) 
+      #self.gss.run_f_debug([event1, event2]) 
+      #self.gss.run_f_debug([event2,]) 
+      self.gss.run_f() 
+      #self.gss.run_f_debug([event5, event6]) 
       # The event is placed in tbpH
-      self.gss.obtain_divisions()       
+
+      self.gss.obtain_divisions() 
       self.gss.obtain_events_for_divisions()
       
 

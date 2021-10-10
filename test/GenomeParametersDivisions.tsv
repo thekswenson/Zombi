@@ -8,15 +8,15 @@
 ## Rates represent the frequency (and fixation probability) of the different events measure in time units (see your Species Tree)
 ##
 #
-DUPLICATION f:0
+DUPLICATION f:4
 TRANSFER f:0
-LOSS f:0
+LOSS f:2
 #
 ## The next three events use always genome-wise rates
 #
-INVERSION f:50
-TRANSPOSITION f:50
-ORIGINATION f:50
+INVERSION f:10
+TRANSPOSITION f:10
+ORIGINATION f:0
 #
 ## Extensions. Extensions determine how many contiguous genes are affected by a single event
 #
@@ -30,7 +30,7 @@ TRANSPOSITION_EXTENSION g:0.3
 #
 ## REPLACEMENT_TRANSFER gives the probability of the transfer being a replacement transfer. REPLACEMENT_TRANSFER = 0 if all transfers are additive transfers
 #
-REPLACEMENT_TRANSFER 1
+REPLACEMENT_TRANSFER 0
 #
 # If ASSORTATIVE_TRANSFER is True, the transfer occur preferentially between closely related lineages. The weighted probability is proportional to e ^ - ALPHA * normalized phylogenetic distance.
 #  Can be computationally expensive, use at your discretion

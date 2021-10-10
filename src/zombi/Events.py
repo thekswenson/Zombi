@@ -285,8 +285,17 @@ class Transfer(EventTwoCuts):
         self.afterR: Interval = None
         self.receptorlineage = receptorlineage
         self.receptorint = receptorint
+                
         self.receptorsbp = receptorsbp
+        self.receptortbp: int = receptorint.tc1 + (receptorsbp - receptorint.sc1)
+
+
         self.numintergenes = numintergenes
+        self.donorlineage = donorlineage
+
+        self.event_in_donor = False # Whether this instance of the event is registered in the donor branch
+        self.sister_event = None    # Points to the sister event, i.e., the same event in the other branch
+        self.lineage = None
 
         self.setAfter()
 
@@ -340,11 +349,26 @@ class Transfer(EventTwoCuts):
                                tstart + self.lenJ0, sstart + self.lenJ0)
         
     def afterToBeforeS(self, sc: int) -> int:
-        """
-        This function cannot be defined on Transfer since the lineage is not
-        implicit. See `afterToBeforeS_lineage`.
-        """
-        raise(NotImplementedError) #Use afterToBeforeS_lineage()!
+        
+        if self.wraps():
+            if sc <= self.afterL.s_bp:      #before transfered region
+                return  sc
+            elif sc >= self.afterR.s_bp:    #after transfered region
+                return sc - (self.lenSs + 1)
+            else:                           #inside transfered region
+                if sc - self.afterL.s_bp <= self.swraplen - self.sbpL:
+                    return self.beforeL.s_bp + (sc - self.afterL.s_bp)                #in part that didn't wrap 
+                else:                       #in part that wrapped
+                    return sc - self.afterL.s_bp - (self.swraplen - self.beforeL.s_bp) - 1
+                            
+        else:
+            if sc <= self.afterL.s_bp:      #before transfered region
+                return sc
+            elif sc >= self.afterR.s_bp:    #after transfered region
+                return sc - self.lenSs - 1
+            else:                           #inside transfered region
+                return self.sbpL + (sc - self.afterL.s_bp)
+        
 
     def afterToBeforeS_lineage(self, sc: int) -> Tuple[str, int]:
         """
