@@ -350,24 +350,11 @@ class Transfer(EventTwoCuts):
         
     def afterToBeforeS(self, sc: int) -> int:
         
-        if self.wraps():
-            if sc <= self.afterL.s_bp:      #before transfered region
-                return  sc
-            elif sc >= self.afterR.s_bp:    #after transfered region
-                return sc - (self.lenSs + 1)
-            else:                           #inside transfered region
-                if sc - self.afterL.s_bp <= self.swraplen - self.sbpL:
-                    return self.beforeL.s_bp + (sc - self.afterL.s_bp)                #in part that didn't wrap 
-                else:                       #in part that wrapped
-                    return sc - self.afterL.s_bp - (self.swraplen - self.beforeL.s_bp) - 1
-                            
-        else:
-            if sc <= self.afterL.s_bp:      #before transfered region
-                return sc
-            elif sc >= self.afterR.s_bp:    #after transfered region
-                return sc - self.lenSs - 1
-            else:                           #inside transfered region
-                return self.sbpL + (sc - self.afterL.s_bp)
+        """
+        This function cannot be defined on Transfer since the lineage is not
+        implicit. See `afterToBeforeT_lineage`.
+        """
+        raise(NotImplementedError)  #Use afterToBeforeT_lineage()!
         
 
     def afterToBeforeS_lineage(self, sc: int) -> Tuple[str, int]:
@@ -385,10 +372,10 @@ class Transfer(EventTwoCuts):
                 return (self.receptorlineage, sc - (self.lenSs + 1))
             else:                           #inside transfered region
                 if sc - self.afterL.s_bp <= self.swraplen - self.sbpL:
-                    return (self.lineage,   #in part that didn't wrap
+                    return (self.donorlineage,   #in part that didn't wrap
                             self.beforeL.s_bp + (sc - self.afterL.s_bp))
                 else:                       #in part that wrapped
-                    return (self.lineage,
+                    return (self.donorlineage,
                             (sc - self.afterL.s_bp) -
                             (self.swraplen - self.beforeL.s_bp) - 1)
         else:
@@ -397,7 +384,7 @@ class Transfer(EventTwoCuts):
             elif sc >= self.afterR.s_bp:    #after transfered region
                 return (self.receptorlineage, sc - self.lenSs - 1)
             else:                           #inside transfered region
-                return (self.lineage, self.sbpL + (sc - self.afterL.s_bp))
+                return (self.donorlineage, self.sbpL + (sc - self.afterL.s_bp))
 
     def afterToBeforeT(self, sc: int) -> int:
         """

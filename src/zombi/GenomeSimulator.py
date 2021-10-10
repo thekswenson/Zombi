@@ -1701,7 +1701,7 @@ class GenomeSimulator():
             else:
                 
                 ch, c1, c2, d = r
-                print(c1, c2, time, lineage)
+                
                 self.make_duplication_within_intergene(ch, c1, c2, d, lineage, time)
 
             return "D", lineage
@@ -1734,7 +1734,7 @@ class GenomeSimulator():
                 chreceptor.obtain_locations()
                 c3 = chreceptor.select_random_coordinate_in_intergenic_regions()
 
-                print(c1, c2, c3, lineage, recipient)
+                
 
                 self.make_transfer_intergenic(ch, c1, c2, d, donor, chreceptor,
                                               c3, recipient, time)
@@ -2861,7 +2861,7 @@ class GenomeSimulator():
         tr.lineage = receptor
         tr_d.lineage = donor
 
-        donorchrom.etype = "R" 
+        tr_d.etype = "N" 
 
         # We have to register in the affected gene families that there has been a transfer event
 
@@ -3339,9 +3339,9 @@ class GenomeSimulator():
             cuts = [event.sbp]
         elif event.etype == "P":
             cuts = [event.sbpL, event.sbpR, event.sbpH]
-        elif event.etype == "T" and event.event_in_donor:
+        elif event.etype == "N": # Transfer donor
             cuts = [event.sbpL, event.sbpR]
-        elif event.etype == "T" and not event.event_in_donor:
+        elif event.etype == "T": # Transfer recipient
             cuts = [event.receptorsbp]
         else:
             cuts = [event.sbpL, event.sbpR]
@@ -3349,27 +3349,11 @@ class GenomeSimulator():
         return cuts
 
     def propagate_cut(self, cut, event):
-
-        
         
         current_lineage = event.lineage
-
         current_lineage = self.complete_tree&current_lineage 
-
-        # First, we find the event in the tree
-
-        #print(event, event.donorlineage, event.receptorlineage, current_lineage.name)
-
         chromosome = [chromosome for chromosome in self.all_genomes[current_lineage.name]][0]
         reversed_event_history = list(reversed(chromosome.event_history))
-        print(reversed_event_history)
-
-        #chromosome = [chromosome for chromosome in self.all_genomes["n2"]][0]
-        #reversed_event_history = list(reversed(chromosome.event_history))
-        #print(reversed_event_history)
-        
-        
-
         index = reversed_event_history.index(event)
         
         finished = False
@@ -3386,24 +3370,26 @@ class GenomeSimulator():
 
             for event2 in reversed_event_history:
                 
-                if event2.etype == "T" and event2.receptorlineage == current_lineage.name:
-        
+                if event2.etype == "N": # Donor does not change the coordinates
+                    pass
+
+                elif event2.etype =="T":
+                    
                     lineage, cut = event2.afterToBeforeS_lineage(cut)
-        
-                    if lineage == event2.donorlineage: # We need to propagate through the donor lineage
-        
-                        current_lineage = self.complete_tree&event.donorlineage
+
+                    if lineage == current_lineage.name:
+                        # I can remain in the same branch
+                        
+                        pass
+                    
+                    else: # We need to propagate through a different branch
+                        
+                        current_lineage = self.complete_tree&lineage
                         chromosome = [chromosome for chromosome in self.all_genomes[current_lineage.name]][0]
                         reversed_event_history = list(reversed(chromosome.event_history))
-
-                        index = reversed_event_history.index(event2.sister_event) # We need to get the sister event, i.e.
-                                                                                  # the event in the donor branch
+                        index = reversed_event_history.index(event2.sister_event)
                         adjust_index = True
-
                         break
-                    else:
-                        # The transfer has been propagated through the recipient, no need to change branches
-                        pass
                 else:
                     cut = event2.afterToBeforeS(cut)
              
@@ -3415,6 +3401,9 @@ class GenomeSimulator():
                 reversed_event_history = list(reversed(chromosome.event_history))
 
         return cut
+
+
+    
 
 
     def obtain_divisions(self):
@@ -3449,7 +3438,7 @@ class GenomeSimulator():
             for cut in cuts:
                 #print("I want to propagate", cut, event1, event1.donorlineage, event1.receptorlineage, event1.event_in_donor )
                 propagated_cut = self.propagate_cut(cut, event1)
-                print("Cut propagation", cut, propagated_cut)
+                #print("Cut successfuly propagated", cut, "--->",propagated_cut, "Event:", event1.etype)
                 initial_cuts.add(propagated_cut)
         
           
@@ -3491,7 +3480,7 @@ class GenomeSimulator():
             
             self.initial_divisions.append((c1,c2))
 
-            print("Initial division",c1,c2)
+            #("Initial division",c1,c2)
             
             self.division_fam_id += 1
 
@@ -3505,139 +3494,7 @@ class GenomeSimulator():
             
             self.all_division_families[str(self.division_fam_id)] = division_family
 
-    def obtain_divisions2(self):
-        """
-        Obtain the divisions at the root
-        """
-        
-        ####### This can go into a function
-
-        #transfers_received = list()
-
-        #for node in self.complete_tree.traverse("postorder"):
-            
-        #    genome = self.all_genomes[node.name]                        
-        #    for chromosome in genome:
-        #        for i, event in enumerate(chromosome.event_history):
-        #            if event.etype == "T":
-        #                transfers_received.append(event)
-        
-        #for transfer in transfers_received:
-
-        #    genome = self.all_genomes[transfer.donorlineage]
-        #    chromosome = genome.chromosomes[0]
-        #    chromosome.event_history.append(copy.deepcopy(transfer))
-        #    transfer.event_in_donor = True
-        #    chromosome.event_history = sorted(chromosome.event_history, key=lambda x:x.time)
-        
-        ########
-
-
-        for node in self.complete_tree.traverse("postorder"):
-            
-            genome = self.all_genomes[node.name]            
-
-            node.add_feature("cuts", set())
-            
-            for chromosome in genome:
-                
-                chromosome.obtain_flankings()
-
-                if not node.is_leaf():
-                    n1,n2 = node.get_children()
-                    node.cuts = node.cuts.union(n1.cuts, n2.cuts)
-
-                new_cuts = set()
-                
-                # This maps to the top of the branch all the cuts along that
-                # branch.  We traverse from the end to the beginning:
-                #print("History:")
-
-                reverse_history = list(reversed(chromosome.event_history))
-
-                for i, event1 in enumerate(reverse_history):
-
-                    if event1.etype == "O":
-                        cuts = [event1.sbp]
-                    elif event1.etype == "P":
-                        cuts = [event1.sbpL, event1.sbpR, event1.sbpH]
-                    elif event1.etype == "T":
-                        cuts = [event1.sbpL, event1.sbpR]
-                    elif event1.etype == "R":
-                        cuts = [event1.receptorsbp]
-                    else:
-                        cuts = [event1.sbpL, event1.sbpR]
-                    
-                    # Map the cuts through the events that are above:
-                    print("Cuts to propagate", cuts)
-                    for event2 in reverse_history[i+1:]:    
-                        
-                        if event2.etype == "T" and event2.donorlineage == node.name:
-                            continue
-                        cuts = [event2.afterToBeforeS(cut) for cut in cuts]
-                        print("Propagation", cuts,node.name)
-
-
-                    new_cuts = new_cuts.union(cuts)
-                    
-                # This maps to the top of the branch all the cuts that were
-                # acquired from previous nodes
-
-                for cut in node.cuts:
-                    for event in reverse_history:
-                        cut = event.afterToBeforeS(cut)
-                    new_cuts.add(cut)
-                node.cuts = new_cuts
-                  
-        initial_chromosome = self.initial_genome.chromosomes[0]   
-        all_cuts = list()
-        self.natural_cuts = list()
-
-        # These are the natural cuts from the intergenes (the limits with the
-        # genes):
-        for intergene in initial_chromosome.iter_intergenes():
-            
-            cut1, cut2 = intergene.specific_flanking
-            self.natural_cuts.append((cut1, cut2))
-            
-            all_cuts.append(cut1)
-            all_cuts.append(cut2)
-        
-
-        all_cuts +=  sorted(list(self.complete_tree.cuts))
-        
-        # These are the cuts surrounding the Genes. We don't need to treat these
-        cuts_to_ignore = {(x1[1], x2[0]) for x1, x2 in zip(self.natural_cuts,
-                                                           self.natural_cuts[1:] +
-                                                           [self.natural_cuts[0]])}
-        
-       
-        all_cuts =  sorted(list(set(all_cuts))) # To remove possible repeated values
-        initial_specific_flankings = zip(all_cuts, all_cuts[1:] + [all_cuts[0]])
-        self.division_fam_id = 0
-        
-        self.initial_divisions = list()         # For debugging purposes
-        
-        for initial_specific_flanking in initial_specific_flankings:
-            c1, c2 = initial_specific_flanking
-            # We need to ignore the cuts where c1 is the right most extreme of
-            # an intergene and c2 is the left most extreme of the next intergene
-            if (c1, c2) in cuts_to_ignore:
-                continue
-            
-            self.initial_divisions.append((c1,c2))
-            
-            self.division_fam_id += 1
-
-            intergene = initial_chromosome.return_intergene_by_coordinate(c1)
-            division = intergene.create_division("1", self.division_fam_id, initial_specific_flanking) # Identifier is 1 in the beginning
-            division_family = DivisionFamily(self.division_fam_id, initial_specific_flanking)
-            division_family.register_event(0, "O", "Root") # We register the origination 
-            division.get_length()
-
-            #print(division)
-            
-            self.all_division_families[str(self.division_fam_id)] = division_family
+    
     
     def obtain_events_for_divisions(self):
         """
@@ -3666,9 +3523,8 @@ class GenomeSimulator():
         for node in self.complete_tree.traverse():
            genome = self.all_genomes[node.name]           
            for chromosome in genome:
-               for event in chromosome.event_history:
-                   
-                   if event.etype == "T" and event.event_in_donor == True:
+               for event in chromosome.event_history:              
+                   if event.etype == "N":
                        continue
                    all_events.append(("G", (event.time, event, chromosome)))            
 
@@ -3904,7 +3760,7 @@ class GenomeSimulator():
 
     def make_transfer_divisions(self, time, event):
         
-        donor_lineage = event.lineage
+        donor_lineage = event.donorlineage
         recipient_lineage = event.receptorlineage        
 
         donor_chromosome = [x for x in self.all_genomes_second[donor_lineage]][0] 

@@ -122,7 +122,7 @@ class TestDuplications(unittest.TestCase):
       event8 = ("G", 0.028456, "I", "Root", (31, 4, RIGHT))
 
       #self.gss.run_f_debug([event1, event3, event4 ]) 
-      #self.gss.run_f_debug([event1,event3, event4]) 
+      #self.gss.run_f_debug([event1, event3]) 
       #self.gss.run_f_debug([event1, event2]) 
       #self.gss.run_f_debug([event2,]) 
       self.gss.run_f() 
@@ -130,6 +130,7 @@ class TestDuplications(unittest.TestCase):
       # The event is placed in tbpH
 
       self.gss.obtain_divisions() 
+
       self.gss.obtain_events_for_divisions()
       
 
