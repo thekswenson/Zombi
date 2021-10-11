@@ -12,7 +12,7 @@ from typing import Tuple, Set, Dict, Union
 import itertools
 
 from . import AuxiliarFunctions as af
-from .Events import Loss, Origination, TandemDup, Inversion, Transfer, Transposition
+from .Events import Loss, Origination, TandemDup, Inversion, Transfer, Transposition, MapPseudogeneError
 from .Genomes import Chromosome, CircularChromosome, Gene, GeneFamily, Genome, DivisionFamily, Intergene, Division
 from .Genomes import T_DIR, LEFT, RIGHT, Intergene, LinearChromosome
 
@@ -2928,7 +2928,7 @@ class GenomeSimulator():
 
         scar1 = chromosome.intergenes[igpositions[0]]
 
-            # Get old lengths from last intergene before modifying chromosome.
+        # Get old lengths from last intergene before modifying chromosome.
         specificlen = chromosome.intergenes[-1].specific_flanking[1]
         totallen = chromosome.intergenes[-1].total_flanking[1]
 
@@ -2950,11 +2950,16 @@ class GenomeSimulator():
             c1, c2 = c2, c1
 
         pseudo_intergenes = []
+        pseudo_genes = []
+
         if pseudo:
             pseudo_intergenes = intergene_segment
+            pseudo_genes = segment
+
+        pseudo = True # Fix
 
         loss = Loss(int1, int2, c1, c2, specificlen, totallen, lineage, time,
-                    pseudo, pseudo_intergenes)
+                    pseudo, pseudo_intergenes, pseudo_genes)
         chromosome.event_history.append(loss)
 
         if pseudo:
@@ -3390,6 +3395,23 @@ class GenomeSimulator():
                         index = reversed_event_history.index(event2.sister_event)
                         adjust_index = True
                         break
+                
+                elif event2.etype == "L" and event2.pseudogenize == True:
+
+                    try:
+                        cut = event2.afterToBeforeS(cut)
+
+                    except MapPseudogeneError:
+
+                        # We are in a pseudogenize region. We just return the cut
+
+                        #cut = event2.inPseudoIntergene(cut)
+                        ### Checking that is the root is not enough ##### CONTINUA AQUI
+
+                        return cut, True, event2.pseudo_gene_list                       
+
+                    #if event2.inPseudoIntergene(cut):
+
                 else:
                     cut = event2.afterToBeforeS(cut)
              
@@ -3400,7 +3422,8 @@ class GenomeSimulator():
                 chromosome = [chromosome for chromosome in self.all_genomes[current_lineage.name]][0]
                 reversed_event_history = list(reversed(chromosome.event_history))
 
-        return cut
+        #return cut
+        return cut, False, []
 
 
     
@@ -3430,6 +3453,7 @@ class GenomeSimulator():
         # Second, we traverse the events until the beginning
 
         initial_cuts = set()
+        self.gene2pseudogenecuts = dict()
         
         for i, event1 in enumerate(all_events):
 
@@ -3437,9 +3461,18 @@ class GenomeSimulator():
             
             for cut in cuts:
                 #print("I want to propagate", cut, event1, event1.donorlineage, event1.receptorlineage, event1.event_in_donor )
-                propagated_cut = self.propagate_cut(cut, event1)
-                #print("Cut successfuly propagated", cut, "--->",propagated_cut, "Event:", event1.etype)
-                initial_cuts.add(propagated_cut)
+                print(cut)
+                propagated_cut, pseudo, _ = self.propagate_cut(cut, event1)
+
+                if pseudo == False:
+                    print("Cut successfuly propagated", cut, "--->",propagated_cut, "Event:", event1.etype)
+                    initial_cuts.add(propagated_cut)
+                else:
+                    print("Cut successfuly propagated to pseudogene", cut, "--->",propagated_cut, "Event:", event1.etype)
+                    print(_)
+                    
+                    # Need to get the coordinate within the gene
+
         
           
         initial_chromosome = self.initial_genome.chromosomes[0]   

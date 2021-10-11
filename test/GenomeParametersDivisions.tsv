@@ -8,15 +8,15 @@
 ## Rates represent the frequency (and fixation probability) of the different events measure in time units (see your Species Tree)
 ##
 #
-DUPLICATION f:10
-TRANSFER f:10
+DUPLICATION f:0
+TRANSFER f:5
 LOSS f:3
 #
 ## The next three events use always genome-wise rates
 #
-INVERSION f:10
-TRANSPOSITION f:10
-ORIGINATION f:10
+INVERSION f:0
+TRANSPOSITION f:0
+ORIGINATION f:50
 #
 ## Extensions. Extensions determine how many contiguous genes are affected by a single event
 #
@@ -59,7 +59,7 @@ SCALE_TREE 0
 #
 GENE_LENGTH f:3
 INTERGENE_LENGTH 10
-PSEUDOGENIZATION 0
+PSEUDOGENIZATION 1
 #
 ### GM SPECIFIC PARAMETERS ###
 # Include the whole path to the parameters file. The parameters file has a first line (header) and 4 tab separated columns with the name of the gene family (ignore), D, T and L rate.

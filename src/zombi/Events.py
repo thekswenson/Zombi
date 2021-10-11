@@ -448,7 +448,8 @@ class Loss(EventTwoCuts):
     """
     def __init__(self, int1: Interval, int2: Interval, sbp1: int, sbp2: int,
                  swraplen: int, twraplen: int, lineage: str, time: float,
-                 pseudogenize=False, pseudolist: List[Intergene]=None):
+                 pseudogenize=False, pseudo_intergene_list: List[Intergene]=None,
+                 pseudo_gene_list: List[Intergene]=None):
         """
         Create a Loss event. Either cut out everything between `sbp1` and
         `sbp2`, or turn everything in that region into a big intergene,
@@ -466,8 +467,10 @@ class Loss(EventTwoCuts):
             the second cut
         pseudogenize: bool
             turn everything into one big intergene
-        pseudolist: List[Interval]
+        pseudo_intergene_list: List[Interval]
             the intergenes to pseudogenize
+        pseudo_gene_list: List[Interval]
+            the genes pseudogenized
         twraplen: int
             the total length of the chromosome
         swraplen: int
@@ -482,8 +485,11 @@ class Loss(EventTwoCuts):
         self.after: Interval = None
 
         self.pseudogenize = pseudogenize
-        self.pseudolist = copy.deepcopy(pseudolist)
-        assert not pseudolist or pseudogenize, 'psuedolist given but pseudogenize is False'
+        
+        self.pseudo_intergene_list = copy.deepcopy(pseudo_intergene_list)
+        self.pseudo_gene_list = copy.deepcopy(pseudo_gene_list)
+
+        assert not pseudo_intergene_list or pseudogenize, 'psuedolist given but pseudogenize is False'
         self.genebps: int = -1  #: num gene breakpoints in pseudogenized region
 
         self.after_sbpL: int = -1
@@ -612,7 +618,7 @@ class Loss(EventTwoCuts):
     def inPseudoIntergene(self, sc: int) -> int:
         """
         If the given specific breakpoint coordinate maps to an intergene that
-        was psuedogenizes, then return the coordinate before the loss.
+        was psuedogenized, then return the coordinate before the loss.
 
         Parameters
         ----------
@@ -641,14 +647,14 @@ class Loss(EventTwoCuts):
             if tcbefore > self.twraplen:
                 tcbefore -= self.twraplen
 
-            for intergene in self.pseudolist:
+            for intergene in self.pseudo_intergene_list:
                 if intergene.inTotal(tcbefore):
                     return self.assertS(intergene.sc1 + (tcbefore - intergene.tc1))
         else:
             assert self.after_sbpL <= sc <= self.after_sbpR
 
             tc = self.after_tbpL + (sc - self.after_sbpL)
-            for intergene in self.pseudolist:
+            for intergene in self.pseudo_intergene_list:
                 if intergene.inTotal(tc):                   # in S
                     return self.assertS(intergene.sc1 + (tc - intergene.tc1))
 
@@ -708,6 +714,14 @@ class Loss(EventTwoCuts):
                     return self.assertT(tc + self.beforeR.t_bp - self.beforeL.t_bp)
                 else:                                   # in I0 or to left
                     return self.assertT(tc)
+    
+    def returnGene(self, sc: int) -> int:
+        """
+        If the given specific breakpoint coordinate maps to a gene that
+        was psuedogenized, then return the gene.
+        """
+        pass
+    
 
 class MapPseudogeneError(Exception):
     pass
