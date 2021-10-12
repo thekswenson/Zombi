@@ -715,12 +715,29 @@ class Loss(EventTwoCuts):
                 else:                                   # in I0 or to left
                     return self.assertT(tc)
     
-    def returnGene(self, sc: int) -> int:
+    def returnTotalWithinEvent(self, sc: int) -> int:
         """
-        If the given specific breakpoint coordinate maps to a gene that
-        was psuedogenized, then return the gene.
+        Given a specific coordinate falling within the limits of the event,
+        return the total coordinate
         """
-        pass
+        
+        return self.after_tbpL + sc - self.after_sbpL
+
+    def returnGeneAndCut(self, tc: int):
+        """
+        Given a total coordinate, returns the gene in that
+        total coordinate and the breakpoint within the gene
+        A function to use in combination with the function
+        returnTotalWithinEvent
+        """
+        
+        for gene in self.pseudo_gene_list:    
+            if self.after_tbpL < tc and self.after_tbpR > tc:
+                return gene, tc - gene.total_flanking[0]
+
+
+        
+        
     
 
 class MapPseudogeneError(Exception):

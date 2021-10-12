@@ -2957,6 +2957,8 @@ class GenomeSimulator():
             pseudo_genes = segment
 
         pseudo = True # Fix
+        
+        #print("printing intergene segment", intergene_segment[0].total_flanking)
 
         loss = Loss(int1, int2, c1, c2, specificlen, totallen, lineage, time,
                     pseudo, pseudo_intergenes, pseudo_genes)
@@ -2979,26 +2981,6 @@ class GenomeSimulator():
             gene.active = False
             self.all_gene_families[gene.gene_family].register_event(time, "L", ";".join(map(str,[lineage, gene.gene_id])))
 
-    #def make_loss_family_mode(self, p, lineage, time):
-
-    #    chromosome: CircularChromosome = self.all_genomes[lineage].select_random_chromosome()
-
-    #    affected_genes = chromosome.obtain_affected_genes_accounting_for_family_rates(p, interactome)
-    #    segment = chromosome.obtain_segment(affected_genes)
-
-    #    # Now we check we are not under the minimum size
-
-    #    if len(chromosome) - len(affected_genes) <= self.parameters["MIN_GENOME_SIZE"]:
-    #        return 0
-
-    #    chromosome.remove_segment(segment)
-
-    #    # We have to register in the affected gene families that there has been as loss
-    #    # All genes affected must be returned
-
-    #    for gene in segment:
-    #        gene.active = False
-    #        self.all_gene_families[gene.gene_family].register_event(time, "L", ";".join(map(str,[lineage, gene.gene_id])))
 
     def make_loss_interactome(self, p, lineage, time):
 
@@ -3363,6 +3345,8 @@ class GenomeSimulator():
         
         finished = False
         adjust_index = True
+
+        event2 = None
         
         while finished == False:
 
@@ -3402,16 +3386,8 @@ class GenomeSimulator():
                         cut = event2.afterToBeforeS(cut)
 
                     except MapPseudogeneError:
-
                         # We are in a pseudogenize region. We just return the cut
-
-                        #cut = event2.inPseudoIntergene(cut)
-                        ### Checking that is the root is not enough ##### CONTINUA AQUI
-
-                        return cut, True, event2.pseudo_gene_list                       
-
-                    #if event2.inPseudoIntergene(cut):
-
+                        return cut, event2                       
                 else:
                     cut = event2.afterToBeforeS(cut)
              
@@ -3422,11 +3398,9 @@ class GenomeSimulator():
                 chromosome = [chromosome for chromosome in self.all_genomes[current_lineage.name]][0]
                 reversed_event_history = list(reversed(chromosome.event_history))
 
-        #return cut
-        return cut, False, []
+        
+        return cut, event2
 
-
-    
 
 
     def obtain_divisions(self):
@@ -3445,7 +3419,8 @@ class GenomeSimulator():
             chromosome.obtain_flankings()
             
             all_events += chromosome.event_history
-
+        
+        first_event = all_events[0]
         all_events = reversed(sorted(all_events, key=lambda x: x.time))
 
         ########
@@ -3453,6 +3428,7 @@ class GenomeSimulator():
         # Second, we traverse the events until the beginning
 
         initial_cuts = set()
+        
         self.gene2pseudogenecuts = dict()
         
         for i, event1 in enumerate(all_events):
@@ -3461,20 +3437,50 @@ class GenomeSimulator():
             
             for cut in cuts:
                 #print("I want to propagate", cut, event1, event1.donorlineage, event1.receptorlineage, event1.event_in_donor )
-                print(cut)
-                propagated_cut, pseudo, _ = self.propagate_cut(cut, event1)
+                
+                propagated_cut, p_event = self.propagate_cut(cut, event1)
+                
+                ########### We check if the propagated event lands in a pseudogenize region
+                pseudo = False
 
-                if pseudo == False:
+                if p_event != None:
+                    if p_event.etype == "L" and p_event.pseudogenize == True:
+                        pseudo = True
+
+                ###########
+
+                if pseudo == True:
+
+                    ## In this case the event has been propagated to a pseudogenized region
+
+                    result_propagation = p_event.returnGeneAndCut(p_event.returnTotalWithinEvent(cut))
+                    
+                    if result_propagation == None: # This means that the cut is not in a gene
+                        print("Cut successfuly propagated", cut, "--->",propagated_cut, "Event:", event1.etype)
+                        initial_cuts.add(propagated_cut)
+                    else:
+                        
+                        gene, cut_within_gene = result_propagation
+                        gene_name = gene.species + "_" + str(gene.gene_id)
+                        if gene_name not in self.gene2pseudogenecuts:
+                            self.gene2pseudogenecuts[gene_name] = set()
+                        self.gene2pseudogenecuts[gene_name].add(cut_within_gene)
+
+                        print("Cut successfuly propagated to pseudogene", cut, "--->",cut_within_gene, "Event:", event1.etype, gene_name)
+                    
+                    #self.gene2pseudocuts()
+                    
+                else:
+                    ## In this case the event has been propagated to the very beginning
+
                     print("Cut successfuly propagated", cut, "--->",propagated_cut, "Event:", event1.etype)
                     initial_cuts.add(propagated_cut)
-                else:
-                    print("Cut successfuly propagated to pseudogene", cut, "--->",propagated_cut, "Event:", event1.etype)
-                    print(_)
+                
+                    #print(mygene.total_flanking)
                     
                     # Need to get the coordinate within the gene
 
         
-          
         initial_chromosome = self.initial_genome.chromosomes[0]   
         all_cuts = set()
         self.natural_cuts = list()
@@ -3738,7 +3744,7 @@ class GenomeSimulator():
            
             pfL, pfR = piece.total_flanking
 
-            #print(piece.total_flanking, tcL, tcR)
+            print(piece.total_flanking, tcL, tcR)
             
             if pfL == tcL:
                 start = True
@@ -3865,22 +3871,57 @@ class GenomeSimulator():
                     division_family = str(piece.division_family)
                     self.all_division_families[division_family].register_event(str(time), "L", ";".join(map(str,[lineage, piece.identity])))
         else:
+
+            replacements = dict()
+
             for index, piece in zip(indexes_to_lose, pieces_to_lose):
                 if piece.ptype == "Gene":
 
-                    # Replace with a new division family
+                    replacements[piece] = list()
 
-                    self.division_fam_id += 1
+                    gene_name = piece.species + "_" + str(piece.gene_id)
 
-                    division_family = DivisionFamily(self.division_fam_id, (0,0)) # FIX
-                    division_family.register_event(time, "O", lineage) # We register the origination. We need to register also the gene that is lost
-                    division = Division("1", self.division_fam_id, (0,0))
+                    cuts = {0, piece.length}
 
-                    division.total_flanking = piece.total_flanking
-                    division.species = lineage
-                    division.length = piece.length
-                    chromosome.pieces[index] = division
-                    self.all_division_families[str(self.division_fam_id)] = division_family
+                    if gene_name in self.gene2pseudogenecuts:
+                        cuts = cuts.union(self.gene2pseudogenecuts[gene_name])
+
+                    cuts = sorted(list(cuts))
+
+                    # We need to make as many divisions as cuts + 1
+
+                    for cut1, cut2 in zip(cuts, cuts[1:]):
+                        
+                        # Insert new family
+
+                        self.division_fam_id += 1
+
+                        division_family = DivisionFamily(self.division_fam_id, (0,0)) # FIX
+                        division_family.register_event(time, "O", lineage) # We register the origination. We need to register also the gene that is lost FIX
+                        
+                        division = Division("1", self.division_fam_id, (0,0))
+
+                        division.length = cut2 - cut1
+
+                        division.total_flanking = (piece.total_flanking[0] + cut1, piece.total_flanking[0] + cut2)
+    
+                        division.species = lineage
+
+                        replacements[piece].append(division)
+                        
+                        self.all_division_families[str(self.division_fam_id)] = division_family
+
+            for gene, divisions in replacements.items():
+                insert = (chromosome.pieces).index(gene)
+                (chromosome.pieces).pop(insert)
+                for i, division in enumerate(divisions):
+                    (chromosome.pieces).insert(insert + i, division)
+
+                        
+
+                        
+
+
         
         if wrapping == True:
             while chromosome.pieces[0].ptype == "Divi":

@@ -112,8 +112,8 @@ class TestDuplications(unittest.TestCase):
   def test_transpositions1(self):
      
       print("TEST")
-      event1 = ("G", 1.228, "L", "Root", (6, 9, RIGHT))
-      event2 = ("G", 1.229, "I", "Root", (9, 15, RIGHT))
+      event1 = ("G", 0.228, "L", "Root", (6, 9, RIGHT))
+      event2 = ("G", 0.229, "I", "Root", (9, 15, RIGHT))
       event3 = ("G", 1.2293, "T", "Root", (6, 17, 1, RIGHT, "n1"))
       event4 = ("G", 1.2294, "T", "n1", (5, 7, 12, RIGHT, "n2"))
       event5 = ("G", 0.17, "D", "Root", (7, 13, RIGHT))
@@ -123,9 +123,9 @@ class TestDuplications(unittest.TestCase):
 
       #self.gss.run_f_debug([event1, event3, event4 ]) 
       #self.gss.run_f_debug([event1, event3]) 
-      self.gss.run_f_debug([event1,event2]) 
+      #self.gss.run_f_debug([event1, event2]) 
       #self.gss.run_f_debug([event2,]) 
-      #self.gss.run_f() 
+      self.gss.run_f() 
       #self.gss.run_f_debug([event5, event6]) 
       # The event is placed in tbpH
 
