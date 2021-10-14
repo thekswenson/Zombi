@@ -92,7 +92,7 @@ class SequenceSimulator():
         Parameters
         ----------
         sequence : SeqRecord, optional
-            seed the root of the tree with the nucleotide sequence, otherwise,
+            seed the initial genome of the tree with the nucleotide sequence, otherwise,
             seed with a random sequence according to `gene_length`.
         """
         if self.parameters["SEQUENCE"] != "codon":
@@ -628,7 +628,6 @@ class SequenceSimulator():
                 name = "Root_1"
             else:
                 name = n.name
-            
             if node2eff[name] <= 0:
                 print("Fatal error")                  
             n.dist *= node2eff[name]                

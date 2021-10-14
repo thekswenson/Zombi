@@ -112,34 +112,51 @@ class TestDuplications(unittest.TestCase):
   def test_transpositions1(self):
      
       print("TEST")
-      event1 = ("G", 0.228, "L", "Root", (6, 9, RIGHT))
-      event2 = ("G", 0.229, "I", "Root", (9, 15, RIGHT))
-      event3 = ("G", 1.2293, "T", "Root", (6, 17, 1, RIGHT, "n1"))
-      event4 = ("G", 1.2294, "T", "n1", (5, 7, 12, RIGHT, "n2"))
-      event5 = ("G", 0.17, "D", "Root", (7, 13, RIGHT))
-      event6 = ("G", 1.26, "D", "n1",   (15, 4, RIGHT))
-      event7 = ("G", 0.02845, "I", "Root", (1, 4, RIGHT))
-      event8 = ("G", 0.028456, "I", "Root", (31, 4, RIGHT))
+     
+      event1 = ("G", 0.228, "L", "Root", (6, 19, RIGHT))
+      event2 = ("G", 0.229, "D", "Root", (14, 0, RIGHT))
+      event3 = ("G", 1.34, "D", "n2", (20, 8, RIGHT))
 
-      #self.gss.run_f_debug([event1, event3, event4 ]) 
-      #self.gss.run_f_debug([event1, event3]) 
-      #self.gss.run_f_debug([event1, event2]) 
-      #self.gss.run_f_debug([event2,]) 
-      self.gss.run_f() 
-      #self.gss.run_f_debug([event5, event6]) 
-      # The event is placed in tbpH
 
-      self.gss.obtain_divisions() 
-
-      self.gss.obtain_events_for_divisions()
+      #self.gss.run_f_debug([event1, event2, event3]) 
+     
+      for i in range(1000):
       
+        self.gss.run_f() 
+        events = self.gss.return_all_events()
+        try: 
+             self.gss.obtain_divisions() 
+             self.gss.obtain_events_for_divisions()
+        except:
+      
+          with open("./TempEvents.txt", "w") as f:
+            for event in events:
+              line = ["G", str(event.time), event.etype, event.lineage]
+                      
+              if event.etype == "P":
+                  c1, c2, c3 = event.sbpL, event.sbpR, event.sbpH
+                  line.append(str((c1, c2, c3)))
+              elif event.etype == "O":
+                  c1 = event.sbp
+              elif event.etype == "T":
+                  c1, c2, c3, lineage_r = event.sbpL, event.sbpR, event.sbpH
+              else:
+                  c1, c2 = event.sbpL, event.sbpR
+                  line.append(str((c1, c2)))
 
+              f.write("\t".join(line)+"\n")
+          print("Stopping simulation")
+          break
+
+      
+      
+      
       print("****")
-      for ch in self.gss.all_genomes_second["n1"]:
-          ch.print_pieces() 
+      #for ch in self.gss.all_genomes_second["n2"]:
+      #    ch.print_pieces() 
       print("****")
       
-      for ch in self.gss.all_genomes["n1"]:
+      for ch in self.gss.all_genomes["n2"]:
           for gene, intergene in zip(ch.genes, ch.intergenes):
               print("Gene", gene.total_flanking, gene.gene_family)
               print("Intergene", intergene.total_flanking)
