@@ -168,8 +168,8 @@ class Origination(EventOneCut):
         """
         super().__init__(interval, sbp, ORIG, lineage, time)
         self.interval = interval 
-        self.afterL: Interval = None
-        self.afterR: Interval = None
+        self.afterL: Interval
+        self.afterR: Interval
         self.genelen = genelen
 
         self.setAfter()
@@ -281,8 +281,8 @@ class Transfer(EventTwoCuts):
         """
         super().__init__(donorint1, donorint2, sbp1, sbp2, swraplen, twraplen,
                          FER, donorlineage, time)
-        self.afterL: Interval = None
-        self.afterR: Interval = None
+        self.afterL: Interval
+        self.afterR: Interval
         self.receptorlineage = receptorlineage
         self.receptorint = receptorint
                 
@@ -294,8 +294,8 @@ class Transfer(EventTwoCuts):
         self.donorlineage = donorlineage
 
         self.event_in_donor = False # Whether this instance of the event is registered in the donor branch
-        self.sister_event = None    # Points to the sister event, i.e., the same event in the other branch
-        self.lineage = None
+        self.sister_event: Transfer # Points to the sister event, i.e., the same event in the other branch
+        self.lineage = None         # type: ignore
 
         self.setAfter()
 
@@ -482,7 +482,7 @@ class Loss(EventTwoCuts):
         """
         super().__init__(int1, int2, sbp1, sbp2, swraplen, twraplen, LOSS,
                          lineage, time)
-        self.after: Interval = None
+        self.after: Interval
 
         self.pseudogenize = pseudogenize
         
@@ -647,6 +647,7 @@ class Loss(EventTwoCuts):
             if tcbefore > self.twraplen:
                 tcbefore -= self.twraplen
 
+            assert self.pseudo_intergene_list
             for intergene in self.pseudo_intergene_list:
                 if intergene.inTotal(tcbefore):
                     return self.assertS(intergene.sc1 + (tcbefore - intergene.tc1))
@@ -654,6 +655,7 @@ class Loss(EventTwoCuts):
             assert self.after_sbpL <= sc <= self.after_sbpR
 
             tc = self.after_tbpL + (sc - self.after_sbpL)
+            assert self.pseudo_intergene_list
             for intergene in self.pseudo_intergene_list:
                 if intergene.inTotal(tc):                   # in S
                     return self.assertS(intergene.sc1 + (tc - intergene.tc1))
@@ -730,8 +732,9 @@ class Loss(EventTwoCuts):
         A function to use in combination with the function
         returnTotalWithinEvent
         """
-        
-        for gene in self.pseudo_gene_list:    
+        assert self.pseudo_gene_list
+
+        for gene in self.pseudo_gene_list:
             if self.after_tbpL < tc and self.after_tbpR > tc:
                 return gene, tc - gene.total_flanking[0]
 
@@ -807,9 +810,9 @@ class Transposition(EventTwoCuts):
         self.sbpH = sbp3
         self.tbpH: int = int3.tc1 + (sbp3 - int3.sc1)
     
-        self.afterL: Interval = None
-        self.afterR: Interval = None
-        self.afterH: Interval = None
+        self.afterL: Interval
+        self.afterR: Interval
+        self.afterH: Interval
 
         self.numintergenes = numintergenes
 
@@ -871,6 +874,7 @@ class Transposition(EventTwoCuts):
 
             #lenSs will the be number of intergene nucleotides plus the number
             #of genes in the region S:
+        lenS0s = lenS0t = lenS1s = lenS1t = -1  #pylance
         if self.wraps():
             lenS0s = self.swraplen - self.beforeL.sc2
             lenS1s = self.beforeR.sc1 + 1
@@ -894,6 +898,10 @@ class Transposition(EventTwoCuts):
         self.lenSs = lenSs
         self.lenSt = lenSt
 
+
+        s_herestart = s_hereend = t_herestart = t_hereend = -1      #pylance
+        s_leftstart = s_leftend = t_leftstart = t_leftend = -1      #pylance
+        hereposition = leftposition = rightposition = -1            #pylance
         if self.wraps():
             if self.beforeH.specificPair() == self.beforeR.specificPair():
                     #S1 J0 J1l J1r ... I0 I1 S0
@@ -1310,8 +1318,8 @@ class Inversion(EventTwoCuts):
         """
         super().__init__(int1, int2, sbp1, sbp2, swraplen, twraplen, INV,
                          lineage, time)
-        self.afterL: Interval = None
-        self.afterR: Interval = None
+        self.afterL: Interval
+        self.afterR: Interval
         self.sfirstlen = sfirstlen
         self.tfirstlen = tfirstlen
         self.ssecondlen = ssecondlen
@@ -1514,9 +1522,9 @@ class TandemDup(EventTwoCuts):
         """
         super().__init__(int1, int2, sbp1, sbp2, swraplen, twraplen, TDUP,
                          lineage, time)
-        self.afterL: Interval = None
-        self.afterC: Interval = None
-        self.afterR: Interval = None
+        self.afterL: Interval
+        self.afterC: Interval
+        self.afterR: Interval
 
         self.numintergenes: int = numintergenes
 

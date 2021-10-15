@@ -77,6 +77,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(inversion.afterToBeforeT(30), 30,
                      'intergene breakpoint mismap')
 
+
   def test_inversion_1RIGHT(self):
     self.setUp(TEST_GENOME_30_10)
 
@@ -117,6 +118,7 @@ class TestEvent(unittest.TestCase):
                      'intergene breakpoint mismap')
     self.assertEqual(inversion.afterToBeforeT(22), 22,
                      'intergene breakpoint mismap')
+
 
   def test_inversion_1LEFT(self):
     """
@@ -172,6 +174,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(inversion.afterToBeforeT(25), 0,
                      'intergene breakpoint mismap')
 
+
   def test_inversion_2(self):
     """
     This test wraps.
@@ -223,6 +226,7 @@ class TestEvent(unittest.TestCase):
                      'intergene breakpoint mismap')
     self.assertEqual(inversion.afterToBeforeT(29), 28,
                      'intergene breakpoint mismap')
+
 
   def test_inversion_3(self):
     """
@@ -278,6 +282,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(inversion.afterToBeforeT(30), 9,
                      'intergene breakpoint mismap')
 
+
   def test_inversion_Adri_19_09_21(self):
     """
     This test wraps but has no gene at the right end.
@@ -319,6 +324,7 @@ class TestEvent(unittest.TestCase):
                      'intergene breakpoint mismap')
     self.assertEqual(inversion.afterToBeforeT(28), 27,
                      'intergene breakpoint mismap')
+
 
   def test_inversion_Adri_20_09_21_A(self):
     """
@@ -534,8 +540,6 @@ class TestEvent(unittest.TestCase):
     self.gss.make_inversion_intergenic(ch, 15, 6, RIGHT, lineage, 0.0)
     inv2: Inversion = ch.event_history[1]
 
-    print(f'lengths:', ch.intergenes[0].length, ch.intergenes[1].length,
-          ch.intergenes[2].length, ch.intergenes[3].length, ch.intergenes[4].length)
     self.assertEqual(ch.intergenes[0].length, 3,
                      'first intergene length mismatch after inversion')
     self.assertEqual(ch.intergenes[1].length, 0,
@@ -594,6 +598,104 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(inv1.afterToBeforeS(inv2.afterToBeforeS(inv3.afterToBeforeS(17))), 0,
                      'intergene breakpoint mismap')
 
+
+  def test_inversion_Adri_15_10_21(self):
+    """
+    This test has two inversions that each act on the last intergene.
+    """
+    ch = self.genome.chromosomes[0]
+    lineage = self.genome.species
+
+      #Do first inversion:
+    self.gss.make_inversion_intergenic(ch, 17, 8, RIGHT, lineage, 0.0)
+    inversion1: Inversion = ch.event_history[0]
+
+    self.assertEqual(ch.intergenes[1].length, 3,
+                     'second intergene length mismatch after inversion')
+    self.assertEqual(ch.intergenes[2].length, 5,
+                     'third intergene length mismatch after inversion')
+    self.assertEqual(ch.intergenes[4].length, 1,
+                     'fifth intergene length mismatch after inversion')
+
+      #Specific coordinate mapping:
+    self.assertEqual(inversion1.afterToBeforeS(0), 7,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion1.afterToBeforeS(5), 2,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion1.afterToBeforeS(7), 0,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion1.afterToBeforeS(8), 19,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion1.afterToBeforeS(9), 18,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion1.afterToBeforeS(10), 8,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion1.afterToBeforeS(18), 16,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion1.afterToBeforeS(19), 17,
+                     'intergene breakpoint mismap')
+
+      #Total coordinate mapping:
+    self.assertEqual(inversion1.afterToBeforeT(0), 15,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion1.afterToBeforeT(3), 12,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion1.afterToBeforeT(12), 3,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion1.afterToBeforeT(15), 30,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion1.afterToBeforeT(16), 29,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion1.afterToBeforeT(17), 15,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion1.afterToBeforeT(21), 19,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion1.afterToBeforeT(29), 27,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion1.afterToBeforeT(30), 28,
+                     'intergene breakpoint mismap')
+
+      #Do second inversion:
+    ch.obtain_locations()
+    self.gss.make_inversion_intergenic(ch, 19, 5, RIGHT, lineage, 0.0)
+    inversion2: Inversion = ch.event_history[1]
+
+    self.assertEqual([ig.length for ig in ch.intergenes], [3, 2, 5, 3, 2],
+                     'intergene length mismatch after second inversion')
+
+      #Specific coordinate mapping:
+    self.assertEqual(inversion2.afterToBeforeS(0), 3,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion2.afterToBeforeS(3), 0,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion2.afterToBeforeS(4), 5,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion2.afterToBeforeS(17), 18,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion2.afterToBeforeS(18), 19,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion2.afterToBeforeS(19), 4,
+                     'intergene breakpoint mismap')
+
+      #Total coordinate mapping:
+    self.assertEqual(inversion2.afterToBeforeT(0), 9,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion2.afterToBeforeT(3), 6,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion2.afterToBeforeT(6), 3,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion2.afterToBeforeT(4), 5,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion2.afterToBeforeT(21), 22,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion2.afterToBeforeT(28), 29,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion2.afterToBeforeT(29), 30,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inversion2.afterToBeforeT(30), 9,
+                     'intergene breakpoint mismap')
+
+
   # TANDEM DUPLICATIONS - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   def test_tandemdup_1(self):
     ch = self.genome.chromosomes[0]
@@ -623,6 +725,7 @@ class TestEvent(unittest.TestCase):
                      'intergene breakpoint mismap')
     self.assertEqual(tdup.afterToBeforeS(17), 11,
                      'intergene breakpoint mismap')
+
 
   def test_tandemdup_2RIGHT(self):
     self.setUp(TEST_GENOME_18_6)
@@ -675,6 +778,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(tdup.afterToBeforeT(23), 16,
                      'intergene breakpoint mismap')
 
+
   def test_tandemdup_2LEFT(self):
     self.setUp(TEST_GENOME_18_6)
 
@@ -710,6 +814,7 @@ class TestEvent(unittest.TestCase):
                      'intergene breakpoint mismap')
     self.assertEqual(tdup.afterToBeforeS(16), 11,
                      'intergene breakpoint mismap')
+
 
   def test_tandemdup_3(self):
     ch = self.genome.chromosomes[0]
@@ -796,6 +901,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(loss.afterToBeforeT(19), 30,
                      'intergene breakpoint mismap')
 
+
   def test_loss_1P(self):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
@@ -842,6 +948,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(loss.afterToBeforeT(30), 30,
                      'intergene breakpoint mismap')
 
+
   def test_loss_2(self):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
@@ -867,6 +974,7 @@ class TestEvent(unittest.TestCase):
                      'intergene breakpoint mismap')
     self.assertEqual(loss.afterToBeforeT(12), 12,
                      'intergene breakpoint mismap')
+
 
   def test_loss_2P(self):
     ch = self.genome.chromosomes[0]
@@ -965,6 +1073,7 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(trans.afterToBeforeT(28), 28,
                      'intergene breakpoint mismap')
 
+
   def test_transposition2(self):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
@@ -1012,6 +1121,7 @@ class TestEvent(unittest.TestCase):
                      'intergene breakpoint mismap')
     self.assertEqual(trans.afterToBeforeT(25), 25,
                      'intergene breakpoint mismap')
+
 
   def test_transposition3(self):
     ch = self.genome.chromosomes[0]
@@ -1116,6 +1226,7 @@ class TestEvent(unittest.TestCase):
 
     return donor, donorlineage, receptor, receptorlineage
 
+
   def test_transfer1(self):
     self.setUp(TEST_GENOME_18_6)
     donor, donorlineage, receptor, receptorlineage = self.transferSetUp()
@@ -1149,6 +1260,7 @@ class TestEvent(unittest.TestCase):
                      'intergene breakpoint mismap')
     self.assertEqual(trans.afterToBeforeT_lineage(26), (receptorlineage, 14),
                      'intergene breakpoint mismap')
+
 
   def test_transfer2(self):
     self.setUp(TEST_GENOME_18_6)
