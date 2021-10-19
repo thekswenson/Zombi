@@ -671,6 +671,7 @@ class GenomeSimulator():
                                                    self.parameters["RATE_FILE"] != "False")
                 chromosome.genes.append(gene)
                 self.all_gene_families[str(self.gene_families_counter)] = gene_family
+                gene_family = gene.orientation
 
                 prev_feature = feature
 
@@ -1950,6 +1951,8 @@ class GenomeSimulator():
 
         gene_family = GeneFamily(gene_family_id, time)
         gene_family.length = int(af.obtain_value(self.parameters["GENE_LENGTH"]))
+        gene_family.initial_orientation = gene.orientation
+        
         gene.length = gene_family.length
 
         gene_family.genes.append(gene)
@@ -1977,6 +1980,7 @@ class GenomeSimulator():
                                     lineage, time) -> Gene:
 
         gene, _ = self.make_origination(lineage, time)
+        
         location = chromosome.return_location_by_coordinate(c, within_intergene=True)
         chromosome.insert_gene_within_intergene(c, location, gene)
  
@@ -3838,8 +3842,10 @@ class GenomeSimulator():
                 parent_id = original_piece.identity            
                 new_id1 = self.all_division_families[division_family].obtain_new_identifier()
                 new_id2 = self.all_division_families[division_family].obtain_new_identifier()            
+                
                 original_piece.identity = new_id1
-                duplicated_piece.identity = new_id2                
+                duplicated_piece.identity = new_id2        
+
                 self.all_division_families[division_family].register_event(str(time), "D", ";".join(map(str,[lineage, parent_id, lineage, new_id1, lineage, new_id2])))
             
             else:
@@ -3905,7 +3911,8 @@ class GenomeSimulator():
                 new_id1 = self.all_division_families[division_family].obtain_new_identifier()
                 new_id2 = self.all_division_families[division_family].obtain_new_identifier()            
                 original_piece.identity = new_id1
-                transferred_piece.identity = new_id2                
+                transferred_piece.identity = new_id2     
+                           
                 self.all_division_families[division_family].register_event(str(time), "T", ";".join(map(str,[donor_lineage, parent_id, donor_lineage, new_id1, recipient_lineage, new_id2]))) 
                 
             
@@ -4124,10 +4131,9 @@ class GenomeSimulator():
         gene.length = event.genelen
         gene_family_id = event.gene_family
         gene.gene_family = gene_family_id
+
+        gene.orientation = self.all_gene_families[gene.gene_family].initial_orientation 
         
-        gene.determine_orientation() # FIX need to use the same orientation that the gene had
-                                     # In the forward run. 
-            
         for piece in itertools.cycle(chromosome.pieces):               
             pfL, pfR = piece.total_flanking
             if pfR == tc: 

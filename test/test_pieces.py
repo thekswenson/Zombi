@@ -113,13 +113,13 @@ class TestDuplications(unittest.TestCase):
      
       print("TEST")
      
-      event1 = ("G", 0.11, "L", "Root", (7, 9, RIGHT))
-      event2 = ("G", 0.12, "L", "Root", (13, 15, RIGHT))
-      event3 = ("G", 1.32, "T", "n1", (17, 20, 1, RIGHT, "n2"))
-      event4 = ("G", 1.33, "T", "n1", (16, 0, 1, RIGHT, "n2"))
-      event5 = ("G", 1.34, "L", "n2", (5, 32, RIGHT))
-      event6 = ("G", 1.345, "L", "n1", (15, 3, RIGHT))
-      event7 = ("G", 1.346, "T", "n2", (1, 5, 22, RIGHT, "n1"))
+      event1 = ("G", 0.11, "O", "Root", (7, RIGHT))
+      event2 = ("G", 1.312, "I", "n1", (13, 15, RIGHT))
+      #event3 = ("G", 1.32, "T", "n1", (17, 20, 1, RIGHT, "n2"))
+      #event4 = ("G", 1.33, "T", "n1", (16, 0, 1, RIGHT, "n2"))
+      #event5 = ("G", 1.34, "L", "n2", (5, 32, RIGHT))
+      #event6 = ("G", 1.345, "L", "n1", (15, 3, RIGHT))
+      #event7 = ("G", 1.346, "T", "n2", (1, 5, 22, RIGHT, "n1"))
       #event7 = ("G", 1.346, "I", "n2", (15, 20, RIGHT))
       
 
@@ -129,27 +129,27 @@ class TestDuplications(unittest.TestCase):
 
       self.gss = GenomeSimulator(params, events_file, "test/30_6.gff")
       #self.gss.run_f_debug([event1, event2, event3, event4, event5, event6, event7]) 
-      self.gss.run_f_debug([event1, event2, event3, event4, event5, event6, event7]) 
       #self.gss.run_f_debug([event1, event2, event3, event4, event5, event6, event7]) 
-      #self.gss.run_f_debug([event1,event2, event3, event4]) 
+      #self.gss.run_f_debug([event1, event2, event3, event4, event5, event6, event7]) 
+      self.gss.run_f_debug([event1,event2, ]) 
       #
       self.gss.obtain_divisions() 
       self.gss.obtain_events_for_divisions()
      
-      for i in range(100000):
+      for i in range(10000):
 
         self.gss = GenomeSimulator(params, events_file, "test/30_6.gff")
         self.gss.run_f() 
          
         events = self.gss.return_all_events()
         self.gss.obtain_divisions() 
-        self.gss.obtain_events_for_divisions()
         
-        #try:
-            #self.gss.obtain_events_for_divisions()
+        
+        try:
+            self.gss.obtain_events_for_divisions()
 
-        if False:
-        #except:
+        except:
+        
       
           with open("./TempEvents.txt", "w") as f:
             for event in events:
