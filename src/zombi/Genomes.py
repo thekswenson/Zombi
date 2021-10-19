@@ -467,6 +467,8 @@ class Division():
         self.length = None
         self.species = ""
 
+        self.initial_sequence = None # The initial seuquence if the gene comes from a pseudogenization
+
     def change_sense(self):
 
         if self.orientation == "+":
@@ -873,7 +875,7 @@ class Chromosome():
             if piece.ptype == "Gene":
                 print(piece.ptype, piece.total_flanking, piece.length, piece.orientation, piece.gene_family) # I should change the name to only Family
             else:
-                print(piece.ptype, piece.total_flanking, piece.length, piece.orientation, piece.division_family, piece.specific_flanking) 
+                print(piece.ptype, piece.total_flanking, piece.length, piece.orientation, piece.division_family, piece.specific_flanking, piece.initial_sequence) 
 
     def update_coordinates(self):
 

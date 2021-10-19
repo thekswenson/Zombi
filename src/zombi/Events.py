@@ -764,24 +764,30 @@ class Loss(EventTwoCuts):
             genes_at_beginning = False
 
             for gene in self.pseudo_gene_list: 
+                lf, rf = gene.total_flanking
+            
+
+            for gene in self.pseudo_gene_list: 
 
                 lf, rf = gene.total_flanking
 
-                # Mira si el gen ha cambiado de sitio en el cromosoma
-                # Son los genes al princpio del cromosoma los que cambian de sitio
-                # Si no es así, restale simplemente el factor adjustment
-                # Si si es asi, tienes que hacer una operación con la longitud del cromosoma
                 
                 if lf == 0: # If the left flanking is 0, then we are dealing with genes at the beginning 
                     
                     genes_at_beginning = True
 
                 if genes_at_beginning:
-
+                    
+                    
+                    
                     if (lf - self.adjustment_factor + self.twraplen) < tc and (rf - self.adjustment_factor + self.twraplen) > tc: 
+                        
                         return gene, tc - (self.twraplen - (self.adjustment_factor - lf))
                 else:
-                    if (lf - self.adjustment_factor) < tc and (rf - self.adjustment_factor) > tc:                        
+                    
+                    
+                    if (lf - self.adjustment_factor) < tc and (rf - self.adjustment_factor) > tc:  
+                                              
                         return gene, tc - (lf - self.adjustment_factor)
                 
             for intergene in self.pseudo_intergene_list:  
