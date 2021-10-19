@@ -47,6 +47,7 @@ class GeneFamily():
         self.length = 0
 
         self.rates = dict() # Only in Gm mode
+        self.initial_orientation = "" # The initial orientation of the family
 
 
     def register_event(self, time, event, genes):
@@ -574,6 +575,7 @@ class DivisionFamily():
         self.events = list()
         self.gene_ids_counter = 1
         self.initial_flanking  = initial_specific_flanking
+        self.initial_orientation = None
 
     def register_event(self, time, event, divisions):
         self.events.append((time, event, divisions))

@@ -152,7 +152,7 @@ class Origination(EventOneCut):
     afterR: Interval
         the right intergenic interval after the cut
     """
-    def __init__(self, interval: Interval, sbp: int, genelen:int, gene_family:int, 
+    def __init__(self, interval: Interval, sbp: int, genelen:int, gene_family:int, orientation:str, 
                  lineage: str, time: float):
         """
         Create an Origination event.
@@ -167,6 +167,8 @@ class Origination(EventOneCut):
             the length of the inserted gene
         gene_family: int
             the family id
+        orientation: str
+            + or -
         lineage: str
             the lineage on which the event happened (pendant node name)
         time: float
@@ -178,6 +180,8 @@ class Origination(EventOneCut):
         self.afterR: Interval = None
         self.genelen = genelen
         self.gene_family = gene_family
+
+        self.initial_orientation = orientation
 
         self.setAfter()
 

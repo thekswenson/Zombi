@@ -1223,7 +1223,7 @@ class GenomeSimulator():
                 if event == "D":
 
                     lineage = nodes
-                    ch = self.all_genomes[lineage].chromosomes[0] # FIX. The function does not really need ch
+                    ch = self.all_genomes[lineage].chromosomes[0] 
                     self.update_genome_indices(lineage)
 
                     self.make_duplication_within_intergene(ch, c1, c2, d, lineage, time)
@@ -1249,7 +1249,6 @@ class GenomeSimulator():
                         pseudo = True
 
                     ch = self.all_genomes[lineage].chromosomes[0]
-                    pseudo = True # FIX
                     self.update_genome_indices(lineage)
                     self.make_loss_intergenic(ch, c1, c2, d, lineage, time, pseudo)
                     
@@ -1258,7 +1257,7 @@ class GenomeSimulator():
 
                     lineage = nodes
                     self.update_genome_indices(lineage)
-                    ch = self.all_genomes[lineage].chromosomes[0] # FIX. The function does not really need ch
+                    ch = self.all_genomes[lineage].chromosomes[0] 
 
                     self.make_inversion_intergenic(ch, c1, c2, d, lineage, time)
 
@@ -1276,8 +1275,6 @@ class GenomeSimulator():
                     lineage = nodes
                     self.update_genome_indices(lineage)
                     ch = self.all_genomes[lineage].chromosomes[0]
-                    intergene_coordinate = ch.select_random_coordinate_in_intergenic_regions() # FIX
-
                     self.make_origination_intergenic(ch,c1,lineage, time)
 
 
@@ -1982,8 +1979,8 @@ class GenomeSimulator():
         gene, _ = self.make_origination(lineage, time)
         location = chromosome.return_location_by_coordinate(c, within_intergene=True)
         chromosome.insert_gene_within_intergene(c, location, gene)
-
-        orig = Origination(location, c, gene.length, gene.gene_family, lineage, time)
+ 
+        orig = Origination(location, c, gene.length, gene.gene_family, gene.orientation, lineage, time)
         chromosome.event_history.append(orig)
 
         return gene
@@ -2917,16 +2914,10 @@ class GenomeSimulator():
 
         # Before continuing, we need to verify that the event does not make the 
         # genome smaller than the minimum size allowed FIX --> This should be a parameter
-        #
-        #print(d)
-        #print(len(chromosome.genes) - len(segment))
-        #print(chromosome.genes)
-
-        #print(segment)
+        
+    
         if len(chromosome.genes) <= len(segment):
-            
-            #print(len(chromosome.genes) - len(segment))
-
+            # The event does not occur
             return False
         
         # We need the adjustment factor if the event wraps,
@@ -2971,10 +2962,6 @@ class GenomeSimulator():
         if pseudo:
             pseudo_intergenes = intergene_segment
             pseudo_genes = segment
-
-        pseudo = True # Fix
-        
-        #print("printing intergene segment", intergene_segment[0].total_flanking)
 
         loss = Loss(int1, int2, c1, c2, specificlen, totallen, lineage, time,
                     pseudo, pseudo_intergenes, pseudo_genes, adjustment_factor)
@@ -3704,8 +3691,6 @@ class GenomeSimulator():
 
                 if piece.ptype == "Divi":
 
-                    # I could save quite a few lines here doing a deep copy FIX
-
                     division = piece
 
                     # If the piece is a division, I need to keep track also of the identity within the gene family
@@ -3745,9 +3730,9 @@ class GenomeSimulator():
                     ch1.pieces.append(division1)
                     ch2.pieces.append(division2)
         
-        ch1.update_coordinates()   # FIX it suffices changing specific2total to an independent function
+        ch1.update_coordinates()   
         ch1.update_specific_coordinates()
-        ch2.update_coordinates()   # FIX it suffices changing specific2total to an independent function
+        ch2.update_coordinates()   
         ch2.update_specific_coordinates()
  
 
@@ -3811,7 +3796,7 @@ class GenomeSimulator():
                 break
             
             if index >= 2 * len(chromosome.pieces) + 1: # FIX This is here just for debugging purposes
-                raise("Error")
+                raise(Exception('Piece index cannot be found "{tcL, tcR}"'))
 
         return pieces_affected, indexes_affected, wrapping
 
@@ -3998,8 +3983,9 @@ class GenomeSimulator():
 
                         self.division_fam_id += 1
 
-                        division_family = DivisionFamily(self.division_fam_id, (0,0)) # FIX
-                        division_family.register_event(time, "O", lineage) # We register the origination. We need to register also the gene that is lost FIX
+                        division_family = DivisionFamily(self.division_fam_id, (0,0)) 
+                        division_family.initial_orientation = piece.orientation
+                        division_family.register_event(time, "O", lineage) # We register the origination. 
                         division = Division("1", self.division_fam_id, (0,0))
                         division.length = cut2 - cut1
                         division.total_flanking = (piece.total_flanking[0] + cut1, piece.total_flanking[0] + cut2)
