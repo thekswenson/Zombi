@@ -9,8 +9,8 @@
 ##
 #
 DUPLICATION f:0
-TRANSFER f:1
-LOSS f:1
+TRANSFER f:5
+LOSS f:0.6
 #
 ## The next three events use always genome-wise rates
 #

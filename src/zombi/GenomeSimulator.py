@@ -2811,14 +2811,12 @@ class GenomeSimulator():
 
         # We insert in the same place
 
-        position = gpositions[-1] + 1
-
-        for i, gene in enumerate(copied_segment1):
-            donorchrom.genes.insert(position + i, gene)
+        for old_gene, new_gene in zip(segment, copied_segment1):
+            insert = (donorchrom.genes).index(old_gene)
+            (donorchrom.genes).pop(insert)
+            (donorchrom.genes).insert(insert, new_gene)
 
         # We remove the old copies:
-
-        donorchrom.remove_segment(segment)
 
         # Normal transfer
 

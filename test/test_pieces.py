@@ -119,7 +119,7 @@ class TestDuplications(unittest.TestCase):
       event4 = ("G", 1.33, "T", "n1", (16, 0, 1, RIGHT, "n2"))
       event5 = ("G", 1.34, "L", "n2", (5, 32, RIGHT))
       event6 = ("G", 1.345, "L", "n1", (15, 3, RIGHT))
-      #event7 = ("G", 1.346, "T", "n2", (1, 5, 22, RIGHT, "n1"))
+      event7 = ("G", 1.346, "T", "n2", (1, 5, 22, RIGHT, "n1"))
       #event7 = ("G", 1.346, "I", "n2", (15, 20, RIGHT))
       
 
@@ -129,14 +129,14 @@ class TestDuplications(unittest.TestCase):
 
       self.gss = GenomeSimulator(params, events_file, "test/30_6.gff")
       #self.gss.run_f_debug([event1, event2, event3, event4, event5, event6, event7]) 
-      self.gss.run_f_debug([event1, event2, event3, event4]) 
+      self.gss.run_f_debug([event1, event2, event3, event4, event5, event6, event7]) 
       #self.gss.run_f_debug([event1, event2, event3, event4, event5, event6, event7]) 
       #self.gss.run_f_debug([event1,event2, event3, event4]) 
       #
       self.gss.obtain_divisions() 
       self.gss.obtain_events_for_divisions()
      
-      for i in range(00000):
+      for i in range(100000):
 
         self.gss = GenomeSimulator(params, events_file, "test/30_6.gff")
         self.gss.run_f() 
