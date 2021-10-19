@@ -1710,7 +1710,7 @@ class GenomeSimulator():
         if event == "D":
 
             self.make_duplication_within_intergene(ch, c1, c2, d, lineage, time)
-            print(c1, c2, "D", lineage, time)
+            
             return "D", lineage
 
         elif event == "T":
@@ -1757,17 +1757,11 @@ class GenomeSimulator():
                 pseudo = True
 
             success = self.make_loss_intergenic(ch, c1, c2, d, lineage, time, pseudo)
-
-            if success == True:
-                print(c1, c2, "L", lineage, time, d)
-                    
-
             return "L", lineage # FIX (Do I need to resend this? Some events are not happening)
 
         elif event == "I":
 
             self.make_inversion_intergenic(ch, c1, c2, d, lineage, time)
-            print(c1, c2, "I", lineage, time, d)
 
             return "I", lineage
 
@@ -1989,7 +1983,7 @@ class GenomeSimulator():
         location = chromosome.return_location_by_coordinate(c, within_intergene=True)
         chromosome.insert_gene_within_intergene(c, location, gene)
 
-        orig = Origination(location, c, gene.length, lineage, time)
+        orig = Origination(location, c, gene.length, gene.gene_family, lineage, time)
         chromosome.event_history.append(orig)
 
         return gene
@@ -2921,9 +2915,6 @@ class GenomeSimulator():
         segment = chromosome.obtain_segment(gpositions)
         intergene_segment = chromosome.obtain_intergenic_segment(igpositions[1:])
 
-        
-
-
         # Before continuing, we need to verify that the event does not make the 
         # genome smaller than the minimum size allowed FIX --> This should be a parameter
         #
@@ -2980,10 +2971,6 @@ class GenomeSimulator():
         if pseudo:
             pseudo_intergenes = intergene_segment
             pseudo_genes = segment
-            print("***")
-            for gene in pseudo_genes:
-
-                print("Pseudogenize genes are", gene.gene_family)
 
         pseudo = True # Fix
         
@@ -3444,7 +3431,7 @@ class GenomeSimulator():
                             pass
                         
                         if type(piece) == Gene:
-                            print("Now the cut is %s" % cut)
+                            #print("Now the cut is %s" % cut)
                             return False, cut, event2             
                         else:
                             pass
@@ -3453,6 +3440,7 @@ class GenomeSimulator():
 
                 else:
                     cut = event2.afterToBeforeS(cut)
+                
                     
              
             if finished == False and adjust_index == False: # Adjust index is true only when there has been a change
@@ -3510,7 +3498,7 @@ class GenomeSimulator():
                 #print("We start with cut %s and propagate to cut %s" % (cut, propagated_cut))
 
                 if until_the_beginning == True:
-                    print("Cut successfuly propagated", cut, "--->",propagated_cut, "Event:", event1.etype)
+                    #print("Cut successfuly propagated", cut, "--->",propagated_cut, "Event:", event1.etype)
                     initial_cuts.add(propagated_cut)
 
                 else:
@@ -3525,7 +3513,7 @@ class GenomeSimulator():
                         self.gene2pseudogenecuts[gene_name] = set()
                     self.gene2pseudogenecuts[gene_name].add(cut_within_gene)
 
-                    print("Cut successfuly propagated within Gene", cut, "--->",cut_within_gene, "Event:", event1.etype, "Gene", gene_name)
+                    #print("Cut successfuly propagated within Gene", cut, "--->",cut_within_gene, "Event:", event1.etype, "Gene", gene_name)
                         
                     
 
@@ -3994,8 +3982,8 @@ class GenomeSimulator():
 
                     cuts = {0, piece.length}
 
-                    print("The cuts in the gene are", self.gene2pseudogenecuts)
-                    print(gene_name)
+                    #print("The cuts in the gene are", self.gene2pseudogenecuts)
+                    #print(gene_name)
                     
                     if gene_name in self.gene2pseudogenecuts:
                         cuts = cuts.union(self.gene2pseudogenecuts[gene_name])
@@ -4148,23 +4136,30 @@ class GenomeSimulator():
         tc = event.interval.specificToTotal(event.sbp)
         gene.species = lineage
         gene.length = event.genelen
+        gene_family_id = event.gene_family
+        gene.gene_family = gene_family_id
         
         gene.determine_orientation() # FIX need to use the same orientation that the gene had
-                                     # In the forward run. This is relevant for transfers
-                                     # with replacement when looking at homologous regions
+                                     # In the forward run. 
             
         for piece in itertools.cycle(chromosome.pieces):               
             pfL, pfR = piece.total_flanking
             if pfR == tc: 
                 insert_after_this_piece = piece
                 break
+
+        gene_family = GeneFamily(event.gene_family, time)
+        gene_family.length = int(gene.length)
+        gene_family.genes.append(gene)
+        gene.gene_id = gene_family.obtain_new_gene_id()
+
+        self.gene_families_second[gene_family_id] = gene_family
+        self.gene_families_second[gene.gene_family].register_event(str(time), "O", lineage)
         
         # We insert the pieces
 
         insert_index = chromosome.pieces.index(insert_after_this_piece) + 1 
-        
         chromosome.pieces.insert(insert_index, gene)
-    
         chromosome.update_specific_coordinates()
         chromosome.update_coordinates()
         

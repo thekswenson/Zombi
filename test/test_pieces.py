@@ -143,10 +143,13 @@ class TestDuplications(unittest.TestCase):
          
         events = self.gss.return_all_events()
         self.gss.obtain_divisions() 
+        self.gss.obtain_events_for_divisions()
         
-        try:
-            self.gss.obtain_events_for_divisions()
-        except:
+        #try:
+            #self.gss.obtain_events_for_divisions()
+
+        if False:
+        #except:
       
           with open("./TempEvents.txt", "w") as f:
             for event in events:
@@ -170,7 +173,7 @@ class TestDuplications(unittest.TestCase):
           break
 
       
-      print(self.gss.all_genomes["n1"])
+      #print(self.gss.all_genomes["n1"])
       
       print("****")
       for ch in self.gss.all_genomes_second["n1"]:

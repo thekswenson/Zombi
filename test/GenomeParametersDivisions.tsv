@@ -8,15 +8,15 @@
 ## Rates represent the frequency (and fixation probability) of the different events measure in time units (see your Species Tree)
 ##
 #
-DUPLICATION f:0
-TRANSFER f:5
-LOSS f:0.6
+DUPLICATION f:2
+TRANSFER f:2
+LOSS f:2
 #
 ## The next three events use always genome-wise rates
 #
-INVERSION f:0
-TRANSPOSITION f:0
-ORIGINATION f:0
+INVERSION f:2
+TRANSPOSITION f:2
+ORIGINATION f:1
 #
 ## Extensions. Extensions determine how many contiguous genes are affected by a single event
 #
