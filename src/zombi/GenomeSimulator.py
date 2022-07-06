@@ -559,10 +559,8 @@ class GenomeSimulator():
 
             if shape == "L":
                 chromosome = LinearChromosome(0)
-                chromosome.shape = "L"
             elif shape == "C":
                 chromosome = CircularChromosome()
-                chromosome.shape = "C"
             else:
                 raise(Exception('unexpected chromosome shape'))
 
@@ -656,10 +654,9 @@ class GenomeSimulator():
         chromosome: Union[LinearChromosome, CircularChromosome]
         if shape == "L":
             chromosome = LinearChromosome(chrom_len)
-            chromosome.shape = "L"
-        elif shape == "C":
+        else:
+            assert shape == "C"
             chromosome = CircularChromosome(num_nucleotides=chrom_len)
-            chromosome.shape = "C"
 
             #Create the genes:
         prev_feature = None     #previous feature used to make a gene
@@ -685,8 +682,8 @@ class GenomeSimulator():
                 chromosome.intergenes.append(Intergene(chromosome.genes[0].start))
 
             for gene1, gene2 in af.pairwise(chromosome.genes):
-                assert gene2.start >= gene1.end
-                chromosome.intergenes.append(Intergene(gene2.start - gene1.end))
+                assert gene2.start >= gene1.end     #type: ignore
+                chromosome.intergenes.append(Intergene(gene2.start - gene1.end)) #type: ignore
 
             if shape == "L":        #after the last gene
                 intergene = Intergene(chrom_len - chromosome.genes[-1].end)
@@ -2015,14 +2012,11 @@ class GenomeSimulator():
             if shape == "C":
                 ch1 = CircularChromosome()
                 ch2 = CircularChromosome()
-                ch1.shape = "C"
-                ch2.shape = "C"
 
-            elif shape == "L":
+            else:
+                assert shape == "L"
                 ch1 = LinearChromosome()
                 ch2 = LinearChromosome()
-                ch1.shape = "L"
-                ch2.shape = "L"
 
             genome1.chromosomes.append(ch1)
             genome2.chromosomes.append(ch2)
@@ -3243,12 +3237,12 @@ class GenomeSimulator():
         self.all_gene_families[myedge[0].split("_")[0]].register_event(str(time), "RM", ";".join([lineage, myedge[0], myedge[1]]))
 
 
-    def get_gene_family_tree(self):
+    #def get_gene_family_tree(self):
 
-        if len(self.gene_family["Gene_tree"].get_leaves()) < 3:
-            return "None"
-        else:
-            return self.gene_family["Gene_tree"].write(format=1)
+    #    if len(self.gene_family["Gene_tree"].get_leaves()) < 3:
+    #        return "None"
+    #    else:
+    #        return self.gene_family["Gene_tree"].write(format=1)
 
 
     def select_advanced_length(self, lineage: str, p: float, reps=100,

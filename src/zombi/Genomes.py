@@ -409,9 +409,10 @@ class Gene():
         self.active = True
         self.orientation = ""
         self.gene_family = "" # FIX this variable should have the same name that the division one
-        self.gene_id = ""  # FIX this variable should have the same name that the division one
+        self.gene_id = -1  # FIX this variable should have the same name that the division one
         self.sequence = ""
         self.species = ""
+        self.gene_family = ""
         self.importance = 0
         self.length = 0
         self.start: int              #: pythonic (inclusive start, 0 indexed)
@@ -1383,6 +1384,9 @@ class Chromosome():
                                                            interactome):
         raise(NotImplementedError)
 
+    def get_homologous_position(self, segment):
+        raise(NotImplementedError)
+
 
 ChromosomeType = TypeVar('ChromosomeType', bound=Chromosome)
 class CircularChromosome(Chromosome):
@@ -1880,7 +1884,8 @@ class CircularChromosome(Chromosome):
 
 class LinearChromosome(Chromosome):
 
-    def __init__(self, size):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         raise(NotImplementedError)
 
 
