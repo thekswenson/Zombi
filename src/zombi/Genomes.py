@@ -1,7 +1,8 @@
+import itertools
 import random
 import ete3
 from functools import reduce
-from typing import List, Tuple, Optional, TypeVar
+from typing import List, Tuple, Optional, TypeVar, Union
 
 import numpy
 
@@ -277,7 +278,7 @@ class GeneFamily():
         for current_time, event, nodes in self.events[1:]:
 
             elapsed_time = float(current_time) - elapsed_time
-            active_nodes = [x for x in tree.get_leaves() if x.is_active == True]
+            active_nodes = [x for x in tree.get_leaves() if x.is_active == True]    #type: ignore
             for node in active_nodes:
                 node.dist += elapsed_time
             elapsed_time = float(current_time)
@@ -346,7 +347,7 @@ class GeneFamily():
                 break
 
         complete_tree = tree.write(format=1, format_root_node=True)
-        active_nodes = [x for x in tree.get_leaves() if x.is_active == True]
+        active_nodes = [x for x in tree.get_leaves() if x.is_active == True]    #type: ignore
 
         if len(active_nodes) < 3:
             pruned_tree = None
@@ -413,10 +414,10 @@ class Gene():
         self.species = ""
         self.importance = 0
         self.length = 0
-        self.start: int = None       #: pythonic (inclusive start, 0 indexed)
-        self.end: int = None         #: pythonic (non-inclusive end)
-        self.total_flanking: T_PAIR = None      #: not pythonic (both inclusive)
-        self.specific_flanking: T_PAIR = None   #: not pythonic (both inclusive)
+        self.start: int              #: pythonic (inclusive start, 0 indexed)
+        self.end: int                #: pythonic (non-inclusive end)
+        self.total_flanking: T_PAIR         #: not pythonic (both inclusive)
+        self.specific_flanking: T_PAIR      #: not pythonic (both inclusive)
         self.ptype = "Gene" # For debugging purposes
 
     def determine_orientation(self):
@@ -462,8 +463,10 @@ class Division():
         self.orientation = "+"
         self.identity = identity # Specific identifier of this division
         self.division_family = division_family # The name of the division family
-        self.specific_flanking: T_PAIR = specific_flanking   #: not pythonic (both inclusive)
-        self.total_flanking = None
+        self.specific_flanking: T_PAIR
+        if specific_flanking:
+            self.specific_flanking = specific_flanking   #: not pythonic (both inclusive)
+        self.total_flanking: T_PAIR
         self.ptype = "Divi" # Piece type, for debugging purposes
         self.length = None
         self.species = ""
@@ -511,8 +514,8 @@ class Intergene():
         else:
             self.length = 0
 
-        self.total_flanking: T_PAIR = None      #: not pythonic (both inclusive)
-        self.specific_flanking: T_PAIR = None   #: not pythonic (both inclusive)
+        self.total_flanking: T_PAIR         #: not pythonic (both inclusive)
+        self.specific_flanking: T_PAIR      #: not pythonic (both inclusive)
         self.id = 0 # Only for debugging purposes
         self.divisions = list() # List containing all the divisions
 
@@ -904,6 +907,7 @@ class Chromosome():
 
         self.specific2total = dict()
 
+        right_bp = 0    #for pylance
         for piece in self.pieces:
     
             if piece.ptype == "Gene":
@@ -1051,7 +1055,7 @@ class Chromosome():
 
 
                 if sum([range1[1], range2[1] - range2[0]]) == 0:
-                    return None
+                    raise(CoordinateChoiceError)
 
                 r = random.choices([range1, range2],
                                    weights=[range1[1], range2[1] - range2[0]])
@@ -1064,14 +1068,13 @@ class Chromosome():
                     return random.randint(self.intergenes[exclude[-1]].sc2 + 1,
                                       self.intergenes[exclude[0]].sc1 - 1)
                 except:
-
-                    return None
+                    raise(CoordinateChoiceError)
 
         t = sum([x.length for x in self.intergenes]) + len(self.intergenes) - 1
         return random.randint(0, t)
 
     def select_random_intergenic_coordinate_excluding(self, c1: int, c2: int,
-                                                      d: T_DIR) -> int:
+                                                      d: T_DIR) -> Union[int, None]:
         """
         Return a random intergenic specific coordinate that does not come from
         the intergenes inside of the interval specified by `c1`, `c2`, and `d`.
@@ -1087,8 +1090,9 @@ class Chromosome():
         d : T_DIR
             the direction {LEFT, RIGHT} to go from `c1`
         """
-        r = self.return_affected_region(c1, c2, d)
-        if r is None:
+        try:
+            r = self.return_affected_region(c1, c2, d)
+        except CoordinateChoiceError:
             return None
 
         igpositions = r[1]
@@ -1190,9 +1194,10 @@ class Chromosome():
         #print(f"Last coordinate is {cut2}")
         raise(Exception(f'no gene or intergene found for coordinate {c}!'))
 
+
     def return_affected_region(self, c1: int, c2: int, direction: T_DIR
-                               ) -> Optional[Tuple[List[int], List[int],
-                                             T_PAIR, T_PAIR, Interval, Interval]]:
+                               ) -> Tuple[List[int], List[int],
+                                          T_PAIR, T_PAIR, Interval, Interval]:
         """
         Return information about the genes and intergenes between the given
         coordinates.
@@ -1244,10 +1249,10 @@ class Chromosome():
         t_length = len(self.intergenes)
 
         if c1 == c2:
-            return None
+            raise(CoordinateChoiceError)
 
         elif p1 == p2:
-            return None
+            raise(CoordinateChoiceError)
 
         elif c1 < c2 and direction == RIGHT:
 
@@ -1297,6 +1302,7 @@ class Chromosome():
 
     def return_rates(self):
 
+        raise(NotImplementedError)
         # NOT WORKING FOR NOW
 
         self.total_rates = 0.0
@@ -1354,11 +1360,29 @@ class Chromosome():
     def invert_segment(self, gpositions):
         raise(NotImplementedError)
 
+    def insert_segment(self, position, segment):
+        raise(NotImplementedError)
+
     def obtain_intergenic_segment(self, affected_intergenes):
         raise(NotImplementedError)
 
     def remove_segment(self, segment):
         raise(NotImplementedError)
+
+    def obtain_affected_genes(self, p_extension) -> List[int]:
+        raise(NotImplementedError)
+
+    def obtain_affected_genes_accounting_for_family_rates(self, p_extension,
+                                                          gene_families, mrate):
+        raise(NotImplementedError)
+
+    def cut_and_paste(self, affected_genes):
+        raise(NotImplementedError)
+
+    def obtain_affected_genes_accounting_for_connectedness(self, p_extension,
+                                                           interactome):
+        raise(NotImplementedError)
+
 
 ChromosomeType = TypeVar('ChromosomeType', bound=Chromosome)
 class CircularChromosome(Chromosome):
@@ -1593,6 +1617,7 @@ class CircularChromosome(Chromosome):
                             # being the same as the intergene breakpoint at -1.
         assert sfirstlen <= tfirstlen and ssecondlen <= tsecondlen
         return sfirstlen, ssecondlen, tfirstlen, tsecondlen
+
 
     def cut_and_paste(self, affected_genes):
 
@@ -1923,3 +1948,7 @@ class Genome():
     def __iter__(self):
         for chromosome in self.chromosomes:
             yield chromosome
+
+
+class CoordinateChoiceError(Exception):
+    pass

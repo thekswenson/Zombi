@@ -13,7 +13,7 @@ import itertools
 
 from . import AuxiliarFunctions as af
 from .Events import Loss, Origination, TandemDup, Inversion, Transfer, Transposition, MapPseudogeneError
-from .Genomes import Chromosome, CircularChromosome, Gene, GeneFamily, Genome, DivisionFamily, Intergene, Division
+from .Genomes import Chromosome, CircularChromosome, CoordinateChoiceError, Gene, GeneFamily, Genome, DivisionFamily, Intergene, Division
 from .Genomes import T_DIR, LEFT, RIGHT, Intergene, LinearChromosome
 
 from Bio.SeqFeature import SeqFeature
@@ -558,11 +558,13 @@ class GenomeSimulator():
         for n_genes in initial_genome_size:
 
             if shape == "L":
-                chromosome = LinearChromosome()
+                chromosome = LinearChromosome(0)
                 chromosome.shape = "L"
             elif shape == "C":
                 chromosome = CircularChromosome()
                 chromosome.shape = "C"
+            else:
+                raise(Exception('unexpected chromosome shape'))
 
             if intergenic_sequences == True:
 
@@ -745,9 +747,9 @@ class GenomeSimulator():
 
         gene.gene_family = str(self.gene_families_counter)
         gene.species = species_tree_node
-        gene.start = gene_feature.location.start
-        gene.end = gene_feature.location.end
-        gene.length = gene.end - gene.start
+        gene.start = gene_feature.location.start    #type: ignore
+        gene.end = gene_feature.location.end        #type: ignore
+        gene.length = gene.end - gene.start         #type: ignore
 
         gene_family = GeneFamily(gene_family_id, time)
         gene_family.length = gene.length
@@ -1244,6 +1246,7 @@ class GenomeSimulator():
                                                   c3, lineage_r, time)
                     
                 elif event == "L":
+
                     lineage = nodes
                     pseudo = False
                     if numpy.random.uniform(0,1) <= float(self.parameters["PSEUDOGENIZATION"]):
@@ -1263,7 +1266,7 @@ class GenomeSimulator():
                     self.make_inversion_intergenic(ch, c1, c2, d, lineage, time)
 
                 elif event == "P":
-                    
+
                     lineage = nodes
                     self.update_genome_indices(lineage)
                     ch = self.all_genomes[lineage].chromosomes[0] 
@@ -1599,9 +1602,10 @@ class GenomeSimulator():
             if  self.parameters["RATE_FILE"] == "False":
                 gene, gene_family = self.make_origination(lineage, time, family_mode=True)
 
-            elif  self.parameters["RATE_FILE"] != "False":
+            else:
                 gene, gene_family = self.make_origination(lineage, time, family_mode=True,
                                                           empirical_rates=True)
+
             chromosome = self.all_genomes[lineage].select_random_chromosome()
             position = chromosome.select_random_position()
             segment = [gene]
@@ -1697,13 +1701,14 @@ class GenomeSimulator():
 
         self.update_genome_indices(lineage)
 
-        r = self.select_advanced_length(lineage, 1/d_e * multiplier)
-
-        if r == None:
+        try: 
+            r = self.select_advanced_length(lineage, 1/d_e * multiplier)
+        except CoordinateChoiceError:
             return None
-        else:    
-            ch, c1, c2, d = r
-            d = RIGHT
+                
+
+        ch, c1, c2, d = r
+        d = RIGHT
 
         if event == "D":
 
@@ -1727,9 +1732,9 @@ class GenomeSimulator():
                 else:
                     recipient = random.choice(possible_recipients)
 
-                r = self.select_advanced_length(lineage, 1/t_e * multiplier)
-
-                if r == None:
+                try: 
+                    r = self.select_advanced_length(lineage, 1/t_e * multiplier)
+                except CoordinateChoiceError:
                     return None
 
                 ch, c1, c2, d = r
@@ -1748,8 +1753,6 @@ class GenomeSimulator():
 
         elif event == "L":
 
-            
-    
             pseudo = False
             if numpy.random.uniform(0,1) <= float(self.parameters["PSEUDOGENIZATION"]):
                 pseudo = True
@@ -2286,12 +2289,9 @@ class GenomeSimulator():
         time : float
             the time stamp of the event
         """
-        
-        chromosome: CircularChromosome = self.all_genomes[lineage].select_random_chromosome()
-        r = chromosome.return_affected_region(c1, c2, d)
-
-
-        if r == None:
+        try:
+            r = chromosome.return_affected_region(c1, c2, d)
+        except CoordinateChoiceError:
             return None
 
 
@@ -2776,14 +2776,13 @@ class GenomeSimulator():
                                  receptorchrom: Chromosome, c3: int,
                                  receptor: str, time: int):
 
-        r = donorchrom.return_affected_region(c1, c2, d)
-
-        if r == None:
+        try:
+            r = donorchrom.return_affected_region(c1, c2, d)
+        except CoordinateChoiceError:
             return None
 
-        else:
-            gpositions, igpositions, leftlengths, rightlengths, int1, int2 = r
-            segment = donorchrom.obtain_segment(gpositions)
+        gpositions, igpositions, leftlengths, rightlengths, int1, int2 = r
+        segment = donorchrom.obtain_segment(gpositions)
 
             # Get lengths from last intergene.
         specificlen = donorchrom.intergenes[-1].specific_flanking[1]
@@ -2906,10 +2905,10 @@ class GenomeSimulator():
     def make_loss_intergenic(self, chromosome, c1, c2, d: T_DIR, lineage, time,
                              pseudo=False):
 
-        r = chromosome.return_affected_region(c1, c2, d)
-
-        if r == None:
-            return False
+        try:
+            r = chromosome.return_affected_region(c1, c2, d)
+        except CoordinateChoiceError:
+            return None
 
         gpositions, igpositions, leftlengths, rightlengths, int1, int2 = r
 
@@ -3065,10 +3064,9 @@ class GenomeSimulator():
         time : float
             the time stamp of the event
         """
-        
-        r = chromosome.return_affected_region(c1, c2, d)
-
-        if r == None:
+        try:
+            r = chromosome.return_affected_region(c1, c2, d)
+        except CoordinateChoiceError:
             return None
 
         gpositions, igpositions, leftlengths, rightlengths, int1, int2 = r
@@ -3119,10 +3117,9 @@ class GenomeSimulator():
 
     def make_transposition_intergenic(self, chromosome: CircularChromosome,
                                       c1, c2, d: T_DIR, c3, lineage, time):
-
-        r = chromosome.return_affected_region(c1, c2, d)
-
-        if r == None:
+        try:
+            r = chromosome.return_affected_region(c1, c2, d)
+        except CoordinateChoiceError:
             return None
 
         gpositions, igpositions, leftlengths, rightlengths, int1, int2 = r
@@ -3305,7 +3302,8 @@ class GenomeSimulator():
                     sc2 = sc1 + extension
                     success = True
 
-            elif d == LEFT:
+            else:
+                assert d == LEFT
 
                 if sc1 - extension < 0:
                     sc2 = intergenic_specific_length - (extension - sc1) + 1
@@ -3317,9 +3315,10 @@ class GenomeSimulator():
 
             if success:
 
-                
                 l1 = chromosome.return_location_by_coordinate(sc1, True)
-                l2 = chromosome.return_location_by_coordinate(sc2, True)
+                l2 = chromosome.return_location_by_coordinate(sc2, True)    #type: ignore
+                if l1 != l2:
+                    return chromosome, sc1, sc2, d
 
                 # Verify that the event covers at least one gene
 
@@ -3336,7 +3335,8 @@ class GenomeSimulator():
                     else:
                         success = False
 
-        return None
+        raise(CoordinateChoiceError)
+
 
     def return_cuts_by_event(self, event):
 
@@ -3449,7 +3449,7 @@ class GenomeSimulator():
         
         all_events = list()
         
-        for node in self.complete_tree.traverse("postorder"):
+        for node in self.complete_tree.traverse("postorder"):   #type: ignore
                 
             genome = self.all_genomes[node.name]                        
             chromosome = genome.chromosomes[0]
@@ -3588,7 +3588,7 @@ class GenomeSimulator():
  
         all_events = list()
         all_events += [("T",x) for x in self.tree_events]
-        for node in self.complete_tree.traverse():
+        for node in self.complete_tree.traverse():          #type: ignore
            genome = self.all_genomes[node.name]           
            for chromosome in genome:
                for event in chromosome.event_history:              
@@ -3602,37 +3602,39 @@ class GenomeSimulator():
        
         for items in sorted(all_events, key=lambda x: float(x[1][0])): # This sorts the events by the time
             
-           # We unpack the events
+            # We unpack the events
  
             if items[0] == "T": # Tree event
                 time, etype, lineages = items[1] # In the case that it is a species level event
+
+                # Species level events
+ 
+                if etype == "S":
+                    self.make_speciation_divisions(time, lineages)
+                if etype == "E":
+                    self.make_extinction_divisions(time, lineages)
+                if etype == "F":               
+                    self.make_end_divisions(time, lineages)
+ 
+
             else:
                 time, event, chromosome = items[1]  # In the case that it is a genome level event
                 etype = event.etype
             
-           # Species level events
+                # Genome level events
  
-            if etype == "S":
-                self.make_speciation_divisions(time, lineages)
-            if etype == "E":
-                self.make_extinction_divisions(time, lineages)
-            if etype == "F":               
-                self.make_end_divisions(time, lineages)
- 
-            # Genome level events
- 
-            if etype == "D":
-                self.make_duplication_divisions(time, event)
-            if etype == "T":
-                self.make_transfer_divisions(time, event)
-            if etype == "L":
-                self.make_loss_divisions(time, event)
-            if etype == "I":
-                self.make_inversion_divisions(time, event)
-            if etype == "P":
-                self.make_transposition_divisions(time, event)
-            if etype == "O":
-                self.make_origination_divisions(time, event)
+                if etype == "D":
+                    self.make_duplication_divisions(time, event)
+                if etype == "T":
+                    self.make_transfer_divisions(time, event)
+                if etype == "L":
+                    self.make_loss_divisions(time, event)
+                if etype == "I":
+                    self.make_inversion_divisions(time, event)
+                if etype == "P":
+                    self.make_transposition_divisions(time, event)
+                if etype == "O":
+                    self.make_origination_divisions(time, event)
 
     
 

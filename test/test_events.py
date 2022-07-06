@@ -15,6 +15,7 @@ GENOME_PARAMS = 'Parameters/GenomeParameters.tsv'
 TEST_FOLDER = 'test/test_output/'
 TEST_GENOME_30_10 = 'test/30_10.gff'  #30 bases, 3 * length-5 genomic/intergenomic pairs
 TEST_GENOME_30_6 = 'test/30_6.gff'  #30 bases, 5 * length-3 genomic/intergenomic pairs
+TEST_GENOME_30_6_MOD = 'test/30_6_mod.gff'  #A modified version of 30_6
 TEST_GENOME_18_6 = 'test/18_6.gff'  #18 bases, 3 * length-3 genomic/intergenomic pairs
 
 class TestEvent(unittest.TestCase):
@@ -510,6 +511,34 @@ class TestEvent(unittest.TestCase):
     self.assertEqual(inversion2.afterToBeforeT(20), 5,
                      'intergene breakpoint mismap')
     self.assertEqual(inversion2.afterToBeforeT(30), 25,
+                     'intergene breakpoint mismap')
+
+
+  def test_inversion_MOD(self):
+    """
+    This tests inversions on the modified 30_6 file.
+    """
+    self.setUp(TEST_GENOME_30_6_MOD)
+    ch = self.genome.chromosomes[0]
+    lineage = self.genome.species
+    self.gss.make_inversion_intergenic(ch, 11, 1, RIGHT, lineage, 0.0)
+    inv1: Inversion = ch.event_history[0]
+
+    self.assertEqual(ch.intergenes[0].length, 7,
+                     'first intergene length mismatch after inversion')
+    self.assertEqual(ch.intergenes[1].length, 0,
+                     'second intergene length mismatch after inversion')
+    self.assertEqual(ch.intergenes[2].length, 4,
+                     'third intergene length mismatch after inversion')
+    self.assertEqual(ch.intergenes[3].length, 2,
+                     'fourth intergene length mismatch after inversion')
+    self.assertEqual(ch.intergenes[4].length, 2,
+                     'fifth intergene length mismatch after inversion')
+
+      #Specific coordinate mapping:
+    self.assertEqual(inv1.afterToBeforeS(8), 4,
+                     'intergene breakpoint mismap')
+    self.assertEqual(inv1.afterToBeforeS(17), 19,
                      'intergene breakpoint mismap')
 
 
@@ -1178,6 +1207,28 @@ class TestEvent(unittest.TestCase):
                      'intergene breakpoint mismap')
     self.assertEqual(trans.afterToBeforeT(30), 6,
                      'intergene breakpoint mismap')
+
+  #def test_transposition_Adri_30_09_21(self):
+  #  """
+  #  This is the degenerate case where a segment is transposed next it itsef,
+  #  in the same intergene as one of it's breakpoints. It will never happen
+  #  in the simulation so we do not properly test it.
+  #  """
+  #  ch = self.genome.chromosomes[0]
+  #  lineage = self.genome.species
+  #  self.gss.make_transposition_intergenic(ch, 15, 5, RIGHT, 12, lineage, 0.0)
+  #  trans: Transposition = ch.event_history[0]
+
+
+  #  self.assertEqual(ch.intergenes[0].length, 3,
+  #                   'first intergene length mismatch after loss')
+  #  self.assertEqual(ch.intergenes[1].length, 0,
+  #                   'second intergene length mismatch after loss')
+  #  self.assertEqual(ch.intergenes[2].length, 3,
+  #                   'third intergene length mismatch after loss')
+  #  self.assertEqual(ch.intergenes[4].length, 6,
+  #                   'fifth intergene length mismatch after loss')
+
 
   # ORIGINATIONS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   def test_origination1(self):
