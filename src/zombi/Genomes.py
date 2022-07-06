@@ -47,6 +47,7 @@ class GeneFamily():
         self.length = 0
 
         self.rates = dict() # Only in Gm mode
+        self.initial_orientation = "" # The initial orientation of the family
 
 
     def register_event(self, time, event, genes):
@@ -467,6 +468,8 @@ class Division():
         self.length = None
         self.species = ""
 
+        self.initial_sequence = None # The initial seuquence if the gene comes from a pseudogenization
+
     def change_sense(self):
 
         if self.orientation == "+":
@@ -572,6 +575,7 @@ class DivisionFamily():
         self.events = list()
         self.gene_ids_counter = 1
         self.initial_flanking  = initial_specific_flanking
+        self.initial_orientation = None
 
     def register_event(self, time, event, divisions):
         self.events.append((time, event, divisions))
@@ -873,7 +877,7 @@ class Chromosome():
             if piece.ptype == "Gene":
                 print(piece.ptype, piece.total_flanking, piece.length, piece.orientation, piece.gene_family) # I should change the name to only Family
             else:
-                print(piece.ptype, piece.total_flanking, piece.length, piece.orientation, piece.division_family, piece.specific_flanking) 
+                print(piece.ptype, piece.total_flanking, piece.length, piece.orientation, piece.division_family, piece.specific_flanking, piece.initial_sequence) 
 
     def update_coordinates(self):
 

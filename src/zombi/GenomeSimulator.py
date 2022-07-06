@@ -538,6 +538,8 @@ class GenomeSimulator():
         new_identifiers = list()
 
         for gene in segment:
+            if gene.ptype != "Gene":
+                continue
             gf = gene.gene_family
             new_id = self.gene_families_second[gf].obtain_new_gene_id()
             new_identifiers.append(new_id)
@@ -669,6 +671,7 @@ class GenomeSimulator():
                                                    self.parameters["RATE_FILE"] != "False")
                 chromosome.genes.append(gene)
                 self.all_gene_families[str(self.gene_families_counter)] = gene_family
+                gene_family = gene.orientation
 
                 prev_feature = feature
 
@@ -1119,6 +1122,7 @@ class GenomeSimulator():
                 if event == "S":
 
                     sp, c1, c2 = nodes.split(";")
+                    
 
                     # First we keep track of the active and inactive genomes
 
@@ -1169,6 +1173,7 @@ class GenomeSimulator():
         # Second, we compute the time to the next event:
 
         all_events = sorted(all_species_tree_events + injected_events, key=lambda x: x[1]) # We put together the two types of events and order by time
+        
 
         for item in all_events:
 
@@ -1202,10 +1207,10 @@ class GenomeSimulator():
 
             else:
                 # If the event is a Genome level event
+                #print(item)
 
                 etype, time, event, nodes, r = item
                 
-
                 if event == "P":
                     c1, c2, c3, d = r
                 elif event == "O":
@@ -1219,8 +1224,9 @@ class GenomeSimulator():
                 if event == "D":
 
                     lineage = nodes
-                    ch = self.all_genomes[lineage].chromosomes[0] # FIX. The function does not really need ch
+                    ch = self.all_genomes[lineage].chromosomes[0] 
                     self.update_genome_indices(lineage)
+
                     self.make_duplication_within_intergene(ch, c1, c2, d, lineage, time)
 
                 elif event == "T":
@@ -1232,6 +1238,8 @@ class GenomeSimulator():
                     self.update_genome_indices(lineage)
                     self.update_genome_indices(lineage_r)
 
+                    
+
                     self.make_transfer_intergenic(ch, c1, c2, d, lineage, chreceptor,
                                                   c3, lineage_r, time)
                     
@@ -1242,17 +1250,15 @@ class GenomeSimulator():
                         pseudo = True
 
                     ch = self.all_genomes[lineage].chromosomes[0]
+                    self.update_genome_indices(lineage)
                     self.make_loss_intergenic(ch, c1, c2, d, lineage, time, pseudo)
+                    
 
                 elif event == "I":
 
                     lineage = nodes
                     self.update_genome_indices(lineage)
-
-                    #for intergene in ch.iter_intergenes():
-                    #    print(intergene)
-
-                    ch = self.all_genomes[lineage].chromosomes[0] # FIX. The function does not really need ch
+                    ch = self.all_genomes[lineage].chromosomes[0] 
 
                     self.make_inversion_intergenic(ch, c1, c2, d, lineage, time)
 
@@ -1270,8 +1276,6 @@ class GenomeSimulator():
                     lineage = nodes
                     self.update_genome_indices(lineage)
                     ch = self.all_genomes[lineage].chromosomes[0]
-                    intergene_coordinate = ch.select_random_coordinate_in_intergenic_regions()
-
                     self.make_origination_intergenic(ch,c1,lineage, time)
 
 
@@ -1693,17 +1697,18 @@ class GenomeSimulator():
 
         self.update_genome_indices(lineage)
 
+        r = self.select_advanced_length(lineage, 1/d_e * multiplier)
+
+        if r == None:
+            return None
+        else:    
+            ch, c1, c2, d = r
+            d = RIGHT
+
         if event == "D":
 
-            r = self.select_advanced_length(lineage, 1/d_e * multiplier)
-            if r == None:
-                return None
-            else:
-                
-                ch, c1, c2, d = r
-                
-                self.make_duplication_within_intergene(ch, c1, c2, d, lineage, time)
-
+            self.make_duplication_within_intergene(ch, c1, c2, d, lineage, time)
+            
             return "D", lineage
 
         elif event == "T":
@@ -1714,7 +1719,6 @@ class GenomeSimulator():
             possible_recipients = [x for x in self.active_genomes if x != lineage]
 
             if len(possible_recipients) > 0:
-
                 donor = lineage
                 if self.parameters["ASSORTATIVE_TRANSFER"] == "True":
                     recipient = self.choose_assortative_recipient(time, possible_recipients, donor)
@@ -1734,8 +1738,6 @@ class GenomeSimulator():
                 chreceptor.obtain_locations()
                 c3 = chreceptor.select_random_coordinate_in_intergenic_regions()
 
-                
-
                 self.make_transfer_intergenic(ch, c1, c2, d, donor, chreceptor,
                                               c3, recipient, time)
 
@@ -1746,39 +1748,24 @@ class GenomeSimulator():
 
         elif event == "L":
 
-            r = self.select_advanced_length(lineage, 1/l_e * multiplier)
+            
+    
+            pseudo = False
+            if numpy.random.uniform(0,1) <= float(self.parameters["PSEUDOGENIZATION"]):
+                pseudo = True
 
-            if r == None:
-                return None
-            else:
-                ch, c1, c2, d = r
-                pseudo = False
-                if numpy.random.uniform(0,1) <= float(self.parameters["PSEUDOGENIZATION"]):
-                    pseudo = True
-                self.make_loss_intergenic(ch, c1, c2, d, lineage, time, pseudo)
-
-            return "L", lineage
+            success = self.make_loss_intergenic(ch, c1, c2, d, lineage, time, pseudo)
+            return "L", lineage # FIX (Do I need to resend this? Some events are not happening)
 
         elif event == "I":
 
-            r = self.select_advanced_length(lineage, 1/i_e * multiplier)
-
-            if r == None:
-                return None
-            else:
-                ch, c1, c2, d = r
-                self.make_inversion_intergenic(ch, c1, c2, d, lineage, time)
+            self.make_inversion_intergenic(ch, c1, c2, d, lineage, time)
 
             return "I", lineage
 
         elif event == "P":
 
-            r = self.select_advanced_length(lineage, 1/c_e * multiplier)
-            if r == None:
-                return None
-
             ch, c1, c2, d = r
-
             c3 = ch.select_random_intergenic_coordinate_excluding(c1, c2, d)
 
             if c3 == None:
@@ -1964,6 +1951,8 @@ class GenomeSimulator():
 
         gene_family = GeneFamily(gene_family_id, time)
         gene_family.length = int(af.obtain_value(self.parameters["GENE_LENGTH"]))
+        gene_family.initial_orientation = gene.orientation
+        
         gene.length = gene_family.length
 
         gene_family.genes.append(gene)
@@ -1991,10 +1980,11 @@ class GenomeSimulator():
                                     lineage, time) -> Gene:
 
         gene, _ = self.make_origination(lineage, time)
+        
         location = chromosome.return_location_by_coordinate(c, within_intergene=True)
         chromosome.insert_gene_within_intergene(c, location, gene)
-
-        orig = Origination(location, c, gene.length, lineage, time)
+ 
+        orig = Origination(location, c, gene.length, gene.gene_family, gene.orientation, lineage, time)
         chromosome.event_history.append(orig)
 
         return gene
@@ -2300,8 +2290,10 @@ class GenomeSimulator():
         chromosome: CircularChromosome = self.all_genomes[lineage].select_random_chromosome()
         r = chromosome.return_affected_region(c1, c2, d)
 
+
         if r == None:
             return None
+
 
         genepositions, intergenepositions, leftlengths, rightlengths, int1, int2 = r
         segment = chromosome.obtain_segment(genepositions)
@@ -2814,14 +2806,12 @@ class GenomeSimulator():
 
         # We insert in the same place
 
-        position = gpositions[-1] + 1
-
-        for i, gene in enumerate(copied_segment1):
-            donorchrom.genes.insert(position + i, gene)
+        for old_gene, new_gene in zip(segment, copied_segment1):
+            insert = (donorchrom.genes).index(old_gene)
+            (donorchrom.genes).pop(insert)
+            (donorchrom.genes).insert(insert, new_gene)
 
         # We remove the old copies:
-
-        donorchrom.remove_segment(segment)
 
         # Normal transfer
 
@@ -2919,12 +2909,33 @@ class GenomeSimulator():
         r = chromosome.return_affected_region(c1, c2, d)
 
         if r == None:
-            return None
+            return False
 
         gpositions, igpositions, leftlengths, rightlengths, int1, int2 = r
 
         segment = chromosome.obtain_segment(gpositions)
         intergene_segment = chromosome.obtain_intergenic_segment(igpositions[1:])
+
+        # Before continuing, we need to verify that the event does not make the 
+        # genome smaller than the minimum size allowed FIX --> This should be a parameter
+        
+    
+        if len(chromosome.genes) <= len(segment):
+            # The event does not occur
+            return False
+        
+        # We need the adjustment factor if the event wraps,
+        # and wether the genes are at the end of the chromosome
+        # or at the begnning
+        
+        if d == RIGHT and c1 > c2 or d==LEFT and c1 < c2: # If the event wraps
+            
+            adjustment_factor = chromosome.genes[gpositions[-1] + 1].total_flanking[0]
+            # The coordinate of the first gene not affected by the event
+            
+            
+        else:
+            adjustment_factor = None
 
         scar1 = chromosome.intergenes[igpositions[0]]
 
@@ -2956,12 +2967,8 @@ class GenomeSimulator():
             pseudo_intergenes = intergene_segment
             pseudo_genes = segment
 
-        pseudo = True # Fix
-        
-        #print("printing intergene segment", intergene_segment[0].total_flanking)
-
         loss = Loss(int1, int2, c1, c2, specificlen, totallen, lineage, time,
-                    pseudo, pseudo_intergenes, pseudo_genes)
+                    pseudo, pseudo_intergenes, pseudo_genes, adjustment_factor)
         chromosome.event_history.append(loss)
 
         if pseudo:
@@ -2980,6 +2987,8 @@ class GenomeSimulator():
         for gene in segment:
             gene.active = False
             self.all_gene_families[gene.gene_family].register_event(time, "L", ";".join(map(str,[lineage, gene.gene_id])))
+
+        return True
 
 
     def make_loss_interactome(self, p, lineage, time):
@@ -3249,7 +3258,7 @@ class GenomeSimulator():
                                ) -> Tuple[CircularChromosome, int, int, T_DIR]:
         """
         Return a pair of specific coordinates for intergenic regions according
-        to `p` on a chromosome of `lineage`.
+        to `p` on a chromosome of `lineage`. The event must cover at least one gene
 
         Parameters
         ----------
@@ -3307,12 +3316,25 @@ class GenomeSimulator():
                     success = True
 
             if success:
+
+                
                 l1 = chromosome.return_location_by_coordinate(sc1, True)
                 l2 = chromosome.return_location_by_coordinate(sc2, True)
-                if l1 != l2:
-                    return chromosome, sc1, sc2, d
 
-                success = False
+                # Verify that the event covers at least one gene
+
+                r = chromosome.return_affected_region(sc1, sc2, d)
+                
+                if r == None:
+                    success = False
+                else:
+
+                    genepositions, intergenepositions, leftlengths, rightlengths, int1, int2 = r
+                            
+                    if l1 != l2 and len(genepositions) != 0:
+                        return chromosome, sc1, sc2, d
+                    else:
+                        success = False
 
         return None
 
@@ -3367,8 +3389,7 @@ class GenomeSimulator():
                     lineage, cut = event2.afterToBeforeS_lineage(cut)
 
                     if lineage == current_lineage.name:
-                        # I can remain in the same branch
-                        
+                        # I can remain in the same branch  
                         pass
                     
                     else: # We need to propagate through a different branch
@@ -3382,14 +3403,36 @@ class GenomeSimulator():
                 
                 elif event2.etype == "L" and event2.pseudogenize == True:
 
-                    try:
-                        cut = event2.afterToBeforeS(cut)
+                    
+                     # We are in a pseudogenized region.
+                    # Four things can happen. 
+                    # 1. The cut falls outside the pseudogenized region. We just continue passing the cut
+                    # 2. The cut falls inside the pseudogenized region, in a previous breakpoint
+                    # 3. The cut falls in the middle of a gene
+                    # 4. The cut falls in the middle of an intergene (no divisions)
 
+                    try:
+                        cut = event2.afterToBeforeS(cut) # Case 1
+    
                     except MapPseudogeneError:
-                        # We are in a pseudogenize region. We just return the cut
-                        return cut, event2                       
+                        
+                        piece, _ = event2.returnPieceAndCut(cut)
+                        if type(piece) == Intergene:
+                            # The cut has fallen into an intergene, we can keep propagating
+                            pass
+                        
+                        if type(piece) == Gene:
+                            #print("Now the cut is %s" % cut)
+                            return False, cut, event2             
+                        else:
+                            pass
+                            #print("Case 2")
+                            #rint("The cut falls into a previous breakpoint, I keep going")          
+
                 else:
                     cut = event2.afterToBeforeS(cut)
+                
+                    
              
             if finished == False and adjust_index == False: # Adjust index is true only when there has been a change
                                                             # to a different branch through a transfer event
@@ -3399,17 +3442,11 @@ class GenomeSimulator():
                 reversed_event_history = list(reversed(chromosome.event_history))
 
         
-        return cut, event2
+        return True, cut, event2
 
 
-
-    def obtain_divisions(self):
-        """
-        Obtain the divisions at the root
-        """
-         
-        # First, we create a list with all the events ordered by time
-
+    def return_all_events(self):
+        
         all_events = list()
         
         for node in self.complete_tree.traverse("postorder"):
@@ -3420,9 +3457,20 @@ class GenomeSimulator():
             
             all_events += chromosome.event_history
         
-        first_event = all_events[0]
-        all_events = reversed(sorted(all_events, key=lambda x: x.time))
+        all_events = list(reversed(sorted(all_events, key=lambda x: x.time)))
 
+        return all_events
+        
+
+    def obtain_divisions(self):
+        """
+        Obtain the divisions at the root
+        """
+         
+        # First, we create a list with all the events ordered by time
+        
+        all_events = self.return_all_events()
+        
         ########
 
         # Second, we traverse the events until the beginning
@@ -3431,55 +3479,38 @@ class GenomeSimulator():
         
         self.gene2pseudogenecuts = dict()
         
-        for i, event1 in enumerate(all_events):
+        for event1 in all_events:
 
             cuts = self.return_cuts_by_event(event1)
             
             for cut in cuts:
-                #print("I want to propagate", cut, event1, event1.donorlineage, event1.receptorlineage, event1.event_in_donor )
                 
-                propagated_cut, p_event = self.propagate_cut(cut, event1)
-                
-                ########### We check if the propagated event lands in a pseudogenize region
-                pseudo = False
+                until_the_beginning, propagated_cut, p_event = self.propagate_cut(cut, event1)
+                #print("We start with cut %s and propagate to cut %s" % (cut, propagated_cut))
 
-                if p_event != None:
-                    if p_event.etype == "L" and p_event.pseudogenize == True:
-                        pseudo = True
-
-                ###########
-
-                if pseudo == True:
-
-                    ## In this case the event has been propagated to a pseudogenized region
-
-                    result_propagation = p_event.returnGeneAndCut(p_event.returnTotalWithinEvent(cut))
-                    
-                    if result_propagation == None: # This means that the cut is not in a gene
-                        print("Cut successfuly propagated", cut, "--->",propagated_cut, "Event:", event1.etype)
-                        initial_cuts.add(propagated_cut)
-                    else:
-                        
-                        gene, cut_within_gene = result_propagation
-                        gene_name = gene.species + "_" + str(gene.gene_id)
-                        if gene_name not in self.gene2pseudogenecuts:
-                            self.gene2pseudogenecuts[gene_name] = set()
-                        self.gene2pseudogenecuts[gene_name].add(cut_within_gene)
-
-                        print("Cut successfuly propagated to pseudogene", cut, "--->",cut_within_gene, "Event:", event1.etype, gene_name)
-                    
-                    #self.gene2pseudocuts()
-                    
-                else:
-                    ## In this case the event has been propagated to the very beginning
-
-                    print("Cut successfuly propagated", cut, "--->",propagated_cut, "Event:", event1.etype)
+                if until_the_beginning == True:
+                    #print("Cut successfuly propagated", cut, "--->",propagated_cut, "Event:", event1.etype)
                     initial_cuts.add(propagated_cut)
-                
-                    #print(mygene.total_flanking)
-                    
-                    # Need to get the coordinate within the gene
 
+                else:
+                    # The cut has been propagated to a gene
+                    
+       
+                    result_propagation = p_event.returnPieceAndCut(propagated_cut) 
+                    gene, cut_within_gene = result_propagation
+                        
+                    gene_name = gene.gene_family + "_" + gene.species + "_" + str(gene.gene_id)
+                    if gene_name not in self.gene2pseudogenecuts:
+                        self.gene2pseudogenecuts[gene_name] = set()
+                    self.gene2pseudogenecuts[gene_name].add(cut_within_gene)
+
+                    #print("Cut successfuly propagated within Gene", cut, "--->",cut_within_gene, "Event:", event1.etype, "Gene", gene_name)
+                        
+                    
+
+                
+                
+                
         
         initial_chromosome = self.initial_genome.chromosomes[0]   
         all_cuts = set()
@@ -3528,8 +3559,6 @@ class GenomeSimulator():
             division_family = DivisionFamily(self.division_fam_id, initial_specific_flanking)
             division_family.register_event(0, "O", "Root") # We register the origination 
             division.get_length()
-
-            #print(division)
             
             self.all_division_families[str(self.division_fam_id)] = division_family
 
@@ -3630,12 +3659,18 @@ class GenomeSimulator():
             
                 if piece.ptype == "Gene":
                     
-                    # We just need to insert new genes in the children chromosomes. We just need to keep track of the length, the orientation and the total coordinates
+                    # We need to insert new genes in the children chromosomes. We need to keep track of the length, the orientation and the total coordinates
 
                     gene = piece # For the sake of clarity
 
+                    new_id1 = self.return_new_identifiers_for_segment_with_divisions([gene])[0]
+                    new_id2 = self.return_new_identifiers_for_segment_with_divisions([gene])[0]
+
                     new_gene1 = Gene()
                     new_gene2 = Gene()
+
+                    new_gene1.gene_id = new_id1
+                    new_gene2.gene_id = new_id2
 
                     new_gene1.ptype = gene.ptype
                     new_gene2.ptype = gene.ptype
@@ -3652,12 +3687,13 @@ class GenomeSimulator():
                     new_gene1.gene_family = gene.gene_family
                     new_gene2.gene_family = gene.gene_family
 
+                    new_gene1.species = c1
+                    new_gene2.species = c2
+
                     ch1.pieces.append(new_gene1)
                     ch2.pieces.append(new_gene2)
 
                 if piece.ptype == "Divi":
-
-                    # I could save quite a few lines here doing a deep copy FIX
 
                     division = piece
 
@@ -3682,6 +3718,9 @@ class GenomeSimulator():
                     
                     division1.ptype = division.ptype
                     division2.ptype = division.ptype
+
+                    division1.species = c1
+                    division2.species = c2
                     
                     nodes = [pn,
                                 division.identity,
@@ -3695,9 +3734,9 @@ class GenomeSimulator():
                     ch1.pieces.append(division1)
                     ch2.pieces.append(division2)
         
-        ch1.update_coordinates()   # FIX it suffices changing specific2total to an independent function
+        ch1.update_coordinates()   
         ch1.update_specific_coordinates()
-        ch2.update_coordinates()   # FIX it suffices changing specific2total to an independent function
+        ch2.update_coordinates()   
         ch2.update_specific_coordinates()
  
 
@@ -3744,7 +3783,7 @@ class GenomeSimulator():
            
             pfL, pfR = piece.total_flanking
 
-            print(piece.total_flanking, tcL, tcR)
+            #print(piece.total_flanking, tcL, tcR, piece.ptype, index, len(chromosome.pieces))
             
             if pfL == tcL:
                 start = True
@@ -3759,9 +3798,11 @@ class GenomeSimulator():
                 end = True
             if end == True:
                 break
+            
+            if index >= 2 * len(chromosome.pieces) + 1: # FIX This is here just for debugging purposes
+                raise(Exception('Piece index cannot be found "{tcL, tcR}"'))
 
         return pieces_affected, indexes_affected, wrapping
-
 
     def make_duplication_divisions(self, time, event):
         
@@ -3775,27 +3816,52 @@ class GenomeSimulator():
 
         # We copy the pieces
 
-        pieces_duplicated = copy.deepcopy(pieces_to_duplicate)
+        pieces_duplicated = list()
 
         # We update the identifiers of the duplicated and the not duplicated pieces
 
         insert_index = indexes_to_duplicate[-1] + 1
 
-        for piece1, piece2 in zip(pieces_to_duplicate, pieces_duplicated):
-            if piece1.ptype == "Divi":
-                division_family = str(piece1.division_family)
-                parent_id = piece1.identity
+        # The gene identifiers need to be assigned in this ordered
+        # to make it coincide with the forward simulation
+
+        new_gene_identifiers1 = self.return_new_identifiers_for_segment_with_divisions(pieces_to_duplicate)
+        new_gene_identifiers2 = self.return_new_identifiers_for_segment_with_divisions(pieces_to_duplicate)
+        
+        #####
+
+        i = 0 # This is to keep track of the genes
+
+        for original_piece in pieces_to_duplicate:
+
+            duplicated_piece = copy.deepcopy(original_piece)
+            
+            if original_piece.ptype == "Divi":
+
+                division_family = str(original_piece.division_family)
+                parent_id = original_piece.identity            
                 new_id1 = self.all_division_families[division_family].obtain_new_identifier()
-                new_id2 = self.all_division_families[division_family].obtain_new_identifier()
-                piece1.identity = new_id1
-                piece2.identity = new_id2
+                new_id2 = self.all_division_families[division_family].obtain_new_identifier()            
+                
+                original_piece.identity = new_id1
+                duplicated_piece.identity = new_id2        
+
                 self.all_division_families[division_family].register_event(str(time), "D", ";".join(map(str,[lineage, parent_id, lineage, new_id1, lineage, new_id2])))
+            
+            else:
+
+                original_piece.gene_id = new_gene_identifiers1[i]
+                duplicated_piece.gene_id = new_gene_identifiers2[i]
+                i+=1                
+            
+            pieces_duplicated.append(duplicated_piece)
+
 
         chromosome.pieces = chromosome.pieces[0:insert_index] + pieces_duplicated + chromosome.pieces[insert_index:] 
-
         chromosome.update_specific_coordinates()
         chromosome.update_coordinates()
 
+    
 
     def make_transfer_divisions(self, time, event):
         
@@ -3808,7 +3874,6 @@ class GenomeSimulator():
         tcL = event.tbpL
         tcR = event.tbpR
         
-        
         pieces_to_transfer, indexes_to_transfer, wrapping = self.select_pieces(donor_chromosome, tcL, tcR)
 
         insert_after_this_piece = None                
@@ -3817,28 +3882,49 @@ class GenomeSimulator():
 
         for index, piece in enumerate(itertools.cycle(recipient_chromosome.pieces)):               
             pfL, pfR = piece.total_flanking
+            #print(pfL, pfR, insertion_point)
+            
             if pfR == insertion_point: 
                 insert_after_this_piece = piece
+           
                 break
 
-        # We copy the pieces
+        
 
-        pieces_transferred = copy.deepcopy(pieces_to_transfer)
+        # The gene identifiers need to be assigned in this ordered
+        # to make it coincide with the forward simulation
 
-        # We update the identifiers of the transferred pieces
+        new_gene_identifiers1 = self.return_new_identifiers_for_segment_with_divisions(pieces_to_transfer)
+        new_gene_identifiers2 = self.return_new_identifiers_for_segment_with_divisions(pieces_to_transfer)
 
-        insert_index = indexes_to_transfer[-1] + 1
+        i = 0 # This is to keep track of the genes
+        pieces_transferred = list()
 
-        for piece1, piece2 in zip(pieces_to_transfer, pieces_transferred):
-            if piece1.ptype == "Divi":
-                division_family = str(piece1.division_family)
-                parent_id = piece1.identity
+        for original_piece in pieces_to_transfer:
+
+            transferred_piece = copy.deepcopy(original_piece)
+            
+            if original_piece.ptype == "Divi":
+
+                division_family = str(original_piece.division_family)
+                parent_id = original_piece.identity            
                 new_id1 = self.all_division_families[division_family].obtain_new_identifier()
-                new_id2 = self.all_division_families[division_family].obtain_new_identifier()
-                piece1.identity = new_id1
-                piece2.identity = new_id2
-                piece2.species = recipient_lineage
+                new_id2 = self.all_division_families[division_family].obtain_new_identifier()            
+                original_piece.identity = new_id1
+                transferred_piece.identity = new_id2     
+                           
                 self.all_division_families[division_family].register_event(str(time), "T", ";".join(map(str,[donor_lineage, parent_id, donor_lineage, new_id1, recipient_lineage, new_id2]))) 
+                
+            
+            else:
+
+                original_piece.gene_id = new_gene_identifiers1[i]
+                transferred_piece.gene_id = new_gene_identifiers2[i]
+                transferred_piece.species = recipient_lineage
+                i+=1                
+            
+            pieces_transferred.append(transferred_piece)
+        
         
         insert_index = recipient_chromosome.pieces.index(insert_after_this_piece) + 1
         
@@ -3849,19 +3935,24 @@ class GenomeSimulator():
         recipient_chromosome.update_specific_coordinates()
         recipient_chromosome.update_coordinates()
 
-       
+        
     
     def make_loss_divisions(self, time, event):
 
         lineage = event.lineage        
         chromosome = [x for x in self.all_genomes_second[lineage]][0] 
+        pseudo = event.pseudogenize
+
         
         tcL = event.tbpL
         tcR = event.tbpR
+        
+        if pseudo and event.wraps(): # These are the right coordinates if there is a pseudogenization
+                                     # and the event wraps
+            tcL = event.tc1
+            tcR = event.tc2
 
         pieces_to_lose, indexes_to_lose, wrapping = self.select_pieces(chromosome, tcL, tcR)
-
-        pseudo = event.pseudogenize
 
         if not pseudo:
             
@@ -3879,37 +3970,38 @@ class GenomeSimulator():
 
                     replacements[piece] = list()
 
-                    gene_name = piece.species + "_" + str(piece.gene_id)
+                    gene_name = piece.gene_family + "_" + piece.species + "_" + str(piece.gene_id)
 
                     cuts = {0, piece.length}
 
+                    #print("The cuts in the gene are", self.gene2pseudogenecuts)
+                    #print(gene_name)
+                    
                     if gene_name in self.gene2pseudogenecuts:
                         cuts = cuts.union(self.gene2pseudogenecuts[gene_name])
-
                     cuts = sorted(list(cuts))
 
                     # We need to make as many divisions as cuts + 1
+                    
 
                     for cut1, cut2 in zip(cuts, cuts[1:]):
-                        
+                    
                         # Insert new family
 
                         self.division_fam_id += 1
 
-                        division_family = DivisionFamily(self.division_fam_id, (0,0)) # FIX
-                        division_family.register_event(time, "O", lineage) # We register the origination. We need to register also the gene that is lost FIX
-                        
+                        division_family = DivisionFamily(self.division_fam_id, (0,0)) 
+                        division_family.initial_orientation = piece.orientation
+                        division_family.register_event(time, "O", lineage) # We register the origination. 
                         division = Division("1", self.division_fam_id, (0,0))
-
                         division.length = cut2 - cut1
-
                         division.total_flanking = (piece.total_flanking[0] + cut1, piece.total_flanking[0] + cut2)
-    
                         division.species = lineage
-
                         replacements[piece].append(division)
-                        
+                        division.initial_sequence = gene_name
+                
                         self.all_division_families[str(self.division_fam_id)] = division_family
+            
 
             for gene, divisions in replacements.items():
                 insert = (chromosome.pieces).index(gene)
@@ -3918,11 +4010,6 @@ class GenomeSimulator():
                     (chromosome.pieces).insert(insert + i, division)
 
                         
-
-                        
-
-
-        
         if wrapping == True:
             while chromosome.pieces[0].ptype == "Divi":
                 chromosome.pieces = chromosome.pieces[1:] + [chromosome.pieces[0]]
@@ -3936,6 +4023,8 @@ class GenomeSimulator():
             
         chromosome.update_specific_coordinates()
         chromosome.update_coordinates()
+
+        #chromosome.print_pieces()
 
 
     def make_transposition_divisions(self, time, event):    
@@ -4038,24 +4127,31 @@ class GenomeSimulator():
         tc = event.sbp
 
         tc = event.interval.specificToTotal(event.sbp)
+        gene.species = lineage
         gene.length = event.genelen
+        gene_family_id = event.gene_family
+        gene.gene_family = gene_family_id
+
+        gene.orientation = self.all_gene_families[gene.gene_family].initial_orientation 
         
-        gene.determine_orientation() # FIX need to use the same orientation that the gene had
-                                     # In the forward run. This is relevant for transfers
-                                     # with replacement when looking at homologous regions
-            
         for piece in itertools.cycle(chromosome.pieces):               
             pfL, pfR = piece.total_flanking
             if pfR == tc: 
                 insert_after_this_piece = piece
                 break
+
+        gene_family = GeneFamily(event.gene_family, time)
+        gene_family.length = int(gene.length)
+        gene_family.genes.append(gene)
+        gene.gene_id = gene_family.obtain_new_gene_id()
+
+        self.gene_families_second[gene_family_id] = gene_family
+        self.gene_families_second[gene.gene_family].register_event(str(time), "O", lineage)
         
         # We insert the pieces
 
         insert_index = chromosome.pieces.index(insert_after_this_piece) + 1 
-        
         chromosome.pieces.insert(insert_index, gene)
-    
         chromosome.update_specific_coordinates()
         chromosome.update_coordinates()
         

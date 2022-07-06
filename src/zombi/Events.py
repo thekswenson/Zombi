@@ -110,6 +110,9 @@ class EventTwoCuts(GenomeEvent):
         self.swraplen: int = swraplen   #: specific wrap length
         self.twraplen: int = twraplen   #: total wrap length
 
+        self.tc1 = int1.tc1 # Need to keep this in case there is a pseudogenization
+        self.tc2 = int2.tc1
+
     def wraps(self) -> bool:
         """
         Does this event wrap around to the right (`before1` occurs after
@@ -120,6 +123,7 @@ class EventTwoCuts(GenomeEvent):
             Assumes that no intergenes wrap from the end to beginning
             (the genome starts with a gene).
         """
+       
         return self.beforeL.tc1 > self.beforeR.tc1
 
     def assertS(self, sc: int) -> int:
@@ -148,7 +152,7 @@ class Origination(EventOneCut):
     afterR: Interval
         the right intergenic interval after the cut
     """
-    def __init__(self, interval: Interval, sbp: int, genelen:int,
+    def __init__(self, interval: Interval, sbp: int, genelen:int, gene_family:int, orientation:str, 
                  lineage: str, time: float):
         """
         Create an Origination event.
@@ -161,6 +165,10 @@ class Origination(EventOneCut):
             the exact spot to put it cut
         genelen: int
             the length of the inserted gene
+        gene_family: int
+            the family id
+        orientation: str
+            + or -
         lineage: str
             the lineage on which the event happened (pendant node name)
         time: float
@@ -171,6 +179,9 @@ class Origination(EventOneCut):
         self.afterL: Interval
         self.afterR: Interval
         self.genelen = genelen
+        self.gene_family = gene_family
+
+        self.initial_orientation = orientation
 
         self.setAfter()
 
@@ -449,7 +460,7 @@ class Loss(EventTwoCuts):
     def __init__(self, int1: Interval, int2: Interval, sbp1: int, sbp2: int,
                  swraplen: int, twraplen: int, lineage: str, time: float,
                  pseudogenize=False, pseudo_intergene_list: List[Intergene]=None,
-                 pseudo_gene_list: List[Intergene]=None):
+                 pseudo_gene_list: List[Intergene]=None, adjustment_factor=None):
         """
         Create a Loss event. Either cut out everything between `sbp1` and
         `sbp2`, or turn everything in that region into a big intergene,
@@ -471,6 +482,11 @@ class Loss(EventTwoCuts):
             the intergenes to pseudogenize
         pseudo_gene_list: List[Interval]
             the genes pseudogenized
+        adjustment_factor: int
+            If the event is a pseudogenization
+            and it wraps,
+            you need that number to compute
+            the total coordinates within the interval
         twraplen: int
             the total length of the chromosome
         swraplen: int
@@ -485,6 +501,7 @@ class Loss(EventTwoCuts):
         self.after: Interval
 
         self.pseudogenize = pseudogenize
+        self.adjustment_factor = adjustment_factor
         
         self.pseudo_intergene_list = copy.deepcopy(pseudo_intergene_list)
         self.pseudo_gene_list = copy.deepcopy(pseudo_gene_list)
@@ -498,6 +515,8 @@ class Loss(EventTwoCuts):
         self.after_tbpR: int = -1
 
         self.setAfter()
+
+        
 
     def setAfter(self):
         """
@@ -717,6 +736,16 @@ class Loss(EventTwoCuts):
                 else:                                   # in I0 or to left
                     return self.assertT(tc)
     
+    def isInPseudogenizedRegion(self, sc: int) -> bool:
+        """
+        Returns whether the specific coordinate maps within the
+        limits of the event
+        """
+        if self.after_sbpL < sc and self.after_sbpR > sc:
+            return True
+        else:
+            return False
+    
     def returnTotalWithinEvent(self, sc: int) -> int:
         """
         Given a specific coordinate falling within the limits of the event,
@@ -725,12 +754,12 @@ class Loss(EventTwoCuts):
         
         return self.after_tbpL + sc - self.after_sbpL
 
-    def returnGeneAndCut(self, tc: int):
+    def returnPieceAndCut(self, sc: int):
         """
-        Given a total coordinate, returns the gene in that
-        total coordinate and the breakpoint within the gene
-        A function to use in combination with the function
-        returnTotalWithinEvent
+        Given a total coordinate, returns the gene or
+        intergene in that total coordinate and the breakpoint within the gene
+        or intergene. A function to use in combination with the function
+        returnTotalWithinEvent. To be used with psuedogenized events
         """
         assert self.pseudo_gene_list
 
@@ -738,10 +767,63 @@ class Loss(EventTwoCuts):
             if self.after_tbpL < tc and self.after_tbpR > tc:
                 return gene, tc - gene.total_flanking[0]
 
+        piece, cut = None, sc     
+
+        if self.wraps():
+
+            genes_at_beginning = False
+
+            for gene in self.pseudo_gene_list: 
+                lf, rf = gene.total_flanking
+            
+
+            for gene in self.pseudo_gene_list: 
+
+                lf, rf = gene.total_flanking
+
+                
+                if lf == 0: # If the left flanking is 0, then we are dealing with genes at the beginning 
+                    
+                    genes_at_beginning = True
+
+                if genes_at_beginning:
+                    
+                    
+                    
+                    if (lf - self.adjustment_factor + self.twraplen) < tc and (rf - self.adjustment_factor + self.twraplen) > tc: 
+                        
+                        return gene, tc - (self.twraplen - (self.adjustment_factor - lf))
+                else:
+                    
+                    
+                    if (lf - self.adjustment_factor) < tc and (rf - self.adjustment_factor) > tc:  
+                                              
+                        return gene, tc - (lf - self.adjustment_factor)
+                
+            for intergene in self.pseudo_intergene_list:  
+                
+                lf, rf = intergene.total_flanking
+                if lf < tc and rf > tc:
+                    return intergene, tc - lf
+        
+        else:
+
+            for gene in self.pseudo_gene_list:    
+
+                lf, rf = gene.total_flanking
+                
+                if lf < tc and rf > tc:
+                    return gene, tc - lf
+            
+            for intergene in self.pseudo_intergene_list:  
+
+                lf, rf = intergene.total_flanking
+                if lf < tc and rf > tc:
+                    return intergene, tc - lf
 
         
-        
-    
+        return None, sc
+
 
 class MapPseudogeneError(Exception):
     pass
