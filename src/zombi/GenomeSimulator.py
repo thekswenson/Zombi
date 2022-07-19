@@ -45,7 +45,7 @@ class GenomeSimulator():
         self.all_genomes: Dict[str, Genome] = dict()
         self.all_gene_families: Dict[str, GeneFamily] = dict()
 
-        self.all_division_families: Dict[str, DivisionFamily ] = dict()
+        self.all_division_families: Dict[str, DivisionFamily] = dict()
 
         self.gene_families_counter = 0
         self.active_genomes: Set[str] = set()
@@ -109,9 +109,9 @@ class GenomeSimulator():
 
         """
         Write a TSV file with containing all the pieces of the genome 
-        (divisions in intergenes and genes)
-        For clarity: genomes have genes and intergenes. Intergenes are divided in divisions. 
-        Genes and divisions are both called pieces
+        (intergene divisions and genes)
+        For clarity: genomes have genes and intergenes. Intergenes are divided
+        into divisions. Genes and divisions are both called pieces
         """
 
         if not os.path.isdir(genome_folder):
@@ -134,10 +134,11 @@ class GenomeSimulator():
                         f.write(line)
     
     def write_genome_info(self, genome_folder:str,
-                               filename="InitialGenome_info.tsv"):
+                          filename="InitialGenome_info.tsv"):
         """
-        Write a TSV file with containing gene id, gff gene id, and start and
+        Write a TSV file containing gene id, gff gene id, and start and
         end coordinates for every gene and division in the intial genome.
+        The coordinates are 1 indexed and inclusive.
 
         Parameters
         ----------
@@ -147,17 +148,24 @@ class GenomeSimulator():
             the filename to use, by default "InitialGenome_info.tsv"
         """
         with open(os.path.join(genome_folder, filename), "w") as f:
-            header = ["TYPE", "IDENTITY", "GFF_ID", "START", "END"]
+            header = ["TYPE", "ID", "START", "END"]
             f.write("\t".join(map(str, header)) + "\n")
 
             for chromosome in self.initial_genome:
                 for gene, intergene in zip(chromosome, chromosome.iter_intergenes()):             
-                    line = "\t".join(["GENE_FAMILY", gene.gene_family, "", str(gene.start), str(gene.end)]) + "\n"
+                    line = "\t".join(["GENE_FAMILY", gene.gene_family,
+                                      str(gene.start + 1), str(gene.end)]) +\
+                                     "\n"
                     f.write(line)
+                    end = gene.end
                     for division in intergene:
-                        line = "\t".join(["DIVISION", str(division.division_family), "", 
-                        str(division.specific_flanking[0]), str(division.specific_flanking[1])]) + "\n"
+                        start = end + 1
+                        end = start + len(division) - 1
+                        line = "\t".join(["DIVISION",
+                                          str(division.division_family),
+                                          str(start), str(end)]) + "\n"
                         f.write(line)
+
     
     
     def write_gene_family_info(self, genome_folder:str,
@@ -217,6 +225,19 @@ class GenomeSimulator():
             for gene_family_name, gene_family in self.all_gene_families.items():
                 line = "\t".join([gene_family_name, str(gene_family.length)]) + "\n"
                 f.write(line)
+
+
+    def write_division_lengths(self, genome_folder):
+
+        with open(os.path.join(genome_folder, "Division_lengths.tsv"), "w") as f:
+            header = ["DIVISION_ID", "LENGTH"]
+            header = "\t".join(map(str, header)) + "\n"
+            f.write(header)
+
+            for div_family_name, div_family in self.all_division_families.items():
+                line = "\t".join([div_family_name, str(len(div_family))]) + "\n"
+                f.write(line)
+
 
     def write_gene_family_events(self, gene_family_events_folder):
 
@@ -3552,7 +3573,6 @@ class GenomeSimulator():
             division = intergene.create_division("1", self.division_fam_id, initial_specific_flanking) # Identifier is 1 in the beginning
             division_family = DivisionFamily(self.division_fam_id, initial_specific_flanking)
             division_family.register_event(0, "O", "Root") # We register the origination 
-            division.get_length()
             
             self.all_division_families[str(self.division_fam_id)] = division_family
 

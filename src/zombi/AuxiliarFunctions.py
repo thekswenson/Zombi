@@ -6,7 +6,8 @@ import os
 import scipy
 import scipy.stats as ss
 from itertools import tee, zip_longest
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
+from pathlib import Path
 
 from BCBio import GFF
 from Bio.SeqFeature import SeqFeature
@@ -808,13 +809,18 @@ def pairwise(iterable, wrap=False):
 
     return zip(a, b)
 
+class MissingInfoFileError(Exception):
+    pass
+
 def read_nucleotide_sequences(fasta: str, genome_folder: str,
-                              gene_family_info = 'GeneFamily_info.tsv') -> Dict[str, SeqRecord]:
+                              gene_family_info = 'GeneFamily_info.tsv',
+                              initial_genome_info = 'InitialGenome_info.tsv') \
+    -> Tuple[Dict[str, SeqRecord], Dict[str, SeqRecord]]:
     """
     Return a dictionary mapping the gene id to its SeqRecord.
     The file `gene_family_info` contains coordinates for the genes in the root
     genome of the phylogeny. The `fasta` file is expected to contain the sequence
-    of the root phylogeny genome.
+    of the root genome, along with the intergenic sequences
 
         https://biopython.org/docs/latest/api/Bio.SeqRecord.html
 
@@ -826,13 +832,17 @@ def read_nucleotide_sequences(fasta: str, genome_folder: str,
         the folder containing the `gene_family_info` file
     gene_family_info : str
         the filename containing the gene GFF ID and start and end indices
+    initial_genome_info : str
+        the filename containing the indices of the genes and divisions at
+        the root
 
     Returns
     -------
-    Dict[str, SeqRecord]
+    Tuple[Dict[str, SeqRecord], Dict[str, SeqRecord]]
         map genome id (not GFF ID) to SeqRecord for the gene
+        map intergene division id to SeqRecord for the gene
     """
-    sequence: SeqRecord = None
+    sequence: Optional[SeqRecord] = None
     for i, seq_record in enumerate(SeqIO.parse(fasta, "fasta")):
         if i:
             print(f'Warning: using only the first of several entries in "{fasta}".')
@@ -844,13 +854,29 @@ def read_nucleotide_sequences(fasta: str, genome_folder: str,
         raise(Exception(f'No sequence in "{fasta}".'))
 
     gidTOseq: Dict[str, SeqRecord] = {}
-    with open(os.path.join(genome_folder, gene_family_info)) as f:
+    gene_family_p = Path(genome_folder, gene_family_info)
+    if not gene_family_p.exists():
+        raise MissingInfoFileError(gene_family_p)
+
+    with open(Path(genome_folder, gene_family_info)) as f:
         f.readline()
         for line in f:
             gid, _, start, end = line.strip().split("\t")
             gidTOseq[gid] = sequence[int(start)-1: int(end)]
 
-    return gidTOseq
+    init_genome_p = Path(genome_folder, initial_genome_info)
+    if not init_genome_p.exists():
+        raise MissingInfoFileError(init_genome_p)
+
+    didTOseq: Dict[str, SeqRecord] = {}
+    with open(init_genome_p) as f:
+        for line in f:
+            print(f'line:', line.strip().split("\t"))
+            type, did, start, end = line.strip().split("\t")
+            if type == "DIVISION":
+                didTOseq[did] = sequence[int(start)-1: int(end)]
+
+    return gidTOseq, didTOseq
 
 def read_protein_sequences(gff_file: str, genome_folder: str,
                            gene_family_info = 'GeneFamily_info.tsv') -> Dict[str, str]:

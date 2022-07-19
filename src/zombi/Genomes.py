@@ -465,14 +465,15 @@ class Division():
         self.identity = identity # Specific identifier of this division
         self.division_family = division_family # The name of the division family
         self.specific_flanking: T_PAIR
+        self.length = 0
         if specific_flanking:
             self.specific_flanking = specific_flanking   #: not pythonic (both inclusive)
-        self.total_flanking: T_PAIR
+            self.set_length()
+        #self.total_flanking: T_PAIR
         self.ptype = "Divi" # Piece type, for debugging purposes
-        self.length = None
         self.species = ""
 
-        self.initial_sequence = None # The initial seuquence if the gene comes from a pseudogenization
+        self.initial_sequence = None # The initial sequence if the gene comes from a pseudogenization
 
     def change_sense(self):
 
@@ -481,13 +482,13 @@ class Division():
         elif self.orientation == "-":
             self.orientation = "+"
 
-    def get_length(self):
-        self.length =  int(abs(self.specific_flanking[1] - self.specific_flanking[0]))
+    def set_length(self):
+        self.length = int(abs(self.specific_flanking[1] - self.specific_flanking[0]))
         
     def __str__(self):
         return  str(self.division_family) + "_" + str(self.length) + "_" + str(self.specific_flanking)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.length
 
 
@@ -505,7 +506,7 @@ class Intergene():
         these are the coordinates of the breakpoints at either end of the
         intergene, while only counting breakpoints that touch an intergene.
         (i, j) where i is the number of intergenic breakpoints before this
-        intergene, and j is i plus the length of this gene
+        intergene, and j is i plus the length of this intergene
     """
 
     def __init__(self, length = 0):
@@ -515,10 +516,10 @@ class Intergene():
         else:
             self.length = 0
 
-        self.total_flanking: T_PAIR         #: not pythonic (both inclusive)
-        self.specific_flanking: T_PAIR      #: not pythonic (both inclusive)
-        self.id = 0 # Only for debugging purposes
-        self.divisions = list() # List containing all the divisions
+        self.total_flanking: T_PAIR             #: not pythonic (both inclusive)
+        self.specific_flanking: T_PAIR          #: not pythonic (both inclusive)
+        self.id = 0                             # Only for debugging purposes
+        self.divisions: List[Division] = list() # List containing the divisions
 
     @property
     def sc1(self):
@@ -566,8 +567,8 @@ class Intergene():
 
 class DivisionFamily():
     """
-    A division family is akin to a GeneFamily. It stores all the events in an esenmble of homologous
-    divisions
+    A division family is akin to a GeneFamily. It stores all the events in an
+    ensemble of homologous divisions
 
     Attributes
     ----------
@@ -1393,6 +1394,7 @@ class CircularChromosome(Chromosome):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.shape = "C"
 
     def obtain_segment(self, affected_genes) -> List[Gene]:
 
@@ -1886,6 +1888,7 @@ class LinearChromosome(Chromosome):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.shape = "L"
         raise(NotImplementedError)
 
 

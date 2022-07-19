@@ -3,6 +3,7 @@ import os
 import ete3
 import numpy
 import random
+from typing import Optional
 from . import AuxiliarFunctions as af
 
 from Bio.SeqRecord import SeqRecord
@@ -85,7 +86,7 @@ class SequenceSimulator():
         self.correct_names(os.path.join(sequences_folder, fasta_file), name_mapping)
 
     def run_f(self, tree_file, gene_length: int, sequences_folder: str,
-              sequence: SeqRecord = None):
+              sequence: Optional[SeqRecord] = None):
         """
         Simulation full genome sequence evolution for the gene tree.
 
@@ -182,12 +183,15 @@ class SequenceSimulator():
         with open(rates_tree, "w") as f:
             f.write(complete_tree.write(format=1))
 
+
     def retrieve_sequences(self, name, gf, sequences_folder):
 
         for n,s in af.fasta_reader(os.path.join(sequences_folder, gf + "_complete.fasta")):
             if n[1:] == name:
                 return s
-        return None
+
+        raise(NodeMissingError('Missing sequence for {name} in "{gr}_complete.fasta".'))
+
 
     def retrieve_orientation(self, species, gene_name, lengths_folder):
 
@@ -200,7 +204,9 @@ class SequenceSimulator():
                 id = h[3]
                 if gene_name == gf + "_" + id:
                     return orientation
-        return None
+
+        raise(NodeMissingError('Missing info for {gene_name} in "{gr}_{id}".'))
+
 
     def simulate_single_sequence(self, name, gene_length, tree_file, sequences_folder):
 
@@ -640,3 +646,6 @@ class SequenceSimulator():
             f.write("SUBSTITUTION_RATE_CATEGORIES\n")
             f.write("\t".join(map(str,self.substitution_rates))+"\n")
 
+
+class NodeMissingError(Exception):
+    pass
