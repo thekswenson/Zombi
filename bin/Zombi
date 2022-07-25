@@ -456,16 +456,9 @@ class Zombi():
                             for x in os.listdir(genomes_folder)
                             if x.endswith("PIECES.tsv")] # For better clarity, should be renamed to coordinate files
             
-            if False and num_threads:                 #NOTE: ALLOW PARALLEL
-                print(f"Using {num_threads} threads in parallel.")
-                n = len(genome_lengths)
-                with multiprocessing.Pool(processes=num_threads) as pool:
-                    pool.starmap(write_whole_genome,
-                                 zip(genome_lengths, [lengths_folder]*n, [ss]*n))
-            else:
-                for pieces_file in pieces_files:
-                    write_whole_genome(pieces_file, ss, sequences_folder,
-                                       genomeseq_folder)
+            for pieces_file in pieces_files:
+                write_whole_genome(pieces_file, ss, sequences_folder,
+                                   genomeseq_folder)
 
 
 
@@ -526,18 +519,15 @@ def write_whole_genome(pieces_file: str, seq_sim: SequenceSimulator,
                 directory += "/Genes"
 
             sequence = seq_sim.retrieve_sequences(name, family, directory)
-            #orientation = seq_sim.retrieve_orientation(node, gf + "_" + id, lengths_folder)
 
-            assert len(sequence) == length, f'{len(sequence)} != {length}'
+            assert len(sequence) == int(length), f'{len(sequence)} != {length}'
 
             if orientation == "+":
                 whole_genome += sequence
             elif orientation == "-":
                 whole_genome += af.get_complementary_sequence(sequence)
             else:
-                print("Error. Bad orientation of gene")
-            #elif id == "I":
-            #    whole_genome += seq_sim.generate_intergenic_sequences(int(l))
+                print(f'Error. Bad orientation "{orientation}" of gene')
 
     entry = [(">" + node, whole_genome)]
     af.fasta_writer(os.path.join(out_folder, node + "_Wholegenome.fasta"), entry)
