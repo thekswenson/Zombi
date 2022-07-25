@@ -96,8 +96,8 @@ class SequenceSimulator():
             seed the initial genome of the tree with the nucleotide sequence, otherwise,
             seed with a random sequence according to `gene_length`.
         """
-        if self.parameters["SEQUENCE"] != "codon":
-            self.model = self.get_codon_model()
+        #if self.parameters["SEQUENCE"] != "codon":
+        #    self.model = self.get_codon_model()
 
         with open(tree_file) as f:
 

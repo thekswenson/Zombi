@@ -5,12 +5,12 @@
 SCALING 1
 #
 ## The sequence size (integer, strictly positive value). This is ignored when using the Sf mode
-#
+# 
 SEQUENCE_SIZE	100
 #
 ## The type of sequence be either 'nucleotide', 'amino-acid' or 'codon'
 #
-SEQUENCE	codon
+SEQUENCE	nucleotide
 #
 ## Required parameters if SEQUENCE='nucleotide'
 ## Mutation rate between pairs of nucleotides (positive values)
