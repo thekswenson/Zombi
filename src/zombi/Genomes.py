@@ -1094,11 +1094,13 @@ class Chromosome():
         """
         try:
             r = self.return_affected_region(c1, c2, d)
+
+            igpositions = r[1]
+            c3 = self.select_random_coordinate_in_intergenic_regions(igpositions)
+
         except CoordinateChoiceError:
             return None
 
-        igpositions = r[1]
-        c3 = self.select_random_coordinate_in_intergenic_regions(igpositions)
         return c3
 
     def return_total_coordinate_from_specific_coordinate(self, c, type = "I", debug = False) -> int:
