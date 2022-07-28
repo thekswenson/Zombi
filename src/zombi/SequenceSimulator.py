@@ -128,21 +128,48 @@ class SequenceSimulator():
         pass
 
 
-    def get_nucleotide_model(self):
+    def get_nucleotide_model(self) -> pyvolve.Model:
+        """
+        Return the `pyvolve.Model` for nucleotide substitutions.  Get the
+        parameters from the input file.
+        """
+        try:
+            if self.parameters['N_MODEL'] == 'K2P':
+                print(f'K2P model!')
+                R = float(self.parameters['K2P_R'])
+                alpha = R / (R+1)
+                beta = .5 * (1 / (R+1))
+                diag = -(alpha + 2*beta)
+                # pyvolve uses the order ACGT
+                ratematrix = [[diag, beta, alpha, beta],
+                              [beta, diag, beta, alpha],
+                              [alpha, beta, diag, beta],
+                              [beta, alpha, beta, diag]]
 
-        nucleotides = ['A', 'C', 'G', 'T']
-        state_freqs = []
-        custom_mu = {}
+                return pyvolve.Model("nucleotide", {"matrix": ratematrix})
+            elif self.parameters['N_MODEL'] == 'CUSTOM':
+                print(f'CUSTOM model!')
+                nucleotides = ['A', 'C', 'G', 'T']
+                state_freqs = []
+                custom_mu = {}
 
-        for source in nucleotides:
-            state_freqs.append(float(self.parameters[source]))
-            for target in nucleotides:
-                if source != target:
-                    pair = source + target
-                    custom_mu[pair] = float(self.parameters[pair])
+                for source in nucleotides:
+                    state_freqs.append(float(self.parameters[source]))
+                    for target in nucleotides:
+                        if source != target:
+                            pair = source + target
+                            custom_mu[pair] = float(self.parameters[pair])
 
-        assert abs(sum(state_freqs) - 1) < 1e-6, "Equilibrium frequencies of nucleotides must sum to 1.0"
-        return pyvolve.Model("nucleotide", {"mu": custom_mu, "state_freqs": state_freqs})
+                assert abs(sum(state_freqs) - 1) < 1e-6, "Equilibrium frequencies of nucleotides must sum to 1.0"
+
+                return pyvolve.Model("nucleotide", {"mu": custom_mu, "state_freqs": state_freqs})
+            else:
+                raise(Exception('Unknown nucleotide model type N_MODEL = "' + 
+                                self.parameters["N_MODEL"] + '".'))
+
+        except KeyError as e:
+            raise(Exception(f'Missing parameter in config file: {e}'))
+
 
     def get_aminoacid_model(self):
 

@@ -13,6 +13,17 @@ SEQUENCE_SIZE	100
 SEQUENCE	nucleotide
 #
 ## Required parameters if SEQUENCE='nucleotide'
+## N_MODEL can be either 'K2P' or 'CUSTOM'
+N_MODEL	K2P
+#
+## Required parameters if SEQUENCE='nucleotide' and N_MODEL='K2P'
+## K2P_R is the ratio transitions/transversions
+## (the Jukes-Cantor model has K2P_R = 1/2 because there are two transversions
+##  possible from a given state, but only one transition)
+#
+K2P_R	0.5
+#
+## Required parameters if SEQUENCE='nucleotide' and N_MODEL='CUSTOM'
 ## Mutation rate between pairs of nucleotides (positive values)
 AC	1.0
 AG	1.0

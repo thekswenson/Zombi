@@ -611,7 +611,8 @@ class Loss(EventTwoCuts):
                 elif (retval := self.inPseudoIntergene(sc)) >= 0:
                     return self.assertS(retval)             # in I1 SO or S1 J0
                 else:
-                    raise(MapPseudogeneError(f'specific coordinate {sc} inside pseudogenized region'))
+                    raise(MapPseudogeneError(f'specific coordinate {sc} inside '
+                                             f'pseudogenized region'))
             else:
                 if sc >= self.after_sbpR:                   # in J1 or to right
                     return self.assertS(sc - self.genebps)
@@ -621,7 +622,8 @@ class Loss(EventTwoCuts):
                 elif (retval := self.inPseudoIntergene(sc)) >= 0:
                     return self.assertS(retval)             # in I1 S J0
                 else:
-                    raise(MapPseudogeneError(f'specific coordinate {sc} inside pseudogenized region'))
+                    raise(MapPseudogeneError(f'specific coordinate {sc} inside '
+                                             f'pseudogenized region'))
         else:
             if self.wraps():
                 if sc > self.after.s_bp:                # in J1

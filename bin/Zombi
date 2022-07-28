@@ -13,6 +13,7 @@ import os
 import sys
 import re
 import multiprocessing
+import shutil
 
 
 class Zombi():
@@ -242,14 +243,16 @@ class Zombi():
                 gss.write_genome_info(genome_folder)
             
 
-    def S(self, parameters_file, experiment_folder, advanced_mode, num_threads: int, fasta_file: str):
+    def S(self, parameters_file, experiment_folder, advanced_mode,
+          num_threads: int, fasta_file: str):
 
         genome_folder = os.path.join(experiment_folder, "G")
         
         gene_trees_folder = os.path.join(experiment_folder, "G/Gene_trees")
         sequences_folder = os.path.join(experiment_folder, "S")
         genesequences_folder = os.path.join(sequences_folder, "Genes")
-        os.system("cp " + parameters_file + " " + sequences_folder)
+        #os.system("cp " + parameters_file + " " + sequences_folder)
+        shutil.copy(parameters_file, sequences_folder)
 
         if not os.path.isdir(genesequences_folder):
             os.mkdir(genesequences_folder)
