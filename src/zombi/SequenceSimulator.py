@@ -91,7 +91,7 @@ class SequenceSimulator():
     def run_f(self, tree_file, gene_length: int, sequences_folder: str,
               sequence: Optional[SeqRecord] = None):
         """
-        Simulation full genome sequence evolution for the gene tree.
+        Simulate full genome sequence evolution for the gene tree.
 
         Parameters
         ----------
@@ -345,7 +345,7 @@ class SequenceSimulator():
 
         return good_mapping
 
-    def correct_names(self,fasta_file, good_mapping):
+    def correct_names(self, fasta_file, good_mapping):
 
         entries = list()
 

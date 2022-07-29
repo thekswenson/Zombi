@@ -375,7 +375,7 @@ class Zombi():
                 print("Sequence mode will be changed to codon for full compatibility with Sf mode")
 
                     #Generate the sequences for the gene trees:
-            if num_threads:
+            if num_threads and num_threads > 1:
                 print(f"Using {num_threads} threads in parallel.")
                 n = len(complete_trees)
                 with multiprocessing.Pool(processes=num_threads) as pool:
@@ -407,7 +407,7 @@ class Zombi():
                     did, length = line.strip().split("\t")
                     division_lengths[did] = int(length)
 
-            if num_threads:
+            if num_threads and num_threads > 1:
                 n = len(division_trees)
                 with multiprocessing.Pool(processes=num_threads) as pool:
                     pool.starmap(simulate_sequences_on_tree,
@@ -542,7 +542,25 @@ def simulate_sequences_on_tree(tree_file: str, gene_trees_folder: str,
                                family_lens: Dict[str, int],
                                id_to_seq: Optional[Dict[str, SeqRecord]]=None,
                                verbose: bool=False) -> None:
-                                                  
+    """
+    Create a fasta file containing all the evolved sequences for the nodes of
+    the tree in `tree_file`.
+
+    Parameters
+    ----------
+    tree_file : str
+        the tree to evolve sequences over
+    gene_trees_folder : str
+        the directory where you find the tree_file
+    outfolder : str
+        write a the new fasta file to this directory
+    seq_sim : SequenceSimulator
+        simulated the sequences using this object
+    family_lens : Dict[str, int]
+        map genome or division family id to sequence length
+    id_to_seq : Optional[Dict[str, SeqRecord]], optional
+        map genome or division family id to sequence length
+    """
     family = tree_file.split("_")[0]
 
     tree_path = os.path.join(gene_trees_folder, tree_file)
@@ -550,7 +568,7 @@ def simulate_sequences_on_tree(tree_file: str, gene_trees_folder: str,
         print("Simulating sequence for family %s" % family)
                           #use fasta sequence
     if id_to_seq and family in id_to_seq:
-        seq_sim.run_f(tree_path, family_lens[family], sequences_folder,
+        seq_sim.run_f(tree_path, family_lens[family], outfolder,
                       id_to_seq[family])
 
     else:                 #make random gene
@@ -592,6 +610,13 @@ if __name__ == "__main__":
 
     else:
         raise(Exception("Incorrect value for mode"))
+
+        #NOTE: following could potentially be used in normal G and S modes...
+    if root_gff and not mode == 'Gf':
+        sys.exit(f'-g can only be used with the Gf mode.')
+    if root_fasta and not mode == 'Sf':
+        sys.exit(f'-s can only be used with the Sf mode.')
+
 
     Z = Zombi()
 

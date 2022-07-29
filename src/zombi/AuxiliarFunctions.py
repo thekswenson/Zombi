@@ -707,7 +707,6 @@ def generate_gene_tree(events):
 
 
 def write_pruned_sequences(tree_file, fasta_folder, scaled=False):
-
     with open(tree_file) as f:
         line = f.readline().strip()
         if "(" not in line or line == ";":
@@ -718,7 +717,7 @@ def write_pruned_sequences(tree_file, fasta_folder, scaled=False):
     surviving_nodes = {x.name for x in my_tree.get_leaves()}
     file_name = tree_file.split("/")[-1].split("_")[0]
 
-    if scaled == False:
+    if not scaled:
         entries = fasta_reader(fasta_folder + "/" + file_name + "_complete.fasta")
     else:
         entries = fasta_reader(fasta_folder + "/" + file_name + "_substitution_scaled.fasta")
@@ -787,14 +786,18 @@ def parse_GFF(gff_file: str, sort=True) -> Tuple[int, List[SeqFeature]]:
                     genes.append(feature)
     except TypeError as e:
         sys.exit(f'Problem opening GFF file (remove fasta lines?):\n{e}')
+    except AttributeError as e:
+        sys.exit(f'Problem opening GFF file (remove fasta lines?):\n{e}')
 
     if sort:                    #sort by start index
         genes.sort(key=lambda f: f.location.start)
 
     if not genome_len:
-        raise(Exception(f'No sequence-region directive found in "{gff_file}".'))
+        sys.exit(f'No sequence-region directive found in "{gff_file}". '
+                 f'Expected something like:\n'
+                 f'"##sequence-region N1063.1 1 4417850"')
     if not genes:
-        raise(Exception(f'No CDS entries found in "{gff_file}".'))
+        sys.exit(f'No CDS entries found in "{gff_file}".')
 
     return genome_len, genes
 
@@ -809,11 +812,13 @@ def pairwise(iterable, wrap=False):
 
     return zip(a, b)
 
+
 class MissingInfoFileError(Exception):
     pass
 
+
 def read_nucleotide_sequences(fasta: str, genome_folder: str,
-                              gene_family_info = 'GeneFamily_info.tsv',
+                              #gene_family_info = 'GeneFamily_info.tsv',
                               initial_genome_info = 'InitialGenome_info.tsv') \
     -> Tuple[Dict[str, SeqRecord], Dict[str, SeqRecord]]:
     """
@@ -830,8 +835,6 @@ def read_nucleotide_sequences(fasta: str, genome_folder: str,
         the file with the sequence
     genome_folder : str
         the folder containing the `gene_family_info` file
-    gene_family_info : str
-        the filename containing the gene GFF ID and start and end indices
     initial_genome_info : str
         the filename containing the indices of the genes and divisions at
         the root
@@ -854,29 +857,45 @@ def read_nucleotide_sequences(fasta: str, genome_folder: str,
         raise(Exception(f'No sequence in "{fasta}".'))
 
     gidTOseq: Dict[str, SeqRecord] = {}
-    gene_family_p = Path(genome_folder, gene_family_info)
-    if not gene_family_p.exists():
-        raise MissingInfoFileError(gene_family_p)
+    #gene_family_p = Path(genome_folder, gene_family_info)
+    #if not gene_family_p.exists():
+    #    raise MissingInfoFileError(gene_family_p)
 
-    with open(Path(genome_folder, gene_family_info)) as f:
-        f.readline()
-        for line in f:
-            gid, _, start, end = line.strip().split("\t")
-            gidTOseq[gid] = sequence[int(start)-1: int(end)]
+    #print(f'getting sequence from: {gene_family_p}')
+    #    #Get info about the gene families (which may have originated genes):
+    #with open(gene_family_p) as f:
+    #    f.readline()
+    #    for line in f:
+    #        gid, _, start, end = line.strip().split("\t")
+    #        gidTOseq[gid] = sequence[int(start)-1: int(end)]
 
     init_genome_p = Path(genome_folder, initial_genome_info)
     if not init_genome_p.exists():
         raise MissingInfoFileError(init_genome_p)
 
+        #Get info about the intergene divisions:
     didTOseq: Dict[str, SeqRecord] = {}
     with open(init_genome_p) as f:
+        f.readline()
         for line in f:
-            print(f'line:', line.strip().split("\t"))
             type, did, start, end = line.strip().split("\t")
+            start = int(start)
+            end = int(end)
+
+            if start > len(sequence)-1 or end > len(sequence):
+                sys.exit(f'You have specified features in the GFF file that '
+                         f'are larger that the sequence length {len(sequence)} '
+                         f'(from the fasta file):\n{line}')
+            
             if type == "DIVISION":
-                didTOseq[did] = sequence[int(start)-1: int(end)]
+                didTOseq[did] = sequence[start-1: end]
+            elif type == "GENE_FAMILY":
+                gidTOseq[did] = sequence[start-1: end]
+            else:
+                raise(Exception(f'Unexpected TYPE "{type}" in "{init_genome_p}"'))
 
     return gidTOseq, didTOseq
+
 
 def read_protein_sequences(gff_file: str, genome_folder: str,
                            gene_family_info = 'GeneFamily_info.tsv') -> Dict[str, str]:
