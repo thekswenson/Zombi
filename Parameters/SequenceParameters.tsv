@@ -14,12 +14,13 @@ SEQUENCE	nucleotide
 #
 ## Required parameters if SEQUENCE='nucleotide'
 ## N_MODEL can be either 'K2P' or 'CUSTOM'
+#
 N_MODEL	K2P
 #
 ## Required parameters if SEQUENCE='nucleotide' and N_MODEL='K2P'
 ## K2P_R is the ratio transitions/transversions
 ## (the Jukes-Cantor model has K2P_R = 1/2 because there are two transversions
-##  possible from a given state, but only one transition)
+##  possible for a given nucleotide, but only one transition)
 #
 K2P_R	0.5
 #
@@ -70,6 +71,42 @@ KAPPA	1.0
 ## Output related parameters
 #
 VERBOSE 1
+#
+#
+## The nucleotide substitution model for intergenes
+## I_MODEL can be either 'K2P' or 'CUSTOM'
+#
+I_MODEL	CUSTOM
+#
+## Required parameters if I_MODEL='K2P'
+## K2P_R is the ratio transitions/transversions
+## (the Jukes-Cantor model has K2P_R = 1/2 because there are two transversions
+##  possible for a given nucleotide, but only one transition)
+#
+I_K2P_R	0.5
+#
+## Required parameters if I_MODEL='CUSTOM'
+## Mutation rate between pairs of nucleotides (positive values)
+I_AC	1.0
+I_AG	1.0
+I_AT	1.0
+I_CA	1.0
+I_CG	1.0
+I_CT	1.0
+I_GA	1.0
+I_GC	1.0
+I_GT	1.0
+I_TA	1.0
+I_TC	1.0
+I_TG	1.0
+## Equilibrium frequencies of nucleotides (positive values, must sum to 1.0)
+## in intergenes
+I_A	0.25
+I_C	0.25
+I_G	0.25
+I_T	0.25
+#
+#
 #
 ### Su SPECIFIC PARAMETERS ###
 #

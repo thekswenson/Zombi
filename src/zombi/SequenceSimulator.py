@@ -1,3 +1,4 @@
+import sys
 import pyvolve
 import os
 import ete3
@@ -34,6 +35,8 @@ class SequenceSimulator():
             self.model = self.get_aminoacid_model()
         elif self.sequence == "codon":
             self.model = self.get_codon_model()
+
+        self.intergenemodel = self.get_intergene_model()
 
     def run(self, tree_file, sequences_folder):
 
@@ -130,37 +133,17 @@ class SequenceSimulator():
 
     def get_nucleotide_model(self) -> pyvolve.Model:
         """
-        Return the `pyvolve.Model` for nucleotide substitutions.  Get the
-        parameters from the input file.
+        Return the `pyvolve.Model` for nucleotide substitutions.
+        Get the parameters from the input file.
         """
         try:
             if self.parameters['N_MODEL'] == 'K2P':
-                print(f'K2P model!')
                 R = float(self.parameters['K2P_R'])
-                alpha = R / (R+1)
-                beta = .5 * (1 / (R+1))
-                diag = -(alpha + 2*beta)
-                # pyvolve uses the order ACGT
-                ratematrix = [[diag, beta, alpha, beta],
-                              [beta, diag, beta, alpha],
-                              [alpha, beta, diag, beta],
-                              [beta, alpha, beta, diag]]
+                ratematrix = self.getK2Pmatrix(R)
 
                 return pyvolve.Model("nucleotide", {"matrix": ratematrix})
             elif self.parameters['N_MODEL'] == 'CUSTOM':
-                print(f'CUSTOM model!')
-                nucleotides = ['A', 'C', 'G', 'T']
-                state_freqs = []
-                custom_mu = {}
-
-                for source in nucleotides:
-                    state_freqs.append(float(self.parameters[source]))
-                    for target in nucleotides:
-                        if source != target:
-                            pair = source + target
-                            custom_mu[pair] = float(self.parameters[pair])
-
-                assert abs(sum(state_freqs) - 1) < 1e-6, "Equilibrium frequencies of nucleotides must sum to 1.0"
+                state_freqs, custom_mu = self.getCustomModel()
 
                 return pyvolve.Model("nucleotide", {"mu": custom_mu, "state_freqs": state_freqs})
             else:
@@ -168,7 +151,75 @@ class SequenceSimulator():
                                 self.parameters["N_MODEL"] + '".'))
 
         except KeyError as e:
-            raise(Exception(f'Missing parameter in config file: {e}'))
+            sys.exit(f'Missing parameter in config file: {e}')
+
+    
+    def get_intergene_model(self) -> pyvolve.Model:
+        """
+        Return the `pyvolve.Model` for intergene nucleotide substitutions.
+        Get the parameters from the input file.
+        """
+        try:
+            if self.parameters['I_MODEL'] == 'K2P':
+                R = float(self.parameters['I_K2P_R'])
+                ratematrix = self.getK2Pmatrix(R)
+
+                return pyvolve.Model("nucleotide", {"matrix": ratematrix})
+            elif self.parameters['I_MODEL'] == 'CUSTOM':
+                state_freqs, custom_mu = self.getCustomModel('I_')
+
+                return pyvolve.Model("nucleotide", {"mu": custom_mu, "state_freqs": state_freqs})
+            else:
+                raise(Exception('Unknown nucleotide model type I_MODEL = "' + 
+                                self.parameters["I_MODEL"] + '".'))
+
+        except KeyError as e:
+            sys.exit(f'Missing parameter in config file: {e}')
+
+
+    def getK2Pmatrix(self, R):
+        """
+        Return the Kimura 2 parameter rate matrix (i.e K80), given the ratio
+        transitions/transversions.
+        (the Jukes-Cantor model has K2P_R = 1/2 because there are two
+         transversions possible for a given nucleotide, but only one transition)
+        """
+        alpha = R / (R+1)
+        beta = .5 * (1 / (R+1))
+        diag = -(alpha + 2*beta)
+        # pyvolve uses the order ACGT
+        return [[diag, beta, alpha, beta],
+                [beta, diag, beta, alpha],
+                [alpha, beta, diag, beta],
+                [beta, alpha, beta, diag]]
+
+
+    def getCustomModel(self, prefix=''):
+        """
+        Return the rate parameters and nucleotide frequencies for the custom
+        model.
+
+        Parameters
+        ----------
+        prefix : str, optional
+            this is the prefix for the parameter names in the config file,
+            usually either '' or 'I_'.
+        """
+        nucleotides = ['A', 'C', 'G', 'T']
+        state_freqs = []
+        custom_mu = {}
+
+        assert not prefix or prefix == 'I_', 'Bad parameter prefix.'
+
+        for source in nucleotides:
+            state_freqs.append(float(self.parameters[f'I_{source}']))
+            for target in nucleotides:
+                if source != target:
+                    pair = f'I_{source + target}'
+                    custom_mu[pair] = float(self.parameters[pair])
+
+        assert abs(sum(state_freqs) - 1) < 1e-6, "Equilibrium frequencies of nucleotides must sum to 1.0"
+        return state_freqs, custom_mu
 
 
     def get_aminoacid_model(self):
