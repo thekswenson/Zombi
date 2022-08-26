@@ -6,7 +6,7 @@ import os
 import scipy
 import scipy.stats as ss
 from itertools import tee, zip_longest
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Set, Tuple, Optional
 from pathlib import Path
 
 from BCBio import GFF
@@ -941,3 +941,13 @@ def read_protein_sequences(gff_file: str, genome_folder: str,
             gidTOseq[gid] = gffidTOseq[gffid]
 
     return gidTOseq
+
+
+def get_leaves_from_file(leavesfile: Path) -> Set[str]:
+    leaves = set()
+    with open(leavesfile) as f:
+        f.readline()    #Burn the opening line
+        for line in f:
+            leaves.add(line.strip())
+
+    return leaves

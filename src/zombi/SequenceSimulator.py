@@ -7,7 +7,7 @@ import ete3
 import numpy
 import random
 import re
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 from . import AuxiliarFunctions as af
 
 from Bio.SeqRecord import SeqRecord
@@ -736,26 +736,36 @@ class NodeMissingError(Exception):
 
 node_piecesre = re.compile(r'.*/(\w+)_PIECES.tsv')
 def write_whole_genome(pieces_file: Path, seq_sim: SequenceSimulator,
-                       sequences_folder: Path, out_folder: Path):
+                       sequences_folder: Path, out_folder: Path,
+                       leaves: Set[str]):
     """
     Output the genomes specified by the order of the genes and divisions in
     the `pieces_file`.
 
     Parameters
     ----------
-    pieces_file : str
+    pieces_file : Path
         the orderings of the genomes
     seq_sim : SequenceSimulator
         the simulator for the sequences
-    sequences_folder : str
+    sequences_folder : Path
         the sequences are specified here
-    out_folder : str
+    out_folder : Path
         put the genomes here
+    leaves : Set[str]
+        the leaf names
     """
 
     node = 'Root'
     if m := node_piecesre.match(str(pieces_file)):
       node = m.group(1)
+
+    if node in leaves:
+        out_folder = out_folder / "Leaves"
+    else:
+        out_folder = out_folder / "Internal"
+
+    out_folder.mkdir(exist_ok=True)
 
     whole_genome = ""
     with open(pieces_file) as f:
@@ -801,41 +811,44 @@ def write_whole_genome(pieces_file: Path, seq_sim: SequenceSimulator,
         
 
 
-def whole_genome_to_GFF(pieces_files: List[Path], outfile: Path):
+def whole_genome_to_GFF(pieces_files: List[Path], outfile: Path,
+                        leaves_only=set()):
     """
     Output the whole genomes in the `pieces_files` as a single GFF file.
     """
-    id2genome: Dict[str, List[str]] = defaultdict(list)
+    pid2genome: Dict[str, List[str]] = defaultdict(list)
     seqregions = []
+
         #Organize the genome pieces:
     for pieces_file in pieces_files:
         node = 'Root'
         if m:= node_piecesre.match(str(pieces_file)):
           node = m.group(1)
 
-        maxcoordinate = 0
-        with open(pieces_file) as f:
-            f.readline()            # Header
+        if not leaves_only or node in leaves_only:
+            maxcoordinate = 0
+            with open(pieces_file) as f:
+                f.readline()            # Header
 
-            for line in f:
-                # ["FAMILY", "TYPE", "IDENTITY", "LENGTH", "TOTAL_LEFT", "TOTAL_RIGHT", "ORIENTATION"]
-                family, type, identity, length, tleft, tright, orientation = line.strip().split("\t")
+                for line in f:
+                    # ["FAMILY", "TYPE", "IDENTITY", "LENGTH", "TOTAL_LEFT", "TOTAL_RIGHT", "ORIENTATION"]
+                    family, type, identity, length, tleft, tright, orientation = line.strip().split("\t")
 
-                maxcoordinate = max(maxcoordinate, int(tright))
+                    maxcoordinate = max(maxcoordinate, int(tright))
 
-                assert type == "Gene" or type == 'Divi', 'Unexpected segment type: "{type}"'
+                    assert type == "Gene" or type == 'Divi', 'Unexpected segment type: "{type}"'
 
-                pid = f'{type}_{family}'
-                id2genome[pid].append(f'{node}\tZombi\t{type}\t{int(tleft)+1}\t'
-                                      f'{tright}\t.\t{orientation}\t.\tID={pid}')
+                    pid = f'{type}_{family}'
+                    pid2genome[pid].append(f'{node}\tZombi\t{type}\t{int(tleft)+1}\t'
+                                           f'{tright}\t.\t{orientation}\t.\tID={pid}')
 
-            seqregions.append(f'##sequence-region {node} 1 {maxcoordinate}')
+                seqregions.append(f'##sequence-region {node} 1 {maxcoordinate}')
 
         #Write them to the GFF file:
     with open(outfile, 'w') as f:
         f.write(f'##gff-version 3.1.26\n')
         for r in seqregions:
             f.write(f'{r}\n')
-        for lines in id2genome.values():
+        for lines in pid2genome.values():
             for line in lines:
                 f.write(f'{line}\n')

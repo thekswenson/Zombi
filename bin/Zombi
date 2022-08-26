@@ -32,6 +32,7 @@ class Zombi():
         extant_tree_file = os.path.join(tree_folder, "ExtantTree.nwk")
         collapsed_nodes_file = os.path.join(tree_folder, "CollapsedNodes.tsv")
         lengths_file = os.path.join(tree_folder, "Lengths.tsv")
+        leaves_file = Path(tree_folder, "Leaves.tsv")
 
 
 
@@ -90,6 +91,12 @@ class Zombi():
             for k, v in collapsed_nodes.items():
                 line = "\t".join([k, v]) + "\n"
                 f.write(line)
+
+        with open(leaves_file, "w") as f:
+            f.write('### Leaf Names')
+            for l in leaves:
+                f.write(f'{l.name}\n')
+
         
         if advanced_mode != "i" and parameters["SCALE_TREE"] != 0:
             scaled_extant_tree_file = os.path.join(tree_folder, "REDScaledExtantTree.tsv")
@@ -431,11 +438,18 @@ class Zombi():
             pieces_files = [d for d in genomes_folder.iterdir()
                             if str(d).endswith("PIECES.tsv")] # could be renamed to COORDINATES.tsv
             
+            leaves_file = Path(experiment_folder, "T", "Leaves.tsv")
+            leaves = af.get_leaves_from_file(leaves_file)
+    
             for pieces_file in pieces_files:
                 write_whole_genome(pieces_file, ss, sequences_folder,
-                                   genomeseq_folder)
+                                   genomeseq_folder, leaves)
 
-            whole_genome_to_GFF(pieces_files, Path(sequences_folder, 'Genomes.gff'))
+            whole_genome_to_GFF(pieces_files,
+                                Path(sequences_folder, 'Genomes.gff'))
+            whole_genome_to_GFF(pieces_files,
+                                Path(sequences_folder, 'LeafGenomes.gff'),
+                                leaves)
 
 
 def write_whole_genome_old(length_file: str, lengths_folder:str, seq_sim: SequenceSimulator): # Probably erase

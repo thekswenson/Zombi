@@ -602,6 +602,7 @@ class SpeciesTreeGenerator():
                                                    shif_speciation, shif_extinction]))
         return draw
 
+
     def generate_newick_trees(self):
 
         def find_descendant(surviving_nodes, node):
@@ -835,7 +836,11 @@ class SpeciesTreeGenerator():
                         eroot.dist = float(time)
                         break
 
-        return wholetree.write(format=1, format_root_node = True), extanttree.write(format=1, format_root_node = True), map_collapsed
+        return (wholetree.write(format=1, format_root_node = True),
+                extanttree.write(format=1, format_root_node = True),
+                map_collapsed,
+                extanttree.get_leaves())
+
 
     def scale_trees(self, extant_tree, scaling):
 
