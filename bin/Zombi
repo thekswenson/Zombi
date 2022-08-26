@@ -27,6 +27,14 @@ class Zombi():
 
         tree_folder = os.path.join(experiment_folder, "T")
 
+        events_file = os.path.join(tree_folder, "Events.tsv")
+        complete_tree_file = os.path.join(tree_folder, "CompleteTree.nwk")
+        extant_tree_file = os.path.join(tree_folder, "ExtantTree.nwk")
+        collapsed_nodes_file = os.path.join(tree_folder, "CollapsedNodes.tsv")
+        lengths_file = os.path.join(tree_folder, "Lengths.tsv")
+
+
+
         if advanced_mode == "i":
 
             # In this case the input is a tree file
@@ -36,73 +44,39 @@ class Zombi():
             stg = SpeciesTreeGenerator({})
 
             stg.start()
-
             stg.events = af.generate_events(tree_file)
-
-            events_file = os.path.join(tree_folder, "Events.tsv")
-            stg.write_events_file(events_file)
-
-            complete_tree_file = os.path.join(tree_folder, "CompleteTree.nwk")
-            extant_tree_file = os.path.join(tree_folder, "ExtantTree.nwk")
-            collapsed_nodes_file = os.path.join(tree_folder, "CollapsedNodes.tsv")
-            lengths_file = os.path.join(tree_folder, "Lengths.tsv")
-
-            complete_tree, extant_tree, collapsed_nodes = stg.generate_newick_trees()
-
-            with open(complete_tree_file, "w") as f:
-                assert complete_tree is not None
-                f.write(complete_tree)
-
-            with open(extant_tree_file, "w") as f:
-                assert extant_tree is not None
-                f.write(extant_tree)
-
-            with open(collapsed_nodes_file, "w") as f:
-                for k, v in collapsed_nodes.items():
-                    line = "\t".join([k, v]) + "\n"
-                    f.write(line)
-
-            stg.write_lengths(lengths_file, complete_tree, extant_tree)
-
-            return 0
 
         else:
 
             parameters = af.prepare_species_tree_parameters(af.read_parameters(parameters_file))
             stg = SpeciesTreeGenerator(parameters)
 
-        os.system("cp " + parameters_file + " " + tree_folder)
+            shutil.copyfile(parameters_file, tree_folder)
 
-        run_counter = 0
-        success = False
+            run_counter = 0
+            success = False
 
-        while success == False and run_counter < 100:
-            run_counter += 1
-            print("Computing Species Tree. Trial number %s" % str(run_counter))
-            if advanced_mode == "0":
-                success = stg.run()
-            if advanced_mode == "b":
-                success = stg.run_b()
-            if advanced_mode == "p":
-                success = stg.run_p()
-            if advanced_mode == "m":
-                success = stg.run_m()
-            if advanced_mode == "s":
-                success = stg.run_s()
+            while not success and run_counter < 100:
+                run_counter += 1
+                print("Computing Species Tree. Trial number %s" % str(run_counter))
+                if advanced_mode == "0":
+                    success = stg.run()
+                if advanced_mode == "b":
+                    success = stg.run_b()
+                if advanced_mode == "p":
+                    success = stg.run_p()
+                if advanced_mode == "m":
+                    success = stg.run_m()
+                if advanced_mode == "s":
+                    success = stg.run_s()
 
-        if run_counter >= 100:
-            print("Aborting computation of the Species Tree. Please use other speciation and extinction rates!")
-            return 0
-                        
-        complete_tree, extant_tree, collapsed_nodes = stg.generate_newick_trees()       
-                
-        events_file = os.path.join(tree_folder, "Events.tsv")
+            if run_counter >= 100:
+                print("Aborting computation of the Species Tree after 100 tries. Please use other speciation and extinction rates!")
+                return 0
+
+        complete_tree, extant_tree, collapsed_nodes, leaves = stg.generate_newick_trees()       
         stg.write_events_file(events_file)
-
-        complete_tree_file = os.path.join(tree_folder, "CompleteTree.nwk")
-        extant_tree_file = os.path.join(tree_folder, "ExtantTree.nwk")
-        collapsed_nodes_file = os.path.join(tree_folder, "CollapsedNodes.tsv")
-        
+        stg.write_lengths(lengths_file, complete_tree, extant_tree)
         
         with open(complete_tree_file, "w") as f:
             assert complete_tree is not None
@@ -117,13 +91,10 @@ class Zombi():
                 line = "\t".join([k, v]) + "\n"
                 f.write(line)
         
-        lengths_file = os.path.join(tree_folder, "Lengths.tsv")
-        stg.write_lengths(lengths_file, complete_tree, extant_tree)
-        
-        if parameters["SCALE_TREE"] != 0:
+        if advanced_mode != "i" and parameters["SCALE_TREE"] != 0:
             scaled_extant_tree_file = os.path.join(tree_folder, "REDScaledExtantTree.tsv")
             scaled_events_file = os.path.join(tree_folder, "REDScaledEvents.tsv")
-            scaled_tree, scaled_events = stg.scale_trees(extant_tree,parameters["SCALE_TREE"])
+            scaled_tree, scaled_events = stg.scale_trees(extant_tree, parameters["SCALE_TREE"])
             stg.write_scaled_files(scaled_tree, scaled_extant_tree_file,
                                    scaled_events, scaled_events_file)
         
