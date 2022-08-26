@@ -1,10 +1,13 @@
+from collections import defaultdict
+from pathlib import Path
 import sys
 import pyvolve
 import os
 import ete3
 import numpy
 import random
-from typing import Optional
+import re
+from typing import Dict, List, Optional
 from . import AuxiliarFunctions as af
 
 from Bio.SeqRecord import SeqRecord
@@ -88,7 +91,7 @@ class SequenceSimulator():
         # Correct the names
         self.correct_names(os.path.join(sequences_folder, fasta_file), name_mapping)
 
-    def run_f(self, tree_file, gene_length: int, sequences_folder: str,
+    def run_f(self, tree_file, gene_length: int, sequences_folder: Path,
               sequence: Optional[SeqRecord] = None):
         """
         Simulate full genome sequence evolution for the gene tree.
@@ -263,12 +266,14 @@ class SequenceSimulator():
 
 
     def retrieve_sequences(self, name, gf, sequences_folder):
-
+        """
+        Read the simulated sequences from the specified location.
+        """
         for n,s in af.fasta_reader(os.path.join(sequences_folder, gf + "_complete.fasta")):
             if n[1:] == name:
                 return s
 
-        raise(NodeMissingError('Missing sequence for {name} in "{gr}_complete.fasta".'))
+        raise(NodeMissingError('Missing sequence for {name} in "{gf}_complete.fasta".'))
 
 
     def retrieve_orientation(self, species, gene_name, lengths_folder):
@@ -727,3 +732,110 @@ class SequenceSimulator():
 
 class NodeMissingError(Exception):
     pass
+
+
+node_piecesre = re.compile(r'.*/(\w+)_PIECES.tsv')
+def write_whole_genome(pieces_file: Path, seq_sim: SequenceSimulator,
+                       sequences_folder: Path, out_folder: Path):
+    """
+    Output the genomes specified by the order of the genes and divisions in
+    the `pieces_file`.
+
+    Parameters
+    ----------
+    pieces_file : str
+        the orderings of the genomes
+    seq_sim : SequenceSimulator
+        the simulator for the sequences
+    sequences_folder : str
+        the sequences are specified here
+    out_folder : str
+        put the genomes here
+    """
+
+    node = 'Root'
+    if m := node_piecesre.match(str(pieces_file)):
+      node = m.group(1)
+
+    whole_genome = ""
+    with open(pieces_file) as f:
+        f.readline() # Header
+        
+        for line in f:
+
+            # ["FAMILY", "TYPE", "IDENTITY", "LENGTH", "TOTAL_LEFT", "TOTAL_RIGHT", "ORIENTATION"]
+            family, gtype, identity, length, tleft, tright, orientation = line.strip().split("\t")
+        
+            name = node + "_" + identity
+            directory = sequences_folder
+            if gtype == "Divi":
+                directory = directory / "Divisions"
+            else:
+                assert gtype == "Gene", 'Unexpected segment type: "{gtype}"'
+                directory = directory / "Genes"
+
+            sequence = seq_sim.retrieve_sequences(name, family, directory)
+
+            assert len(sequence) == int(length), f'{len(sequence)} != {length}'
+
+            if orientation == "+":
+                whole_genome += sequence
+            elif orientation == "-":
+                whole_genome += af.get_complementary_sequence(sequence)
+            else:
+                print(f'Error. Bad orientation "{orientation}" of gene')
+
+    entry = [(">" + node, whole_genome)]
+    af.fasta_writer(os.path.join(out_folder, node + "_Wholegenome.fasta"), entry)
+
+
+
+#class PieceNamer(dict):
+#    def __init__(self, *args, **kwargs):
+#        self.nextg = 0
+#        self.nextd = 0
+#        self.update(*args, **kwargs)
+#
+#    def __getitem__(self):
+#        if self.
+        
+
+
+def whole_genome_to_GFF(pieces_files: List[Path], outfile: Path):
+    """
+    Output the whole genomes in the `pieces_files` as a single GFF file.
+    """
+    id2genome: Dict[str, List[str]] = defaultdict(list)
+    seqregions = []
+        #Organize the genome pieces:
+    for pieces_file in pieces_files:
+        node = 'Root'
+        if m:= node_piecesre.match(str(pieces_file)):
+          node = m.group(1)
+
+        maxcoordinate = 0
+        with open(pieces_file) as f:
+            f.readline()            # Header
+
+            for line in f:
+                # ["FAMILY", "TYPE", "IDENTITY", "LENGTH", "TOTAL_LEFT", "TOTAL_RIGHT", "ORIENTATION"]
+                family, type, identity, length, tleft, tright, orientation = line.strip().split("\t")
+
+                maxcoordinate = max(maxcoordinate, int(tright))
+
+                assert type == "Gene" or type == 'Divi', 'Unexpected segment type: "{type}"'
+
+                pid = f'{type}_{family}'
+                id2genome[pid].append(f'{node}\tZombi\t{type}\t{int(tleft)+1}\t'
+                                      f'{tright}\t.\t{orientation}\t.\tID={pid}')
+
+            seqregions.append(f'##sequence-region {node} 1 {maxcoordinate}')
+
+        #Write them to the GFF file:
+    with open(outfile, 'w') as f:
+        f.write(f'##gff-version 3.1.26\n')
+        for r in seqregions:
+            f.write(f'{r}\n')
+        for lines in id2genome.values():
+            for line in lines:
+                f.write(f'{line}\n')

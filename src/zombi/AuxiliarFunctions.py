@@ -706,7 +706,7 @@ def generate_gene_tree(events):
     return completetree, extanttree
 
 
-def write_pruned_sequences(tree_file, fasta_folder, scaled=False):
+def write_pruned_sequences(tree_file: str, fasta_folder: str, scaled=False):
     with open(tree_file) as f:
         line = f.readline().strip()
         if "(" not in line or line == ";":

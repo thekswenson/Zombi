@@ -55,13 +55,13 @@ RECONCILED_TREES 0
 VERBOSE 1
 SCALE_TREE 0 
 #
-### GF SPECIFIC PARAMETERS ###
+### Gf SPECIFIC PARAMETERS ###
 #
 GENE_LENGTH f:100
 INTERGENE_LENGTH 100
 PSEUDOGENIZATION 0.5
 #
-### GM SPECIFIC PARAMETERS ###
+### Gm SPECIFIC PARAMETERS ###
 # Include the whole path to the parameters file. The parameters file has a first line (header) and 4 tab separated columns with the name of the gene family (ignore), D, T and L rate.
 RATE_FILE False
 # If SCALE_RATES = True, it will scale the rates used in the parameters file to the height of the tree, from the leaves to the root node (not the initial node, remember that Zombi also simulates the stem above the root)

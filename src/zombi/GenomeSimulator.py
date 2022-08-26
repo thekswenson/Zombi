@@ -647,12 +647,6 @@ class GenomeSimulator():
         genome_file : str
             the filename (.gff) that annotates the genes in the genome. A
             single chromosome is assumed.
-        intergenic_sequences : bool, optional
-            [description], by default False
-        family_rates : bool, optional
-            [description], by default False
-        interactome : bool, optional
-            [description], by default False
 
         Returns
         -------
@@ -662,7 +656,7 @@ class GenomeSimulator():
 
         Notes
         -----
-            Only makes a single circular chromosome at the moment.
+            Multiple chromosomes are not supported at the moment.
         """
         genome = Genome()
         genome.species = "Root"

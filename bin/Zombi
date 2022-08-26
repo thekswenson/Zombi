@@ -3,7 +3,7 @@ from Bio.SeqRecord import SeqRecord
 from flask import g
 from zombi.SpeciesTreeSimulator import SpeciesTreeGenerator
 from zombi.GenomeSimulator import GenomeSimulator
-from zombi.SequenceSimulator import SequenceSimulator
+from zombi.SequenceSimulator import SequenceSimulator, whole_genome_to_GFF, write_whole_genome
 from typing import Dict, Optional
 from pathlib import Path
 from collections import defaultdict
@@ -11,7 +11,6 @@ import zombi.AuxiliarFunctions as af
 import argparse
 import os
 import sys
-import re
 import multiprocessing
 import shutil
 
@@ -248,9 +247,9 @@ class Zombi():
 
         genome_folder = os.path.join(experiment_folder, "G")
         
-        gene_trees_folder = os.path.join(experiment_folder, "G/Gene_trees")
-        sequences_folder = os.path.join(experiment_folder, "S")
-        genesequences_folder = os.path.join(sequences_folder, "Genes")
+        gene_trees_folder = Path(experiment_folder, "G/Gene_trees")
+        sequences_folder = Path(experiment_folder, "S")
+        genesequences_folder = Path(sequences_folder, "Genes")
         #os.system("cp " + parameters_file + " " + sequences_folder)
         shutil.copy(parameters_file, sequences_folder)
 
@@ -271,7 +270,8 @@ class Zombi():
                 if parameters["VERBOSE"] == 1:
                     print("Simulating sequence for gene family %s" % tree_file.split("_")[0])
                 ss.run(tree_path, genesequences_folder)
-                af.write_pruned_sequences(tree_path.replace("complete", "pruned"), genesequences_folder)
+                af.write_pruned_sequences(tree_path.replace("complete", "pruned"),
+                                          str(genesequences_folder))
 
         elif advanced_mode == "u":
 
@@ -292,7 +292,8 @@ class Zombi():
                 if parameters["VERBOSE"] == 1:
                     print("Simulating sequence for gene family %s" % tree_file.split("_")[0])
                 ss.run_u(tree_path, genesequences_folder)
-                af.write_pruned_sequences(tree_path.replace("complete", "pruned"), genesequences_folder)
+                af.write_pruned_sequences(tree_path.replace("complete", "pruned"),
+                                          str(genesequences_folder))
                 
         elif advanced_mode == "s":
 
@@ -345,14 +346,15 @@ class Zombi():
                     
                     ss.run(tree_path, scaled_fastas_folder)                 
                     tree_path = os.path.join(gene_trees_folder, tree_file)               
-                    af.write_pruned_sequences(tree_path.replace("_substitution_scaled.nwk", "_prunedtree.nwk"), scaled_fastas_folder, True)
+                    af.write_pruned_sequences(tree_path.replace("_substitution_scaled.nwk", "_prunedtree.nwk"),
+                                              scaled_fastas_folder, True)
             
 
         elif advanced_mode == "f":
 
             complete_trees = [x for x in os.listdir(gene_trees_folder) if "complete" in x]
-            divisionsequences_folder = os.path.join(sequences_folder, "Divisions")
-            os.mkdir(divisionsequences_folder)
+            divisionsequences_folder = Path(sequences_folder, "Divisions")
+            divisionsequences_folder.mkdir()
 
             gf_lengths: Dict[str, int] = dict()
 
@@ -419,7 +421,7 @@ class Zombi():
             else:
                 for tree_file in division_trees:
                     simulate_sequences_on_tree(tree_file,
-                                               str(division_trees_folder),
+                                               division_trees_folder,
                                                divisionsequences_folder, 
                                                ss, division_lengths, did_to_seq,
                                                parameters["VERBOSE"])
@@ -450,19 +452,19 @@ class Zombi():
             
             print("Writing whole genomes")
 
-            genomes_folder = os.path.join(genome_folder, "Genomes")
-            genomeseq_folder = os.path.join(sequences_folder, "Genomes")
+            genomes_folder = Path(genome_folder, "Genomes")
+            genomeseq_folder = Path(sequences_folder, "Genomes")
             
             os.mkdir(genomeseq_folder)
 
-            pieces_files = [os.path.join(genomes_folder, x)
-                            for x in os.listdir(genomes_folder)
-                            if x.endswith("PIECES.tsv")] # For better clarity, should be renamed to coordinate files
+            pieces_files = [d for d in genomes_folder.iterdir()
+                            if str(d).endswith("PIECES.tsv")] # could be renamed to COORDINATES.tsv
             
             for pieces_file in pieces_files:
                 write_whole_genome(pieces_file, ss, sequences_folder,
                                    genomeseq_folder)
 
+            whole_genome_to_GFF(pieces_files, Path(sequences_folder, 'Genomes.gff'))
 
 
 def write_whole_genome_old(length_file: str, lengths_folder:str, seq_sim: SequenceSimulator): # Probably erase
@@ -496,48 +498,8 @@ def write_whole_genome_old(length_file: str, lengths_folder:str, seq_sim: Sequen
     af.fasta_writer(os.path.join(sequences_folder, species + "_Wholegenome.fasta"), entry)
 
 
-node_piecesre = re.compile(r'.*/(\w+)_PIECES.tsv')
-def write_whole_genome(pieces_file: str, seq_sim: SequenceSimulator,
-                       sequences_folder: str, out_folder: str):
-
-    node = 'Root'
-    if m:= node_piecesre.match(pieces_file):
-      node = m.group(1)
-
-    whole_genome = ""
-    with open(pieces_file) as f:
-        f.readline() # Header
-        
-        for line in f:
-
-            # ["FAMILY", "TYPE", "IDENTITY", "LENGTH", "TOTAL_LEFT", "TOTAL_RIGHT", "ORIENTATION"]
-            family, gtype, identity, length, tleft, tright, orientation = line.strip().split("\t")
-        
-            name = node + "_" + identity
-            directory = sequences_folder
-            if gtype == "Divi":
-                directory += "/Divisions"
-            else:
-                assert gtype == "Gene", 'Unexpected segment type: "{gtype}"'
-                directory += "/Genes"
-
-            sequence = seq_sim.retrieve_sequences(name, family, directory)
-
-            assert len(sequence) == int(length), f'{len(sequence)} != {length}'
-
-            if orientation == "+":
-                whole_genome += sequence
-            elif orientation == "-":
-                whole_genome += af.get_complementary_sequence(sequence)
-            else:
-                print(f'Error. Bad orientation "{orientation}" of gene')
-
-    entry = [(">" + node, whole_genome)]
-    af.fasta_writer(os.path.join(out_folder, node + "_Wholegenome.fasta"), entry)
-
-
-def simulate_sequences_on_tree(tree_file: str, gene_trees_folder: str,
-                               outfolder: str,
+def simulate_sequences_on_tree(tree_file: str, gene_trees_folder: Path,
+                               outfolder: Path,
                                seq_sim: SequenceSimulator,
                                family_lens: Dict[str, int],
                                id_to_seq: Optional[Dict[str, SeqRecord]]=None,
@@ -574,7 +536,8 @@ def simulate_sequences_on_tree(tree_file: str, gene_trees_folder: str,
     else:                 #make random gene
         seq_sim.run_f(tree_path, family_lens[family], outfolder)
 
-    af.write_pruned_sequences(tree_path.replace("complete", "pruned"), outfolder)
+    af.write_pruned_sequences(tree_path.replace("complete", "pruned"),
+                              str(outfolder))
 
 
 
