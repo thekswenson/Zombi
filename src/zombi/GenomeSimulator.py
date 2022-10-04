@@ -18,6 +18,7 @@ from .Genomes import T_DIR, LEFT, RIGHT, Intergene, LinearChromosome
 
 from Bio.SeqFeature import SeqFeature
 
+
 class GenomeSimulator():
     """
     Attributes
@@ -282,17 +283,46 @@ class GenomeSimulator():
                 with open(os.path.join(gene_tree_folder, gene_family_name + "_rec.xml"), "w") as f:
                     f.write(rec_tree)
 
-    def write_events_per_branch(self, events_per_branch_folder, scale, scaled_file, events_file):
-
+    def write_events_per_branch(self, events_per_branch_folder, scale, scaled_file, events_file): ### THIS FUNCTION SHOULD BE CLEANED! THE INFO NOW IS REDUNDANT
+        
+        def clever_writing():
+            table = list()
+            for genome_name, genome in self.all_genomes.items():            
+                for chromosome in genome:                
+                    
+                    for event in chromosome.event_history:                                  
+                        
+                        etype, time, breakpoints = event.return_info()
+                        
+                        if etype == "T":
+                            breakpoints = event.receptortbp                        
+                            
+                        if etype == "P":
+                            breakpoints += "," + str(event.tbpH)  
+                        
+                        table.append((genome_name, time, etype, breakpoints))
+                        
+            table = sorted(table, key=lambda x:x[1])
+            
+            with open(os.path.join(events_per_branch_folder, "Table_branch_events.tsv"), "w") as f:
+                
+                header = "\t".join(["Branch", "Time", "Event", "Breakpoints"]) + "\n"
+                f.write(header)
+                
+                for e in table:
+                    f.write("\t".join([str(x) for x in e]) + "\n")
+        
         if not os.path.isdir(events_per_branch_folder):
             os.mkdir(events_per_branch_folder)
+            
+        clever_writing()
 
         events_per_branch = dict()
 
         for gene_family_name, gene_family in self.all_gene_families.items():
 
             for time, event, nodes in gene_family.events:
-
+                
                 name = nodes.split(";")[0]
 
                 if name not in events_per_branch:
@@ -388,7 +418,8 @@ class GenomeSimulator():
                         line = "\t".join(line) + "\n"
                         f.write(line)
 
-
+    
+    
     def write_profiles(self, profiles_folder):
 
         if not os.path.isdir(profiles_folder):

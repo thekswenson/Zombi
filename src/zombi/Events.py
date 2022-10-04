@@ -67,6 +67,13 @@ class EventOneCut(GenomeEvent):
         assert interval.inSpecific(sbp)
         self.before: Interval = interval
         self.sbp: int = sbp
+            
+    def return_info(self):
+        """
+        Return all the important info to register the event
+        """
+        return (self.etype, self.time, str(self.interval.tc1 + self.sbp))
+           
 
 class EventTwoCuts(GenomeEvent):
     """
@@ -139,6 +146,15 @@ class EventTwoCuts(GenomeEvent):
         """
         assert 0 <= tc <= self.twraplen
         return tc
+    
+    
+    def return_info(self):
+        """
+        Return all the important info to register the event
+        """
+        return (self.etype, self.time, str(self.tbpL) + "," + str(self.tbpR))
+    
+  
 
 #-- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - --
 class Origination(EventOneCut):
