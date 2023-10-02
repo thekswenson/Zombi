@@ -1,6 +1,9 @@
 __pycache__
 src/zombi.egg-info/
 Output/
+Output_folder/
+.Rhistory
+.DS_store
 /*_output/
 data/
 Validations/
