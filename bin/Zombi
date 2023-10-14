@@ -52,7 +52,7 @@ class Zombi():
             parameters = af.prepare_species_tree_parameters(af.read_parameters(parameters_file))
             stg = SpeciesTreeGenerator(parameters)
 
-            shutil.copyfile(parameters_file, tree_folder)
+            shutil.copy(parameters_file, tree_folder)
 
             run_counter = 0
             success = False
@@ -535,7 +535,7 @@ if __name__ == "__main__":
     parser.add_argument("params", type=str, help="Parameters file")
     parser.add_argument("output", type=str, help="Name of the experiment folder")
     parser.add_argument("-g", "--genome-root", metavar="GFF_FILE",
-                        help="Seed Gf mode with this ancestral gene sequence")
+                        help="Seed Gf mode with these ancestral gene intervals")
     parser.add_argument("-s", "--sequence-root", metavar="FASTA_FILE",
                         help="Seed Sf mode with this ancestral sequence (use after -g in Gf mode)")
     parser.add_argument("-p", "--parallel", metavar="NUM_THREADS", type=int, default=0,
