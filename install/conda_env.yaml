@@ -1,0 +1,13 @@
+#Do `mamba env create --file install/conda_env.yaml` from the top directory
+name: zombi
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - bcbio-gff
+  - pyvolve
+  - ete3
+  - numpy
+  - networkx
+  - flask
