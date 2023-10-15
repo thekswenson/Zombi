@@ -781,65 +781,60 @@ class Loss(EventTwoCuts):
         """
         assert self.pseudo_gene_list
 
+        tc = self.returnTotalWithinEvent(sc)
+
         for gene in self.pseudo_gene_list:
             if self.after_tbpL < tc and self.after_tbpR > tc:
                 return gene, tc - gene.total_flanking[0]
 
-        piece, cut = None, sc     
+        piece, cut = None, sc
 
         if self.wraps():
 
             genes_at_beginning = False
 
-            for gene in self.pseudo_gene_list: 
-                lf, rf = gene.total_flanking
-            
-
-            for gene in self.pseudo_gene_list: 
-
+            for gene in self.pseudo_gene_list:
                 lf, rf = gene.total_flanking
 
-                
-                if lf == 0: # If the left flanking is 0, then we are dealing with genes at the beginning 
-                    
+            for gene in self.pseudo_gene_list:
+
+                lf, rf = gene.total_flanking
+
+                if lf == 0:  # If the left flanking is 0, then we are dealing with genes at the beginning
+
                     genes_at_beginning = True
 
                 if genes_at_beginning:
-                    
-                    
-                    
-                    if (lf - self.adjustment_factor + self.twraplen) < tc and (rf - self.adjustment_factor + self.twraplen) > tc: 
-                        
+
+                    if (lf - self.adjustment_factor + self.twraplen) < tc and (
+                            rf - self.adjustment_factor + self.twraplen) > tc:
                         return gene, tc - (self.twraplen - (self.adjustment_factor - lf))
                 else:
-                    
-                    
-                    if (lf - self.adjustment_factor) < tc and (rf - self.adjustment_factor) > tc:  
-                                              
+
+                    if (lf - self.adjustment_factor) < tc and (rf - self.adjustment_factor) > tc:
                         return gene, tc - (lf - self.adjustment_factor)
-                
-            for intergene in self.pseudo_intergene_list:  
-                
+
+            for intergene in self.pseudo_intergene_list:
+
                 lf, rf = intergene.total_flanking
                 if lf < tc and rf > tc:
                     return intergene, tc - lf
-        
+
         else:
 
-            for gene in self.pseudo_gene_list:    
+            for gene in self.pseudo_gene_list:
 
                 lf, rf = gene.total_flanking
-                
+
                 if lf < tc and rf > tc:
                     return gene, tc - lf
-            
-            for intergene in self.pseudo_intergene_list:  
+
+            for intergene in self.pseudo_intergene_list:
 
                 lf, rf = intergene.total_flanking
                 if lf < tc and rf > tc:
                     return intergene, tc - lf
 
-        
         return None, sc
 
 

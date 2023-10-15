@@ -59,7 +59,7 @@ SCALE_TREE 0
 #
 GENE_LENGTH f:100
 INTERGENE_LENGTH 100
-PSEUDOGENIZATION 0.5
+PSEUDOGENIZATION 0.0
 #
 ### Gm SPECIFIC PARAMETERS ###
 # Include the whole path to the parameters file. The parameters file has a first line (header) and 4 tab separated columns with the name of the gene family (ignore), D, T and L rate.

@@ -1,5 +1,6 @@
 __pycache__
 src/zombi.egg-info/
+.idea/*
 Output/
 Output_folder/
 .Rhistory
