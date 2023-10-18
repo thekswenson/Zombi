@@ -728,7 +728,6 @@ class GenomeSimulator():
                 chromosome.intergenes.append(Intergene(chromosome.genes[0].start))
 
             for gene1, gene2 in af.pairwise(chromosome.genes):
-                assert gene2.start >= gene1.end     #type: ignore
                 chromosome.intergenes.append(Intergene(gene2.start - gene1.end)) #type: ignore
 
             if shape == "L":        #after the last gene

@@ -510,7 +510,7 @@ class Intergene():
     """
 
     def __init__(self, length = 0):
-
+        assert length >= 0, f"Intergene length {length} must be non-negative!"
         if length:
             self.length = length
         else:
@@ -555,6 +555,8 @@ class Intergene():
         #return "(" + str(self.length) + ")"
         #return "I_" + str(self.length)
         #return "I_" + str(self.id) + "_" + str(self.length)
+        if not self.specific_flanking:
+            raise(Exception("Specific flanking indices not innitilized yet!"))
         return "I_" + str(self.specific_flanking) 
     
     def __iter__(self):

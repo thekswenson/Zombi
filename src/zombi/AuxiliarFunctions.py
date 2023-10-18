@@ -789,6 +789,16 @@ def parse_GFF(gff_file: str, sort=True) -> Tuple[int, List[SeqFeature]]:
     except AttributeError as e:
         sys.exit(f'Problem opening GFF file (remove fasta lines?):\n{e}')
 
+        #Assure that the genes are within the sequence length:
+    for gene in genes:
+        if gene.location.end > genome_len:
+            sys.exit(f'There is a problem in the GFF file!  Either\n'
+                     f'  1. the sequence length {genome_len} is incorrect, or\n'
+                     f'  2. the feature {gene.id} is larger than the length.\n'
+                     f'\nWe expect the first line starting with '
+                     f'"##sequence-region" to contain the\n'
+                     f'genome length (e.g. "##sequence-region L_1 1 4412837").')
+
     if sort:                    #sort by start index
         genes.sort(key=lambda f: f.location.start)
 
