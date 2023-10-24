@@ -6,6 +6,7 @@ Output_folder/
 .Rhistory
 .DS_store
 /*_output/
+src/zombi/.ipynb_checkpoints/*
 data/
 Validations/
 build/

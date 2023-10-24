@@ -692,6 +692,7 @@ class GenomeSimulator():
         genome = Genome()
         genome.species = "Root"
         time = 0
+        warning_count = 0
 
         chrom_len, gene_features = af.parse_GFF(genome_file)
 
@@ -707,16 +708,17 @@ class GenomeSimulator():
             #Create the genes:
         prev_feature = None     #previous feature used to make a gene
         for i, feature in enumerate(gene_features):
-            if i == 0 and feature.location.start != 0:
+            if i == 0 and feature.start != 0:
                 gene, gene_family = self.make_dummy_gene(genome.species, time, family_rates,
                                                    self.parameters["RATE_FILE"] != "False")
 
                 chromosome.genes.append(gene)
                 self.all_gene_families[str(self.gene_families_counter)] = gene_family
                 gene_family = gene.orientation
-            if prev_feature and prev_feature.location.end > feature.location.start:
-                print(f'WARNING: skipping the creation of overlapping gene '
-                      f'{feature.id},\n\tas it overlaps with {prev_feature.id}')
+            if prev_feature and prev_feature.end > feature.start:
+                warning_count += 1
+                #print(f'WARNING: skipping the creation of overlapping gene '
+                #      f'{feature.id},\n\tas it overlaps with {prev_feature.id}')
             else:
                 gene, gene_family = self.make_gene(feature, genome.species,
                                                    time, family_rates,
@@ -726,7 +728,8 @@ class GenomeSimulator():
                 gene_family = gene.orientation
 
                 prev_feature = feature
-
+                
+        print (f'WARNING: skipping the creation of {warning_count} genes due to CDS region overlaps')  
             #Create the intergenes:
         if intergenic_sequences:    #first intergene is after the first gene
             chromosome.has_intergenes = True
@@ -788,17 +791,15 @@ class GenomeSimulator():
 
         gene = Gene()
 
-        if gene_feature.strand == 1:
-            gene.orientation = "+"
-        elif gene_feature.strand == -1:
-            gene.orientation = "-"
-        else:
+        try:
+            gene.orientation = gene_feature.strand
+        except:
             raise(Exception(f"Unknown strand for gene:\n{gene_feature}"))
 
         gene.gene_family = str(self.gene_families_counter)
         gene.species = species_tree_node
-        gene.start = gene_feature.location.start    #type: ignore
-        gene.end = gene_feature.location.end        #type: ignore
+        gene.start = gene_feature.start    #type: ignore
+        gene.end = gene_feature.end        #type: ignore
         gene.length = gene.end - gene.start         #type: ignore
 
         gene_family = GeneFamily(gene_family_id, time)
