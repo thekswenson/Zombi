@@ -3,10 +3,12 @@ src/zombi.egg-info/
 .idea/*
 Output/
 Output_folder/
+*/.ipynb_checkpoints
 .Rhistory
 .DS_store
 /*_output/
 src/zombi/.ipynb_checkpoints/*
+src/zombi/.ipynb_checkpoints
 data/
 Validations/
 build/

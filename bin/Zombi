@@ -365,7 +365,6 @@ class Zombi():
                                      [gf_lengths]*n, [id_to_seq]*n,
                                      [parameters["VERBOSE"]]*n))
             else:
-                id_to_seq=None
                 for tree_file in complete_trees:
                     simulate_sequences_on_tree(tree_file, gene_trees_folder,
                                                genesequences_folder,

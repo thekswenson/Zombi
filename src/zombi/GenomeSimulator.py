@@ -696,7 +696,7 @@ class GenomeSimulator():
 
         chrom_len, gene_features = af.parse_GFF(genome_file)
 
-            #Create a chromosome of the appropriate shape:
+        #Create a chromosome of the appropriate shape:
         shape = "C"
         chromosome: Union[LinearChromosome, CircularChromosome]
         if shape == "L":
@@ -705,7 +705,7 @@ class GenomeSimulator():
             assert shape == "C"
             chromosome = CircularChromosome(num_nucleotides=chrom_len)
 
-            #Create the genes:
+        #Create the genes:
         prev_feature = None     #previous feature used to make a gene
         for i, feature in enumerate(gene_features):
             if i == 0 and feature.start != 0:
@@ -719,6 +719,10 @@ class GenomeSimulator():
                 warning_count += 1
                 #print(f'WARNING: skipping the creation of overlapping gene '
                 #      f'{feature.id},\n\tas it overlaps with {prev_feature.id}')
+            elif feature.end - feature.start < 1:
+                print(f'WARNING: skipping the creation of 0 length gene '
+                      f'{feature.id}')
+            ###!!!### I have no idea why 0 length genes are being made but I do not like it. 
             else:
                 gene, gene_family = self.make_gene(feature, genome.species,
                                                    time, family_rates,
@@ -728,9 +732,10 @@ class GenomeSimulator():
                 gene_family = gene.orientation
 
                 prev_feature = feature
-                
-        print (f'WARNING: skipping the creation of {warning_count} genes due to CDS region overlaps')  
-            #Create the intergenes:
+        if warning_count > 0:        
+            print (f'WARNING: skipping the creation of {warning_count} genes due to CDS region overlaps')  
+        
+        #Create the intergenes:
         if intergenic_sequences:    #first intergene is after the first gene
             chromosome.has_intergenes = True
 
@@ -863,7 +868,7 @@ class GenomeSimulator():
         gene.gene_family = str(self.gene_families_counter)
         gene.species = species_tree_node
         gene.start = 0    #type: ignore
-        gene.end = 1        #type: ignore
+        gene.end = 2        #type: ignore
         gene.length = gene.end - gene.start         #type: ignore
     
         gene_family = GeneFamily(gene_family_id, time) 

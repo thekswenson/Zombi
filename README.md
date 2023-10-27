@@ -43,7 +43,7 @@ command for this because mamba cannot alter the configuration.
 
 Use mamba to install the following packages (Note too self, replace with .yaml file):
     
-    mamba install python ete3 networkx flask 
+    mamba install python ete3 networkx flask gffutils
 
 The packages BCBio and Pyvolve are also both required for zombi, but bioconda does not currently support
 the most up to date version of these packages. Therefore, we will download them with pip. 
