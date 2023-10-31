@@ -30,7 +30,7 @@ class GenomeSimulator():
         map lineage name to Genome (gene order)
     """
 
-    def __init__(self, parameters, events_file, root_genome: str=''):
+    def __init__(self, parameters, events_file, root_genome: str='', feat_choice: str=''):
 
         self.parameters = parameters
 
@@ -61,6 +61,7 @@ class GenomeSimulator():
         self.root_genome_file = root_genome     #Get root genome from GFF file.
         if root_genome and not os.path.exists(root_genome):
             raise(Exception(f"Root genome file {root_genome} not found."))
+        self.feat_choice = feat_choice
 
         # A list to keep track of all the event coordinates
 
@@ -667,7 +668,7 @@ class GenomeSimulator():
 
         return genome
 
-    def read_genome(self, genome_file:str, intergenic_sequences = False,
+    def read_genome(self, genome_file:str, feat_choice:str, intergenic_sequences = False,
                     family_rates = False, interactome = False):
         """
         Create a genome with genes and intergenic regions specified by the given
@@ -694,7 +695,7 @@ class GenomeSimulator():
         time = 0
         warning_count = 0
 
-        chrom_len, gene_features = af.parse_GFF(genome_file)
+        chrom_len, gene_features = af.parse_GFF(genome_file, feat_choice)
 
         #Create a chromosome of the appropriate shape:
         shape = "C"
@@ -1198,7 +1199,7 @@ class GenomeSimulator():
         # First we prepare the root genome
 
         if self.root_genome_file:
-            genome = self.read_genome(self.root_genome_file,
+            genome = self.read_genome(self.root_genome_file, self.feat_choice,
                                       intergenic_sequences=True)
         else:
             genome = self.fill_genome(intergenic_sequences=True)

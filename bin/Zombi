@@ -119,7 +119,7 @@ class Zombi():
             stg.write_categories(cat_file)
 
 
-    def G(self, parameters_file, experiment_folder, advanced_mode, root_genome):
+    def G(self, parameters_file, experiment_folder, advanced_mode, root_genome, feat_choice):
 
         parameters = af.prepare_genome_parameters(af.read_parameters(parameters_file))
         events_file = os.path.join(experiment_folder, "T/Events.tsv")
@@ -130,7 +130,7 @@ class Zombi():
         genomes_folder = os.path.join(genome_folder, "Genomes")
         gene_families_folder = os.path.join(genome_folder, "Gene_families")
 
-        gss = GenomeSimulator(parameters, events_file, root_genome)
+        gss = GenomeSimulator(parameters, events_file, root_genome, feat_choice)
 
         if advanced_mode == "0":
             gss.run()
@@ -535,6 +535,12 @@ if __name__ == "__main__":
     parser.add_argument("output", type=str, help="Name of the experiment folder")
     parser.add_argument("-g", "--genome-root", metavar="GFF_FILE",
                         help="Seed Gf mode with this ancestral gene sequence")
+    #parser.add_argument("-d", "--domain", type = str, choices = ["Eukaryote", "Prokaryote"], default = "Prokaryote",
+    #                    help="Select whether you are working with eukaryotic data or prokaryotic data")
+    parser.add_argument("-fc", "--feature-choice", type = str, choices = ["CDS", "gene"], default = "CDS",
+                        help="Select which type of feature you want to analyze")
+    #parser.add_argument("-c", "--chromosome", type = str, choices = ["Eukaryote", "Prokaryote"],
+    #                    help="Select which chromosomes you want to work with. Defaults to all. (work in progress)")
     parser.add_argument("-s", "--sequence-root", metavar="FASTA_FILE",
                         help="Seed Sf mode with this ancestral sequence (use after -g in Gf mode)")
     parser.add_argument("-p", "--parallel", metavar="NUM_THREADS", type=int, default=0,
@@ -545,6 +551,7 @@ if __name__ == "__main__":
     mode, parameters_file, experiment_folder = args.mode, args.params, args.output
     root_gff = args.genome_root
     root_fasta = args.sequence_root
+    feat_choice = args.feature_choice
     num_threads = args.parallel
 
     if len(mode) == 1:
@@ -595,12 +602,12 @@ if __name__ == "__main__":
 
         if not os.path.isdir(genome_folder):
             os.mkdir(genome_folder)
-            Z.G(parameters_file, experiment_folder, advanced_mode, root_gff)
+            Z.G(parameters_file, experiment_folder, advanced_mode, root_gff, feat_choice)
 
         else:
             os.system("rm -r " + genome_folder)
             os.mkdir(genome_folder)
-            Z.G(parameters_file, experiment_folder, advanced_mode, root_gff)
+            Z.G(parameters_file, experiment_folder, advanced_mode, root_gff, feat_choice)
 
 
     elif main_mode == "S":
