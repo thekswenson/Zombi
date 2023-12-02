@@ -1,9 +1,9 @@
 ### PARAMETERS SPECIES TREE LEVEL ###
 ## Please refer to the manual for more details
 #
-SPECIATION	f:1
+SPECIATION	f:0.00001
 #
-EXTINCTION	f:0.2
+EXTINCTION	f:0.000002
 #
 ## STOPPING_RULE = 0 to control depending on TIME, = 1 to control depending on TOTAL_LINEAGES
 STOPPING_RULE	1
@@ -34,7 +34,7 @@ SCALE_TREE 0
 #
 ### Tp SPECIFIC PARAMETERS ###
 #
-TURNOVER f:0.0002
+TURNOVER f:0.000000002
 #
 ## LINEAGE_PROFILE: TIME1-LINEAGE_GOAL1;TIME2-LINEAGE_GOAL2;...;TIMEk-LINEAGE_GOALk
 #
@@ -55,4 +55,4 @@ BASE_EXTINCTION l:1
 #
 #
 ## SEED : If 0, the SEED is chosen randomly
-SEED 0
+SEED 22

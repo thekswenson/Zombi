@@ -2,7 +2,7 @@
 ## Please refer to the manual for more details
 #
 ## The number of expected substitutions per unit of time (1 by default)
-SCALING 1
+SCALING 0.0001
 #
 ## The sequence size (integer, strictly positive value). This is ignored when using the Sf mode
 # 
@@ -124,4 +124,4 @@ SCALE_GENE_TREES 1
 #
 #
 ## SEED : If 0, the SEED is chosen randomly
-SEED 0
+SEED 22
