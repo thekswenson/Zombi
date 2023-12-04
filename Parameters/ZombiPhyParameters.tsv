@@ -1,0 +1,99 @@
+--- SIMPHY PARAMETERS ---
+## Please do not alter the header above, it is used to separate the tasks. 
+## Please refer to the SimPhy manual for more details at https://github.com/adamallo/SimPhy/wiki/Manual
+## Note that any of the additional Parameters specified in the manual can be added to this section. 
+#
+## Species tree parameters
+#
+-SL f:10 
+-SP f:20000
+-SB f:0.0001
+-SU f:0.001
+-SG f:1
+#
+## Rate heterogeneity parameters
+#
+-HS LN:1.5,1
+-HL LN:1.5,1
+-HG LN:1.5,1
+#
+## number of species tree replicates
+#
+-RS 3
+#
+## the random seed
+#
+-CS 12345
+#
+--- ZOMBI PARAMETERS ---
+## Please do not alter the header above, it is used to separate the tasks. 
+## Please refer to the Zombi manual for more details at https://github.com/AADavin/Zombi/wiki
+#
+## Main events
+#
+## When using the G mode, these events use genome-wise rate.
+## The next three events can have gene-family rates when using the Gm mode.
+## Rates represent the frequency (and fixation probability) of the different events measure in time units (see your Species Tree)
+##
+#
+DUPLICATION f:0.001
+TRANSFER f:0
+LOSS f:0.002
+#
+## The next three events use always genome-wise rates
+#
+INVERSION f:0.002
+TRANSPOSITION f:0.002
+ORIGINATION f:0.002
+#
+## Extensions. Extensions determine how many contiguous genes are affected by a single event
+#
+DUPLICATION_EXTENSION g:0.05
+TRANSFER_EXTENSION g:1
+LOSS_EXTENSION g:1
+INVERSION_EXTENSION g:0.05
+TRANSPOSITION_EXTENSION g:0.3
+#
+## Transfer related parameters
+#
+## REPLACEMENT_TRANSFER gives the probability of the transfer being a replacement transfer. REPLACEMENT_TRANSFER = 0 if all transfers are additive transfers
+#
+REPLACEMENT_TRANSFER 1
+#
+# If ASSORTATIVE_TRANSFER is True, the transfer occur preferentially between closely related lineages. The weighted probability is proportional to e ^ - ALPHA * normalized phylogenetic distance.
+#  Can be computationally expensive, use at your discretion
+#
+ASSORTATIVE_TRANSFER False
+ALPHA 100
+#
+## Genome size related parameters
+#
+INITIAL_GENOME_SIZE	100
+#
+## MIN_GENOME_SIZE prevents genome to become too small. Any losses affecting genomes under this size will be ignored
+#
+MIN_GENOME_SIZE	10
+#
+## Output related parameters. Use SCALE_TREE != 0 only if you used that too in the Species Tree mode. Use the same number
+#
+EVENTS_PER_BRANCH 1
+PROFILES 1
+GENE_TREES 1
+RECONCILED_TREES 0
+VERBOSE 1
+SCALE_TREE 0 
+#
+### Gf SPECIFIC PARAMETERS ###
+#
+GENE_LENGTH f:100
+INTERGENE_LENGTH 100
+PSEUDOGENIZATION 0.0
+#
+### Gm SPECIFIC PARAMETERS ###
+# Include the whole path to the parameters file. The parameters file has a first line (header) and 4 tab separated columns with the name of the gene family (ignore), D, T and L rate.
+RATE_FILE False
+# If SCALE_RATES = True, it will scale the rates used in the parameters file to the height of the tree, from the leaves to the root node (not the initial node, remember that Zombi also simulates the stem above the root)
+SCALE_RATES True
+#
+## SEED : If 0, the SEED is chosen randomly
+SEED 22

@@ -11,6 +11,7 @@ from pathlib import Path
 import gffutils
 from gffutils.iterators import DataIterator
 import random
+import re
 
 from BCBio import GFF
 from Bio.SeqFeature import SeqFeature
@@ -61,24 +62,28 @@ def divide_by_time_increase(array):
     transformed_array = numpy.log(array)
     return (transformed_array)
 
-def read_parameters(parameters_file):
-
+def read_parameters(parameters_file, program="zombi"):
+    
     parameters = dict()
-
+    sect = "zombi"
+    
     with open(parameters_file) as f:
-
+        
         for line in f:
-
+            
             if line[0] == "#" or line == "\n":
                 continue
-
-            if "\t" in line:
-                parameter, value = line.strip().split("\t")
+                
+            # Define which section of the
+            if "--- SIMPHY PARAMETERS ---" in line:
+                sect = "simphy"
+            elif "--- ZOMBI PARAMETERS ---" in line:
+                sect = "zombi" 
+                
+            elif ("\t" or " " in line) and program == sect:
+                parameter, value = re.split("[\t ]", line.strip())
                 parameters[parameter] = value
-            elif " " in line:
-                parameter, value = line.strip().split(" ")
-                parameters[parameter] = value
-
+                
     return parameters
 
 

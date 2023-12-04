@@ -1,0 +1,24 @@
+### SIMPHY SPECIES TREE PARAMETERS ###
+## This file contains parameters for running Symphy
+#
+## Species tree parameters
+#
+-SL F:10 
+-SP F:20000
+-SB f:0.0001
+-SU f:0.001
+-SG f:1
+#
+## Rate heterogeneity parameters
+#
+-HS LN:1.5,1
+-HL LN:1.5,1
+-HG LN:1.5,1
+#
+## number of species tree replicates
+#
+-RS 3
+#
+## the random seed
+#
+-CS 12345

@@ -1,6 +1,8 @@
+# Load in required packages. 
 import argparse
 import subprocess
 from ete3 import Tree
+import zombi.AuxiliarFunctions as af
 from pathlib import Path
 import pandas as pd 
 import re
@@ -16,41 +18,18 @@ parser = argparse.ArgumentParser()
 
 # Add all of the argument parser options. 
 parser.add_argument("-s_loc", "--simphy_location", type=str)
-parser.add_argument("-sp", "--simphy_params", type=str)
-parser.add_argument("-zp", "--zombi_params", type=str)
-parser.add_argument("-zo","--zombi_output", type=str)
-parser.add_argument("-so", "--simphy_output", type=str)
 parser.add_argument("-g_loc", "--genome_location", type=str)
+parser.add_argument("-params", "--parameters", type=str)
+parser.add_argument("-o","--output", type=str)
 parser.add_argument("-fc", "--feature_choice", type=str)
 
 args = parser.parse_args()
 
 s_loc = args.simphy_location
-s_params = args.simphy_params
-z_params = args.zombi_params
-zombi_output = args.zombi_output
-simphy_output = args.simphy_output
 g_loc = args.genome_location
+params = args.parameters
+output = args.output
 feature_choice = args.feature_choice
-
-def read_parameters(parameters_file):
-    parameters = []
-    with open(parameters_file) as f:
-
-        for line in f:
-
-            if line[0] == "#" or line == "\n":
-                continue
-
-            if "\t" in line:
-                parameter, value = line.strip().split("\t")
-                parameters.append(parameter)
-                parameters.append(value)
-            elif " " in line:
-                parameter, value = line.strip().split(" ")
-                parameters.append(parameter)
-                parameters.append(value)
-    return parameters
 
 def make_ultrametric(tree):
     distance = 0
@@ -82,25 +61,39 @@ def make_ultrametric(tree):
                 i += 1
     return tree
 
-# Read in the parameters from file. 
-params = read_parameters(s_params)
+#################################### Generating Species Tree with Simphy ##########################################
+
+# Configure the output directory
+if os.path.isdir(output + f"/simphy_output/"):
+    shutil.rmtree(output + f"/simphy_output/")
+    os.mkdir(output + f"/simphy_output/")
+else:
+    os.mkdir(output + f"/simphy_output/")
+
+# Read in the parameters from file and put them into a list. 
+tmp_params = af.read_parameters(params,program="simphy")
+reps = [i+1 for i in range(int(str(tmp_params["-RS"])))]
+
+# Convert to a list of dictionary elements. 
+s_params = []
+for k,v in zip(tmp_params.keys(), tmp_params.values()):
+    s_params.extend([k,v])
 
 # Insert the necessary extra elements. 
-params.insert(0,s_loc)
-params.append("-V")
-params.append("3")
-params.append("-O")
-params.append(simphy_output + "/species_tree")
+s_params.insert(0,s_loc)
+s_params.extend(["-V","3", "-O", output + "/simphy_output/species_tree"])
 
 # Run Simphy itself using subprocess
-process_txt = subprocess.run(params, capture_output = True)
+process_txt = subprocess.run(s_params, capture_output = True, check = True)
 
 # Save the txt file in log.txt. 
-with open(simphy_output + 'log.txt', 'wb') as f:
+with open(output + '/simphy_output/log.txt', 'wb') as f:
     f.write(process_txt.stdout)
 
+########################### Extract Rate Heterogeneity Parameters From SimPhy Logs ################################
+
 # Load the Simphy log output. 
-txt = Path(simphy_output + "log.txt").read_text()
+txt = Path(output + "/simphy_output/log.txt").read_text()
 
 # extract the values from simphy's log output. 
 sp_alphas = re.findall(r'-Lineage \(species\) specific rate heterogeneity gamma shape: (.*?)\n',
@@ -112,9 +105,6 @@ gene_alphas = re.findall(r'-Gene family \(locus tree\) specific rate heterogenei
 sp_alphas = [eval(i) for i in sp_alphas]
 gene_alphas = [eval(i) for i in gene_alphas]
 
-# Make a quick list of numebrs for each replicate. 
-reps = [i+1 for i in range(len(gene_alphas))]
-
 # Take the values and save them as a csv.
 data = {
     "rep":reps,
@@ -122,12 +112,14 @@ data = {
     "gene_alpha": gene_alphas
 }
 df = pd.DataFrame(data=data)
-df.to_csv(simphy_output + "/gamma_values.csv", index = False)
+df.to_csv(output + "/simphy_output/gamma_values.csv", index = False)
+
+#################################### Add internal node labels ##########################################
 
 for rep in reps:
-    with open(simphy_output + f'/species_tree/{rep}/sz_tree.nwk','w') as wfd:
-        # Load the pruned tree. 
-        txt = Path(simphy_output + f"/species_tree/{rep}/s_tree.trees").read_text()
+    with open(output + f'/simphy_output/species_tree/{rep}/sz_tree.nwk','w') as wfd:
+        # Load the species tree
+        txt = Path(output + f"/simphy_output/species_tree/{rep}/s_tree.trees").read_text()
         
         # Load up the correct alpha value for the lineage specific gammas.
         alpha = df["sp_alpha"][rep - 1]
@@ -164,22 +156,34 @@ for rep in reps:
             "u_mults":u_mults
         }
         df2 = pd.DataFrame(data = data)
-        df2.to_csv(simphy_output + f"/species_tree/{rep}/sp_rates.csv", index = False)
+        df2.to_csv(output + f"/simphy_output/species_tree/{rep}/sp_rates.csv", index = False)
         wfd.write(txt)
 
-for rep in reps:
-    to_run = ["Zombi", "Ti", simphy_output + f'/species_tree/{rep}/sz_tree.nwk',
-              zombi_output + f'/{rep}']
-    subprocess.run(to_run)
+#################################### Run Zombi in Genome mode for each rep ##########################################
 
-    to_run = ["Zombi", "Gf", z_params, zombi_output + f'/{rep}', "--genome-root",
+# Configure the output directory.
+if os.path.isdir(output + f"/zombi_output/"):
+    shutil.rmtree(output + f"/zombi_output/")
+    os.mkdir(output + f"/zombi_output/")
+else:
+    os.mkdir(output + f"/zombi_output/")
+
+# Run Zombi
+for rep in reps:
+    to_run = ["Zombi", "Ti", output + f'/simphy_output/species_tree/{rep}/sz_tree.nwk',
+              output + f'/zombi_output/{rep}']
+    subprocess.run(to_run, check = True)
+
+    to_run = ["Zombi", "Gf", params, output + f'/zombi_output/{rep}', "--genome-root",
              g_loc, "--feature-choice", feature_choice]
-    subprocess.run(to_run)
+    subprocess.run(to_run, check = True)
+
+################################# Force all zombi gene trees to be ultrametric ###################################
 
 for rep in reps:
     # Get every tree file. 
-    all_trees = os.listdir(zombi_output + f"/{rep}/G/Gene_trees")
-    all_events = os.listdir(zombi_output + f"/{rep}/G/Gene_families/")
+    all_trees = os.listdir(output + f"/zombi_output/{rep}/G/Gene_trees")
+    all_events = os.listdir(output + f"/zombi_output/{rep}/G/Gene_families/")
     all_events = sorted(all_events)
     
     # Extract just the tree files and add on the rest of the path (I must be able to improve this)
@@ -188,24 +192,30 @@ for rep in reps:
         if re.match(r'[0-9]*_prunedtree.nwk',tree):
             pruned_trees.append(tree)
     pruned_trees = sorted(pruned_trees)
+
+    paired_down_events = []
+    for event in all_events:
+        if re.match(r'[0-9]*_events.tsv',event):
+            paired_down_events.append(event)
+    paired_down_events = sorted(paired_down_events)
     
     # search for and, if needed, make a new directory.
-    if os.path.isdir(zombi_output + f"/{rep}/G/sym_trees/"):
-        shutil.rmtree(zombi_output + f"/{rep}/G/sym_trees/")
-        os.mkdir(zombi_output + f"/{rep}/G/sym_trees/")
+    if os.path.isdir(output + f"/zombi_output/{rep}/G/sym_trees/"):
+        shutil.rmtree(output + f"/zombi_output/{rep}/G/sym_trees/")
+        os.mkdir(output + f"/zombi_output/{rep}/G/sym_trees/")
     else:
-        os.mkdir(zombi_output + f"/{rep}/G/sym_trees/")
-    if os.path.isdir(zombi_output + f"/{rep}/G/sym_events/"):
-        shutil.rmtree(zombi_output + f"/{rep}/G/sym_events/")
-        os.mkdir(zombi_output + f"/{rep}/G/sym_events/")
+        os.mkdir(output + f"/zombi_output/{rep}/G/sym_trees/")
+    if os.path.isdir(output + f"/zombi_output/{rep}/G/sym_events/"):
+        shutil.rmtree(output + f"/zombi_output/{rep}/G/sym_events/")
+        os.mkdir(output + f"/zombi_output/{rep}/G/sym_events/")
     else:
-        os.mkdir(zombi_output + f"/{rep}/G/sym_events/")
+        os.mkdir(output + f"/zombi_output/{rep}/G/sym_events/")
     
     # For each of the tree files, force it to be exactly ultrametric. 
-    for event, tree in zip(all_events, pruned_trees):
+    for event, tree in zip(paired_down_events, pruned_trees):
     
         # Load the tree.
-        t = Tree(zombi_output + f"/{rep}/G/Gene_trees/" + tree, format = 1)
+        t = Tree(output + f"/zombi_output/{rep}/G/Gene_trees/" + tree, format = 1)
     
         # If the tree is a single leaf (caused by origination or transfer) skip it. 
         if len(t) < 2:
@@ -215,17 +225,19 @@ for rep in reps:
         t = make_ultrametric(t)
     
         # Save the tree. 
-        t.write(outfile = zombi_output + f"/{rep}/G/sym_trees/" + tree, format = 1)
-        shutil.copyfile(zombi_output + f"/{rep}/G/Gene_families/" + event,
-                       zombi_output + f"/{rep}/G/sym_events/" + event)
+        t.write(outfile = output + f"/zombi_output/{rep}/G/sym_trees/" + tree, format = 1)
+        shutil.copyfile(output + f"/zombi_output/{rep}/G/Gene_families/" + event,
+                       output + f"/zombi_output/{rep}/G/sym_events/" + event)
+
+########################## For each rep, combine Zombi gene trees into one nexus file #####################################
 
 for rep in reps:
     # Get every tree file. 
-    sym_trees = sorted(os.listdir(zombi_output + f"/{rep}/G/sym_trees/"))
-    sym_events = sorted(os.listdir(zombi_output + f"/{rep}/G/sym_events/"))
+    sym_trees = sorted(os.listdir(output + f"/zombi_output/{rep}/G/sym_trees/"))
+    sym_events = sorted(os.listdir(output + f"/zombi_output/{rep}/G/sym_events/"))
 
-    # Write all of the pruned trees into a single file. 
-    with open(simphy_output + f'/test{rep}.nex','w') as wfd:
+    # Write all of the simphy prepped trees into a single file. 
+    with open(output + f'/simphy_output/test{rep}.nex','w') as wfd:
         # Create the Nexus headers 
         wfd.write('#NEXUS\n')
         wfd.write('begin trees;\n')
@@ -233,11 +245,11 @@ for rep in reps:
             # Write the tree introduction
             wfd.write(f'\ttree tree_{i+1} = [&R] ')
     
-            # Load the pruned tree. 
-            txt = Path(zombi_output + f"/{rep}/G/sym_trees/" + sym_trees[i]).read_text()
+            # Load the simphy prepped tree. 
+            txt = Path(output + f"/zombi_output/{rep}/G/sym_trees/" + sym_trees[i]).read_text()
     
             # Load the events file for the correct tree.
-            events=pd.read_csv(zombi_output + f"/{rep}/G/sym_events/" + sym_events[i],sep='\t')
+            events=pd.read_csv(output + f"/zombi_output/{rep}/G/sym_events/" + sym_events[i],sep='\t')
             
             # Now replace the node column in events with the shortened names. 
             simple_nodes = []
@@ -246,8 +258,8 @@ for rep in reps:
                 simple_nodes.append("_".join(n.split("_")[0:2]))
             events["NODES"] = simple_nodes
     
-            # Load up the U_mults for each node.
-            u_mults = pd.read_csv(simphy_output + f"/species_tree/{rep}/sp_rates.csv")
+            # Load up the U_mults for each node. 
+            u_mults = pd.read_csv(output + f"/simphy_output/species_tree/{rep}/sp_rates.csv")
     
             # Get all of the nodes from the text. 
             nodes = re.findall('n[0-9]+|int[0-9]+', txt)
@@ -261,13 +273,9 @@ for rep in reps:
             # iterate through the split, inserting accurate U_mults, then join the split into new text.
             u_multed = []
             for sp in split:
-                if sp == ",":
+                if sp == "," or sp == ")":
                     u_mult = u_mults[u_mults["nodes"] == nodes[cur_n]]["u_mults"].reset_index(drop = True)
-                    u_multed.append(f'[&u_mult={u_mult[0]}],')
-                    cur_n += 1
-                elif sp == ")":
-                    u_mult = u_mults[u_mults["nodes"] == nodes[cur_n]]["u_mults"].reset_index(drop = True)
-                    u_multed.append(f'[&u_mult={u_mult[0]}])')
+                    u_multed.append(f'[&u_mult={u_mult[0]}]'+sp)
                     cur_n += 1
                 else:
                     u_multed.append(sp)
@@ -295,42 +303,58 @@ for rep in reps:
             wfd.write('\n')
         wfd.write('end;')
 
-# Read in the parameters from file. 
-params = read_parameters(s_params)
+########################## Run Simphy on the Zombi gene trees #####################################
 
-# Insert the necessary extra elements. 
-params.insert(0,s_loc)
-params.append("-O")
-params.append(simphy_output + "/l_tree")
+# Filter out the simphy parameters that are not needed for the second run. 
+tmp_params = {key: tmp_params[key] for key in ["-SP", "-CS"]}
 
-# Remove all of the values that are irrelevant for the locus tree run. 
-for i,j in enumerate(params):
-    if j == "-SL" or j == "-SB" or j == "-SG" or j == "-HL":
-        params[i] = None
-        params[i+1] = None
-params = list(filter(lambda item: item is not None, params))
+# Convert to a list of dictionary elements again. 
+s_params = []
+for k,v in zip(tmp_params.keys(), tmp_params.values()):
+    s_params.extend([k,v])
 
+# add in the necessary extra elements. 
+s_params.insert(0,s_loc)
+os.mkdir(output + f"/simphy_output/locus_tree")
+
+# For each nexus file you made, run simphy using it as a locus trees input. 
 for rep in reps:
-    params_rep = params.copy()
-    params_rep.append("-S")
-    params_rep.append(simphy_output + f"/s_tree/{rep}/s_tree.trees")
-    params_rep.append("-LR")
-    params_rep.append(simphy_output + f'/test{rep}.nex')
-    subprocess.run(params_rep)
+    params_rep = s_params.copy()
+    params_rep.extend(["-LR", output + f'/simphy_output/test{rep}.nex'])
+    params_rep.extend(["-O",output + f"/simphy_output/locus_tree/{rep}"])
+    subprocess.run(params_rep, check = True)
 
+########################## Apply the lineage specific rates #####################################
+
+# For each rep, multiply all values in the tree by a gene specific rate modifier.
 for rep in reps:
+    
+    # Find the correct alpha. 
     alpha = df["gene_alpha"][rep - 1]
-    all_s_trees = os.listdir(simphy_output + f"/l_tree/{rep}")
+
+    # Get the list of all trees for that rep. 
+    all_s_trees = os.listdir(output + f"/simphy_output/locus_tree/{rep}/{1}")
+    
     for tree in all_s_trees:
-        gamma = round(random.gammavariate(alpha,1/alpha), 4)
+        # Generate a gene specific rate modifier.
+        g_mult = round(random.gammavariate(alpha,1/alpha), 4)
         if re.match("g_.*",tree):
-            txt = Path(simphy_output + f"/l_tree/{rep}/"+ tree).read_text()
+
+            # Load up the tree.
+            txt = Path(output + f"/simphy_output/locus_tree/{rep}/{1}/"+ tree).read_text()
+
+            # Create a split to extract all values. 
             split = re.split("([0-9]+\.[0-9]+)", txt)
+
+            # Multiply each value in the tree by the gene specific rate modifier. 
             for i, sp in enumerate(split):
                 try:
-                    split[i] = str(gamma*float(sp))
+                    split[i] = str(g_mult*float(sp))
                 except:
                     continue
             txt = ''.join(split)
-            with open(simphy_output + f"/l_tree/{rep}/"+ tree,'w') as wfd:
+
+            # Save the new trees. 
+            with open(output + f"/simphy_output/locus_tree/{rep}/"+ tree,'w') as wfd:
                 wfd.write(txt)
+    shutil.rmtree(output + f"/simphy_output/locus_tree/{rep}/{1}")
