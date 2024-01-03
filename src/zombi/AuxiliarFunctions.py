@@ -19,7 +19,6 @@ from Bio.SeqRecord import SeqRecord
 from Bio import Seq
 from Bio import SeqIO
 
-
 def normalize(array):
     total = numpy.sum(array)
     if total != 0:

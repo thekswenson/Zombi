@@ -5,7 +5,7 @@
 #!genome-build-accession NCBI_Assembly:GCF_000000000.1
 ##sequence-region NC_000000.1 1 100
 NC_000000.1	RefSeq	region	1	100	.	+	.	ID=NC_000000.1:1..100;genome=genomic;mol_type=genomic DNA;type-material=fabricated circular chromosome
-NC_000000.1	RefSeq	CDS	1	5	.	+	0	ID=cds-NP_000000.0
+NC_000000.1	RefSeq	CDS	4	9	.	+	0	ID=cds-NP_000000.0
 NC_000000.1	RefSeq	CDS	11	15	.	+	0	ID=cds-NP_000000.1
 NC_000000.1	RefSeq	CDS	21	25	.	+	0	ID=cds-NP_000000.2
 NC_000000.1	RefSeq	CDS	31	35	.	+	0	ID=cds-NP_000000.3

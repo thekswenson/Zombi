@@ -262,6 +262,28 @@ class GenomeSimulator():
 
                     line = "\t".join(map(str, line)) + "\n"
                     f.write(line)
+
+    def write_division_family_events(self, division_family_events_folder):
+
+        if not os.path.isdir(division_family_events_folder):
+            os.mkdir(division_family_events_folder)
+            
+        for division_family_name, division_family in self.all_division_families.items():
+
+            with open(os.path.join(division_family_events_folder, division_family_name + "_events.tsv"),"w") as f:
+
+                header = ["TIME","EVENT","NODES"]
+
+                header = "\t".join(map(str, header)) + "\n"
+
+                f.write(header)
+
+                for time, event, nodes in division_family.events:
+                    
+                    line = [time, event, nodes]
+
+                    line = "\t".join(map(str, line)) + "\n"
+                    f.write(line)
         
 
     def write_gene_trees(self, gene_tree_folder, gene_trees = True, reconciliations = False):
@@ -718,12 +740,9 @@ class GenomeSimulator():
                 gene_family = gene.orientation
             if prev_feature and prev_feature.end > feature.start:
                 warning_count += 1
-                #print(f'WARNING: skipping the creation of overlapping gene '
-                #      f'{feature.id},\n\tas it overlaps with {prev_feature.id}')
             elif feature.end - feature.start < 1:
                 print(f'WARNING: skipping the creation of 0 length gene '
                       f'{feature.id}')
-            ###!!!### I have no idea why 0 length genes are being made but I do not like it. 
             else:
                 gene, gene_family = self.make_gene(feature, genome.species,
                                                    time, family_rates,
@@ -756,7 +775,6 @@ class GenomeSimulator():
                 raise(Exception(f"Unrecognized shape string: {shape}"))
             chromosome.intergenes.append(intergene)
 
-                                #NOTE: this is called in run_f as well!
             chromosome.obtain_locations()
 
         genome.chromosomes.append(chromosome)
@@ -1189,6 +1207,7 @@ class GenomeSimulator():
 
     def run_f(self):
 
+        # Load in the rates from file (no random selection)
         d = af.obtain_value(self.parameters["DUPLICATION"])
         t = af.obtain_value(self.parameters["TRANSFER"])
         l = af.obtain_value(self.parameters["LOSS"])
@@ -1196,82 +1215,84 @@ class GenomeSimulator():
         c = af.obtain_value(self.parameters["TRANSPOSITION"])
         o = af.obtain_value(self.parameters["ORIGINATION"])
 
-        # First we prepare the root genome
-
+        # If a root genome was provided, use it as the genome. 
         if self.root_genome_file:
             genome = self.read_genome(self.root_genome_file, self.feat_choice,
                                       intergenic_sequences=True)
+            
+        # If a root genome was not provided, create your own genome
         else:
             genome = self.fill_genome(intergenic_sequences=True)
 
-        ## These two lines are important for this mode (already in read_genome)
-
-        #for chromosome in genome:          #NOTE: already done in read_genome!?
-        #    chromosome.obtain_flankings()
-        #    chromosome.obtain_locations()
-
         self.active_genomes.add(genome.species)
+
+        # This lets self know that this is the root genome. 
         self.all_genomes["Root"] = genome
 
-        # We add the original genome too
-
+        # We create a copy of the root genome that we call the initial genome
         self.all_genomes["Initial"] = copy.deepcopy(genome)
 
+        # Set up the tree events information. In this context, tree events means species tree events,
+        # not all events.
         current_species_tree_event = 0
         current_time = 0.0
+        elapsed_time = 0.0
         all_species_tree_events = len(self.tree_events)
 
-        # Second, we compute the time to the next event:
-
-        elapsed_time = 0.0
-
+        # Iterate through all species tree events, activating the appropriate behaviour where necessary.
         while current_species_tree_event < all_species_tree_events:
+            lineage = random.choice(sorted(list(self.active_genomes))) # the sorted fixes a bug that switches the order of active genomes.
 
+            # Get the time of the next species tree event. 
             time_of_next_species_tree_event, event, nodes = self.tree_events[current_species_tree_event]
             time_of_next_species_tree_event = float(time_of_next_species_tree_event)
 
             if self.parameters["VERBOSE"] == 1:
                 print("Simulating genomes. Time %s" % str(current_time))
 
+            # Get the time to the next genome event. This function draws times from an 
+            # exponential distribution based on the rate parameters. 
             time_to_next_genome_event = self.get_time_to_next_event(len(self.active_genomes), [d, t, l, i, c, o])
 
             elapsed_time = float(current_time) - elapsed_time
 
+            # Detect if it is time for a species tree event to occur. 
             if time_to_next_genome_event + current_time >= float(time_of_next_species_tree_event):
 
                 current_species_tree_event += 1
                 current_time = time_of_next_species_tree_event
 
+                # Make the speciation adjustment.
                 if event == "S":
 
+                    # extract the names of the parent node (sp) and the two child nodes (c1,c2)
                     sp, c1, c2 = nodes.split(";")
                     
-
                     # First we keep track of the active and inactive genomes
-
                     self.active_genomes.discard(sp)
                     self.active_genomes.add(c1)
                     self.active_genomes.add(c2)
 
                     # Second, we speciate the genomes
-
                     genome_c1, genome_c2 = self.make_speciation(sp, c1, c2, current_time)
-
                     self.all_genomes[c1] = genome_c1
                     self.all_genomes[c2] = genome_c2
 
+                # Make the Extinction adjustment. 
                 elif event == "E":
                     self.make_extinction(nodes, current_time)
                     self.active_genomes.discard(nodes)
 
+                # Make the final adjustment (the end of a branch)
                 elif event == "F":
                     self.make_end(current_time)
                     break
 
             else:
-
+                # If no species tree event occurs, move on to the next genome event. 
                 current_time += time_to_next_genome_event
-                self.advanced_evolve_genomes_f(d, t, l, i, c, o, current_time)
+                # This function handles the genome events. 
+                self.advanced_evolve_genomes_f(d, t, l, i, c, o, current_time, lineage)
 
     def run_f_debug(self, injected_events): # Only for debugging purposes
 
@@ -1330,7 +1351,6 @@ class GenomeSimulator():
 
             else:
                 # If the event is a Genome level event
-                #print(item)
 
                 etype, time, event, nodes, r = item
                 
@@ -1644,11 +1664,6 @@ class GenomeSimulator():
         i_e = self.parameters["INVERSION_EXTENSION"]
         c_e = self.parameters["TRANSPOSITION_EXTENSION"]
 
-        ####
-
-
-        ####
-
         mactive_genomes = list(self.active_genomes)
         mweights = list()
         for genome in mactive_genomes:
@@ -1673,11 +1688,7 @@ class GenomeSimulator():
         p += af.obtain_value((self.parameters["TRANSPOSITION"]))
         o += af.obtain_value((self.parameters["ORIGINATION"]))
 
-        #print(d,t,l,i,p,o)
-
         event = self.choose_event(d, t, l, i, p, o)
-
-        ####
 
         if event == "D":
 
@@ -1792,18 +1803,20 @@ class GenomeSimulator():
 
             return "O", lineage
 
-    def advanced_evolve_genomes_f(self, duplication, transfer, loss, inversion, transposition, origination, time):
+    def advanced_evolve_genomes_f(self, duplication, transfer, loss, inversion, transposition, origination, time,lineage):
         
         # Evolve genomes with intergenes
-
         d_e = int(af.obtain_value(self.parameters["DUPLICATION_EXTENSION"]))
         t_e = int(af.obtain_value(self.parameters["TRANSFER_EXTENSION"]))
         l_e = int(af.obtain_value(self.parameters["LOSS_EXTENSION"]))
         i_e = int(af.obtain_value(self.parameters["INVERSION_EXTENSION"]))
         c_e = int(af.obtain_value(self.parameters["TRANSPOSITION_EXTENSION"]))
 
+        ###!!!### This is weird, why does the gene_length parameter matter here? 
         distribution  = self.parameters["GENE_LENGTH"].split(":")[0]
 
+        ###!!!### If I put in a root genome, I want the mean gene length to be the mean of the gene lengths.
+        ###!!!### wait, mean gene length is not even being used for anything? 
         if distribution == "f" or distribution == "n":
             mean_gene_length = int(self.parameters["GENE_LENGTH"].split(":")[1].split(";")[0])
         elif distribution == "u":
@@ -1813,13 +1826,16 @@ class GenomeSimulator():
             print("Error, please switch the distribution type por the gene length")
             return 0
 
+        ###!!!### Again, I would like it to be the actual mean length of the intergenes. 
         mean_intergene_length = int(self.parameters["INTERGENE_LENGTH"])
+
+        ###!!!### Why is the multiplier no longer affected by mean gene length like in the original version?
         multiplier = 1.0 / mean_intergene_length
 
-
-        lineage = random.choice(list(self.active_genomes))
+        # Select which event will occur randomly based on the event likelihoods. 
         event = self.choose_event(duplication, transfer, loss, inversion, transposition, origination)
 
+        # Update the lineage. 
         self.update_genome_indices(lineage)
 
         try: 
@@ -1827,7 +1843,6 @@ class GenomeSimulator():
         except CoordinateChoiceError:
             return None
                 
-
         ch, c1, c2, d = r
         d = RIGHT
 
@@ -1838,10 +1853,8 @@ class GenomeSimulator():
             return "D", lineage
 
         elif event == "T":
-
-
+            
             # We choose a recipient
-
             possible_recipients = [x for x in self.active_genomes if x != lineage]
 
             if len(possible_recipients) > 0:
@@ -1907,109 +1920,6 @@ class GenomeSimulator():
                                              lineage, time)
 
             return "O", lineage
-
-
-#    def advanced_evolve_genomes_f_debug(self, duplication, transfer, loss, inversion, transposition, origination, time):
-#        
-#        
-#
-#        for ch in self.all_genomes[lineage]:
-#            ch.obtain_flankings()
-#            ch.obtain_locations()
-#
-#        if event == "D":
-#
-#            r = self.select_advanced_length(lineage, 1/d_e * multiplier)
-#            if r == None:
-#                return None
-#            else:
-#                
-#                #ch, c1, c2, d = r
-#                c1, c2, d = r
-#                self.make_duplication_within_intergene(ch, c1, c2, d, lineage, time)
-#
-#            return "D", lineage
-#
-#        elif event == "T":
-#
-#
-#            # We choose a recipient
-#
-#            possible_recipients = [x for x in self.active_genomes if x != lineage]
-#
-#            if len(possible_recipients) > 0:
-#
-#                if self.parameters["ASSORTATIVE_TRANSFER"] == "True":
-#                    recipient = self.choose_assortative_recipient(time, possible_recipients, donor)
-#                    if recipient == None:
-#                        return None
-#                else:
-#                    recipient = random.choice(possible_recipients)
-#
-#                donor = lineage
-#
-#                r = self.select_advanced_length(lineage, 1/t_e * multiplier)
-#
-#                if r == None:
-#                    return None
-#                else:
-#                    c1, c2, d = r
-#                    self.make_transfer_intergenic(ch, c1, c2, d, donor, recipient, time)
-#
-#                return "T", donor + "->" + recipient
-#
-#            else:
-#                return None
-#
-#        elif event == "L":
-#
-#            r = self.select_advanced_length(lineage, 1/l_e * multiplier)
-#
-#            if r == None:
-#                return None
-#            else:
-#                c1, c2, d = r
-#                pseudo = False
-#                if numpy.random.uniform(0,1) <= float(self.parameters["PSEUDOGENIZATION"]):
-#                    pseudo = True
-#                self.make_loss_intergenic(ch, c1, c2, d, lineage, time, pseudo)
-#
-#            return "L", lineage
-#
-#        elif event == "I":
-#
-#            r = self.select_advanced_length(lineage, 1/i_e * multiplier)
-#
-#            if r == None:
-#                return None
-#            else:
-#                c1, c2, d = r
-#                self.make_inversion_intergenic(ch, c1, c2, d, lineage, time)
-#
-#            return "I", lineage
-#
-#        elif event == "P":
-#
-#            r = self.select_advanced_length(lineage, 1/c_e * multiplier)
-#            if r == None:
-#                return None
-#
-#            c1, c2, d = r
-#
-#            c3 = ch.select_random_intergenic_coordinate_excluding(c1, c2, d)
-#            self.make_transposition_intergenic(ch, c1, c2, d, c3, lineage, time)
-#
-#            return "P", lineage
-#
-#        elif event == "O":
-#                
-#            ch = self.all_genomes[lineage].select_random_chromosome()
-#            intergene_coordinate = ch.select_random_coordinate_in_intergenic_regions()
-#            self.make_origination_intergenic(ch, intergene_coordinate,
-#                                             lineage, time)
-#
-#            return "O", lineage
-
 
     def get_time_to_next_event(self, n, events):
 
@@ -2150,6 +2060,8 @@ class GenomeSimulator():
                 ch2.has_intergenes = True
 
             for gene in chromosome:
+                ###!!!### Wait a minute... for every gene in the chromosome?
+                # Like, 
 
                 new_id1 = self.return_new_identifiers_for_segment([gene])
                 new_id2 = self.return_new_identifiers_for_segment([gene])
@@ -3621,14 +3533,7 @@ class GenomeSimulator():
                     if gene_name not in self.gene2pseudogenecuts:
                         self.gene2pseudogenecuts[gene_name] = set()
                     self.gene2pseudogenecuts[gene_name].add(cut_within_gene)
-
-                    #print("Cut successfuly propagated within Gene", cut, "--->",cut_within_gene, "Event:", event1.etype, "Gene", gene_name)
-                        
-                    
-
-                
-                
-                
+                                    
         
         initial_chromosome = self.initial_genome.chromosomes[0]   
         all_cuts = set()
@@ -3698,8 +3603,6 @@ class GenomeSimulator():
 
         chromosome.update_coordinates()
         chromosome.update_specific_coordinates()
-
-        #chromosome.print_pieces()
 
         # We create a list of all the events (T and G) that we will order by time
  
@@ -3901,8 +3804,6 @@ class GenomeSimulator():
         for index, piece in enumerate(itertools.cycle(chromosome.pieces)):               
            
             pfL, pfR = piece.total_flanking
-
-            #print(piece.total_flanking, tcL, tcR, piece.ptype, index, len(chromosome.pieces))
             
             if pfL == tcL:
                 start = True
@@ -4001,7 +3902,6 @@ class GenomeSimulator():
 
         for index, piece in enumerate(itertools.cycle(recipient_chromosome.pieces)):               
             pfL, pfR = piece.total_flanking
-            #print(pfL, pfR, insertion_point)
             
             if pfR == insertion_point: 
                 insert_after_this_piece = piece
@@ -4050,7 +3950,6 @@ class GenomeSimulator():
         
         recipient_chromosome.pieces = recipient_chromosome.pieces[0:insert_index] + pieces_transferred + recipient_chromosome.pieces[insert_index:]
 
-        #recipient_chromosome.print_pieces()
         recipient_chromosome.update_specific_coordinates()
         recipient_chromosome.update_coordinates()
 
@@ -4092,9 +3991,6 @@ class GenomeSimulator():
                     gene_name = piece.gene_family + "_" + piece.species + "_" + str(piece.gene_id)
 
                     cuts = {0, piece.length}
-
-                    #print("The cuts in the gene are", self.gene2pseudogenecuts)
-                    #print(gene_name)
                     
                     if gene_name in self.gene2pseudogenecuts:
                         cuts = cuts.union(self.gene2pseudogenecuts[gene_name])
@@ -4142,9 +4038,6 @@ class GenomeSimulator():
             
         chromosome.update_specific_coordinates()
         chromosome.update_coordinates()
-
-        #chromosome.print_pieces()
-
 
     def make_transposition_divisions(self, time, event):    
         

@@ -129,6 +129,7 @@ class Zombi():
 
         genomes_folder = os.path.join(genome_folder, "Genomes")
         gene_families_folder = os.path.join(genome_folder, "Gene_families")
+        division_families_folder = os.path.join(genome_folder, "Division_families")
 
         gss = GenomeSimulator(parameters, events_file, root_genome, feat_choice)
 
@@ -214,6 +215,8 @@ class Zombi():
             gss.write_pieces_coordinates(genomes_folder)
 
             gss.write_division_lengths(genome_folder)
+            print("Writing Division Families")
+            gss.write_division_family_events(division_families_folder)
 
             if root_genome:
                 gss.write_gene_family_info(genome_folder) # This function should probably disappear FIX

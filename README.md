@@ -2,24 +2,25 @@
 
 <img src="https://github.com/AADavin/Zombi/blob/master/Images/ZombiLogo.png" alt="zombilogo" height = "150" width="300"/>
 
-### **Zombi: A phylogenetic simulator of trees, genomes and sequences that accounts for dead lineages**
+### ** Zombi-fork + ZombiPhy: A more flexible version of Zombi with Simphy integration **
 
 ----------
 
 ### **Introduction** ###
 
-**Zombi** is a flexible platform of genome evolution which can be of great interest to those who want to test different evolutionary hypotheses under simulations and need to use a fast and easy-to-use tool to generate species trees, gene trees or sequences.
-Zombi's output is especially simple and easy to read, understand and parse. 
+**Fork Description** This fork is an effort by the Mirarab lab and Dr. Krister M. Swenson to create a simulation program which is able to simulate the evolution of large-scale eukaryotic genomes from a pre-set ancestral root genome.
 
-**Fork Description** This fork is an effort by the Mirarab lab and Dr. Krister M. Swenson to create a version 
-of Zombi which is able to simulate the evolution of large-scale eukaryotic genomes from a pre-set ancestral root genome. 
+**Zombi** Zombi is a multilevel simulation program that allows for the simulation of species trees, gene/intergene trees, and sequence evolution. Importantly, the gene/intergene tree simulation incorporates large scale genomic rearrangements into its simulation, such as transpositions and inversions. 
 
-**Zombi current version**: **Zombi 2.0.0a0**
+**SimPhy** SimPhy is a fast, open source simulation program that can simulate multiple gene families evolving under gene duplication and loss, gene conversion, and most importantly, incomplete lineage sorting. 
+
+**ZombiPhy** 
 
 ----------
 
 ### **Installation** ###
 
+**Installing Zombi**
 First, clone the repository to your computer using git clone. If you are unfamiliar with git, please see the 
 github docs here https://docs.github.com/en/get-started/using-git
 
@@ -58,8 +59,16 @@ used to configure your environment.
     cd Zombi
     pip install -e .
         
+**Installing Simphy**
+There are two methods for installing Simphy, Compilation and pre-compled binaries. We reccomend using the pre-compiled binaries, as they are by far the simplest method for installing SimPhy. You can find the precompiled binaries here: https://github.com/adamallo/SimPhy/releases/latest 
 
-### **Usage** ###
+If for whatever reason you wish to compile SimPhy, please follow the instructions in the SimPhy manual here: https://github.com/adamallo/SimPhy/wiki/Manual#4-obtaining-simphy
+
+## **Running ZombiPhy** ##
+
+This is a guide for how to run the the ZombiPhy 
+
+### **Running Zombi the normal way** ###
 
 **There is a detailed Wiki that explains how Zombi works [here](https://github.com/AADavin/ZOMBI/wiki)** and it takes around 15 minutes of your time reading it! But if you want to launch it
 right away, just read this.  
@@ -91,22 +100,25 @@ information about them in ./Output folder/G
 Then, you can simulate the evolution of sequences for each gene in that species tree using:
 
     Zombi S ./Parameters/SequenceParameters.tsv ../Output_folder
+
+### Limitations of ZombiPhy future tasks ###
+
+- The output of ZombiPhy is not a valid input for Zombi's sequence simulation mode (S). This will need to be a major task for future collaborators. 
+- The pseudogeneization option for Zombi, and by extension ZombiPhy, is broken. For now, this just means that the pseudogeneization option in the ZombiPhy/Zombi genome parameters file must always be left at 0.
+- Inputting locus trees with horizontal transfers into SimPhy is broken. For now, this means that the transfer rate in the ZombiPhy/Zombi genome parameters file must always be left at 0.
+- Inputting locus trees with losses into SimPhy is broken. This only causes problems in a rare circumstance where a duplication occurs but one of the duplicates is lost. Under these circumstances, the branch length of the surviving duplicate will be inaccurate. For now, this inaccuracy is ignored, but it must be addressed in the future. 
+- Zombi cannot support full eukaryotic genomes. The internal infrastructure needed for inputting in an entire, multi-chromosome genome into Zombi simply does not exist. This will have to be implemented in a future version of the program. 
     
     
 ----------
-Edited by Keegan R. Flanagan
 
-Writen by Adrián A. Davín 
+Writen by Keegan R. Flanagan
 
-Using ideas, suggestions and comments coming from: Théo Tricou, Thibault Latrille, Nicolas Lartillot, Vincent Daubin, Damien de Vienne, Eric Tannier and Gergely J. Szollosi
-
-Please, if you have any doubts or need a hand, **just contact me here: aaredav@gmail.com**
+Please, if you have any doubts or need a hand, **just contact me here: keflanagan@ucsd.edu**
 
 ----------
 
-### **Citation** ###
-
-Please, if you use Zombi, cite:
+### **References** ###
 
 **Zombi: A phylogenetic simulator of trees, genomes and sequences that accounts for dead lineages.**
 
@@ -114,17 +126,13 @@ Adrian A. Davin, Theo Tricou, Eric Tannier, Damien M. de Vienne, Gergely J. Szol
 
 Bioinformatics, btz710, https://doi.org/10.1093/bioinformatics/btz710
 
+**SimPhy: phylogenomic simulation of gene, locus, and species trees. Systematic biology.**
+
+Diego Mallo, Leonardo de Oliveira Martins, and David Posada
+
+Systematic biology
+
 ----------
 
-**Zombi** is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-**Zombi** is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-<http://www.gnu.org/licenses/>.
 
 

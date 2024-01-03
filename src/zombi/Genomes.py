@@ -18,8 +18,6 @@ T_DIR = bool
 RIGHT = False
 LEFT = True
 
-
-
 class GeneFamily():
     """
     Represent a gene family which knows its history of events on a gene tree.
@@ -1667,7 +1665,6 @@ class CircularChromosome(Chromosome):
 
         # In this first version, length is 1. For a more advanced version, I should extent the interactome model
         # Returns N genes accounting for the family rates
-
 
         gene2rate = {gene: gene_families[gene.gene_family].rates[mrate] for gene in self.genes}
 
