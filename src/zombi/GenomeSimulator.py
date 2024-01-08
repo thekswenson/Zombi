@@ -1812,11 +1812,8 @@ class GenomeSimulator():
         i_e = int(af.obtain_value(self.parameters["INVERSION_EXTENSION"]))
         c_e = int(af.obtain_value(self.parameters["TRANSPOSITION_EXTENSION"]))
 
-        ###!!!### This is weird, why does the gene_length parameter matter here? 
         distribution  = self.parameters["GENE_LENGTH"].split(":")[0]
 
-        ###!!!### If I put in a root genome, I want the mean gene length to be the mean of the gene lengths.
-        ###!!!### wait, mean gene length is not even being used for anything? 
         if distribution == "f" or distribution == "n":
             mean_gene_length = int(self.parameters["GENE_LENGTH"].split(":")[1].split(";")[0])
         elif distribution == "u":
@@ -1826,10 +1823,8 @@ class GenomeSimulator():
             print("Error, please switch the distribution type por the gene length")
             return 0
 
-        ###!!!### Again, I would like it to be the actual mean length of the intergenes. 
         mean_intergene_length = int(self.parameters["INTERGENE_LENGTH"])
 
-        ###!!!### Why is the multiplier no longer affected by mean gene length like in the original version?
         multiplier = 1.0 / mean_intergene_length
 
         # Select which event will occur randomly based on the event likelihoods. 

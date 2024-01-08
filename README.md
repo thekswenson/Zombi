@@ -1,8 +1,8 @@
 
 
-<img src="https://github.com/AADavin/Zombi/blob/master/Images/ZombiLogo.png" alt="zombilogo" height = "150" width="300"/>
+<img src="https://github.com/thekswenson/Zombi/tree/Simphy_integration/Images/ZombiPhy_logo" alt="zombiphylogo" height = "150" width="300"/>
 
-### ** Zombi-fork + ZombiPhy: A more flexible version of Zombi with Simphy integration **
+### ** Zombi-fork + ZombiPhy: A more flexible version of Zombi with SimPhy integration **
 
 ----------
 
@@ -12,9 +12,9 @@
 
 **Zombi** Zombi is a multilevel simulation program that allows for the simulation of species trees, gene/intergene trees, and sequence evolution. Importantly, the gene/intergene tree simulation incorporates large scale genomic rearrangements into its simulation, such as transpositions and inversions. 
 
-**SimPhy** SimPhy is a fast, open source simulation program that can simulate multiple gene families evolving under gene duplication and loss, gene conversion, and most importantly, incomplete lineage sorting. 
+**SimPhy** SimPhy is a fast, open source simulation program that can simulate multiple gene families evolving under gene duplication and loss, gene conversion, and incomplete lineage sorting. 
 
-**ZombiPhy** 
+**ZombiPhy** ZombiPhy is a Python based pipeline that integrates the outputs of Zombi and SimPhy together in order to create a more complete simulation that considers both large scale genomic rearrangements and incomplete lineage sorting. 
 
 ----------
 
@@ -22,7 +22,7 @@
 
 **Installing Zombi**
 First, clone the repository to your computer using git clone. If you are unfamiliar with git, please see the 
-github docs here https://docs.github.com/en/get-started/using-git
+github docs here https://docs.github.com/en/get-started/using-git.
 
     git clone https://github.com/thekswenson/Zombi.git
 
@@ -42,7 +42,7 @@ command for this because mamba cannot alter the configuration.
     conda config --add channels bioconda
     conda config --add channels nodefaults
 
-Use mamba to install the following packages (Note too self, replace with .yaml file):
+Use mamba to install the following packages:
     
     mamba install python ete3 networkx flask gffutils
 
@@ -59,19 +59,47 @@ used to configure your environment.
     cd Zombi
     pip install -e .
         
-**Installing Simphy**
-There are two methods for installing Simphy, Compilation and pre-compled binaries. We reccomend using the pre-compiled binaries, as they are by far the simplest method for installing SimPhy. You can find the precompiled binaries here: https://github.com/adamallo/SimPhy/releases/latest 
+**Installing SimPhy**
+There are two methods for installing SimPhy, Compilation and pre-compiled binaries. We reccommend using the pre-compiled binaries, as they are by far the simplest method for installing SimPhy. You can find the precompiled binaries here: https://github.com/adamallo/SimPhy/releases/latest 
 
-If for whatever reason you wish to compile SimPhy, please follow the instructions in the SimPhy manual here: https://github.com/adamallo/SimPhy/wiki/Manual#4-obtaining-simphy
+If you wish to compile SimPhy, please follow the instructions in the SimPhy manual here: https://github.com/adamallo/SimPhy/wiki/Manual#4-obtaining-simphy
 
 ## **Running ZombiPhy** ##
 
-This is a guide for how to run the the ZombiPhy 
+**Overview**
+The ZombiPhy pipeline can be broken down into 5 main steps:
+1. SimPhy generates a species tree.
+2. The species tree is converted into a format identical to the output of Zombi's **T** mode.
+3. Zombi is run in **G** mode using the species tree as input. 
+4. Gene trees generated from step 4 are fed into SimPhy as locus trees. This generates new gene trees that incorporate incomplete lineage sorting.
+5. The new, SimPhy generated gene trees are fed back into Zombi which is then run in its **S** mode, which generates sequences from the tree. 
 
-### **Running Zombi the normal way** ###
+The first 4 steps are done using the **ZombiPhy.py** script, which automates the steps for ease of use. The final step is done using a seperate Python script, **Name Pending**, as it is **very computationally expensive**
 
-**There is a detailed Wiki that explains how Zombi works [here](https://github.com/AADavin/ZOMBI/wiki)** and it takes around 15 minutes of your time reading it! But if you want to launch it
-right away, just read this.  
+**Parameters**
+A majority of the parameters fed to ZombiPhy are specified in parameter tsv files rather than in arguments. ZombiPhy parameter files, such as the one in the Parameters folder, are split into two section. 
+
+The first section is a set of arguments to SimPhy. This allows you to change parameters such as the number of replicates and the distribution from which to draw the gene/species specific rate heterogeneity parameters. Note that you should be able to add any of the arguments specified in https://github.com/adamallo/SimPhy/wiki/Manual to this section of the parameters file to add them to the SimPhy call, though this has not been thouroughly tested. For more information on using SimPhy, please see https://github.com/adamallo/SimPhy/wiki/Manual. 
+
+The second section details the parameters that will be inputted into Zombi during genome simulation. This allows you to change parameters such as the duplication, loss, inversion, and transposition rates. Note that unlike the SimPhy parameters section, you cannot add nor remove any of the Zombi parameters. For more information on these parameters, please see the genome generation section of the Zombi wiki at https://github.com/AADavin/Zombi/wiki/Generating-Genomes. 
+
+**Running ZombiPhy**
+ZombiPhy accepts 5 different arguments:
+1. -s_loc is the location of the precompiled binaries for SimPhy (if you compiled SimPhy, then you can replace this with the command used to call SimPhy). 
+2. -params is the location of the zombiphy parameters file. 
+3. -o is the location in which to save the output files. 
+4. -g_loc is the location of the root genome gff file. In this example, 
+5. -fc is the feature choice. You can choose to look at either individual CDS regions or entire genes.
+
+Here is an example run of ZombiPhy using the default parameters in Parameters/ and the genome data from chicken chromosome 4 (Available here: https://ftp.ensembl.org/pub/release-110/gff3/gallus_gallus/)
+
+    Python ZombiPhy.py -s_loc ../SimPhy_1.0.2/bin/simphy_mac64 -params Parameters/ZombiPhyParameters.tsv -o ../output -g_loc ../genomes/chicken/chr4.gff -fc gene
+
+**Running name pending** ... 
+
+### Running Zombi Independently ###
+
+**There is a detailed Wiki that explains how Zombi works [here](https://github.com/AADavin/ZOMBI/wiki)** and it takes around 15 minutes of your time reading it! But if you want to launch it right away, just read this.  
 
 There are **three main modes** to run Zombi: **T** (species Tree), **G** (Genomes) and  **S** (Sequences) 
 
@@ -101,20 +129,44 @@ Then, you can simulate the evolution of sequences for each gene in that species 
 
     Zombi S ./Parameters/SequenceParameters.tsv ../Output_folder
 
-### Limitations of ZombiPhy future tasks ###
+### Example SimPhy Run ###
 
-- The output of ZombiPhy is not a valid input for Zombi's sequence simulation mode (S). This will need to be a major task for future collaborators. 
+There are many different ways in which to run SimPhy. We have chosen to include two examples here which illustrate how it is used within ZombiPhy. For a more detailed description of how to run SimPhy, please see https://github.com/adamallo/SimPhy/wiki/Manual. 
+
+Below is what can be seen as a traditional run of SimPhy. This will generate a species tree, a set of 1000 locus trees, and a set of 1000 gene trees, for 3 replicates: 
+
+    SimPhy_1.0.2/bin/simphy_mac64 -SL f:10 -SP f:20000 -SB f:0.0001 -SU f:0.001 -SG f:1 -HS LN:1.5,1 -HL LN:1.5,1 -HG LN:1.5,1 -RS 3 -RL 1000 -CS 220 -V 3 -O output/simphy_output/species_tree
+
+1. -SL is the number of leaves for the species tree.
+2. -SP is the tree wide population size.
+3. -SB is the speciation rate.
+4. -SU is the substitution rate.
+5. -SG is the tree wide generation time.
+6. -HS, -HL, -HG are the species, lineage, and gene specific rate heterogeneity modifiers respectively.
+7. -RS is the number of replicates.
+8. -RL is the number of locus trees.
+9. -CS is the random seed.
+10. -V is the verbosity.
+11. -O is the output location.
+
+When this code is run within ZombiPhy, -RL is set to 1 as we will be using Zombi to generate the initial gene trees. 
+
+ZombiPhy runs SimPhy twice. The second run uses the -LR argument to input a set of locus trees created by Zombi into simphy as a nexus file. An example of this has not been included as it is difficult to run SimPhy in -LR mode without running the whole pipeline. 
+
+### Limitations of ZombiPhy and future tasks ###
+
 - The pseudogeneization option for Zombi, and by extension ZombiPhy, is broken. For now, this just means that the pseudogeneization option in the ZombiPhy/Zombi genome parameters file must always be left at 0.
 - Inputting locus trees with horizontal transfers into SimPhy is broken. For now, this means that the transfer rate in the ZombiPhy/Zombi genome parameters file must always be left at 0.
-- Inputting locus trees with losses into SimPhy is broken. This only causes problems in a rare circumstance where a duplication occurs but one of the duplicates is lost. Under these circumstances, the branch length of the surviving duplicate will be inaccurate. For now, this inaccuracy is ignored, but it must be addressed in the future. 
-- Zombi cannot support full eukaryotic genomes. The internal infrastructure needed for inputting in an entire, multi-chromosome genome into Zombi simply does not exist. This will have to be implemented in a future version of the program. 
+- Inputting locus trees with losses into SimPhy causes a couple of specific issues. This only causes problems in a rare circumstance where a duplication occurs but one of the duplicates is lost. Under these circumstances, the branch length of the surviving duplicate will be inaccurate. For now, pruned trees are inputted into SimPhy and this inaccuracy is ignored, but it must be addressed in the future.
+- Zombi cannot support full eukaryotic genomes. The internal infrastructure needed for inputting in an entire, multi-chromosome genome into Zombi does not yet exist. This will have to be implemented in a future version of the program.
+- There appears to be a bug in Zombi where certain events affect far too many genes (e.g. an inversion happening to 95% of the genes). This is likely due to a problem with how Zombi chooses the number of genes to be affected by each individual event.  
     
     
 ----------
 
 Writen by Keegan R. Flanagan
 
-Please, if you have any doubts or need a hand, **just contact me here: keflanagan@ucsd.edu**
+Please, if you have any doubts or need a hand, **please contact me here: keflanagan@ucsd.edu**
 
 ----------
 
