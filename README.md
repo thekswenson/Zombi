@@ -1,6 +1,5 @@
 
-
-<img src="https://github.com/thekswenson/Zombi/tree/Simphy_integration/Images/ZombiPhy_logo" alt="zombiphylogo" height = "150" width="300"/>
+![ZombiPhy_logo](https://github.com/thekswenson/Zombi/blob/Simphy_integration/Images/ZombiPhy_logo.jpg)
 
 ### ** Zombi-fork + ZombiPhy: A more flexible version of Zombi with SimPhy integration **
 
