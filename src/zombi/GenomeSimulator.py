@@ -2055,8 +2055,6 @@ class GenomeSimulator():
                 ch2.has_intergenes = True
 
             for gene in chromosome:
-                ###!!!### Wait a minute... for every gene in the chromosome?
-                # Like, 
 
                 new_id1 = self.return_new_identifiers_for_segment([gene])
                 new_id2 = self.return_new_identifiers_for_segment([gene])

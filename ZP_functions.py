@@ -59,10 +59,8 @@ def make_ultrametric(tree):
                 # Check to make sure that the distance from the leaf to the root is equal 
                 # to the max distance in our list
                 if max(dists) != dists[i]:
-                    # A crude method for preventing it from removing losses. 
-                    if abs(max(dists) - dists[i]) < 1:
-                        # If not equal, extend branch to make it equal. 
-                        node.dist = float(D(str(node.dist)) + D(str(max(dists))) - D(str(dists[i])))
+                    # If not equal, extend branch to make it equal. 
+                    node.dist = float(D(str(node.dist)) + D(str(max(dists))) - D(str(dists[i])))
                 i += 1
     return tree
 

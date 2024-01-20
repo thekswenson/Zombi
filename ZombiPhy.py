@@ -154,8 +154,8 @@ for rep in reps:
 for rep in reps:
 
     # Extract lists of all of the relevant files. 
-    all_gene_trees = zp.extract_files(output + f"/zombi_output/{rep}/G/Gene_trees", r'[0-9]*_prunedtree.nwk')
-    all_division_trees = zp.extract_files(output + f"/zombi_output/{rep}/G/Division_trees", r'[0-9]*_prunedtree.nwk')
+    all_gene_trees = zp.extract_files(output + f"/zombi_output/{rep}/G/Gene_trees", r'[0-9]*_completetree.nwk')
+    all_division_trees = zp.extract_files(output + f"/zombi_output/{rep}/G/Division_trees", r'[0-9]*_completetree.nwk')
     all_gene_events = zp.extract_files(output + f"/zombi_output/{rep}/G/Gene_families", r'[0-9]*_events.tsv')
     all_division_events = zp.extract_files(output + f"/zombi_output/{rep}/G/Division_families", r'[0-9]*_events.tsv')
     
@@ -209,3 +209,52 @@ for rep in reps:
 for rep in reps:
     zp.simphy_mult(gamma_values, "/simphy_output/locus_tree/Gene/", rep, output)
     zp.simphy_mult(gamma_values, "/simphy_output/locus_tree/Division/", rep, output)
+
+################# Replace zombi gene/division trees with symphy edited trees ####################
+# For gene trees.
+for rep in reps:
+    # get a list of all the trees made by simphy. 
+    simph_trees = os.listdir(output + f"/simphy_output/locus_tree/gene/{rep}/")
+    simph_trees = natsorted(simph_trees)[1:]
+    
+    # get a list of all the zombi trees that went into simphy. 
+    zomb_trees = os.listdir(output + f"/zombi_output/{rep}/G/sym_Gene_trees/")
+    zomb_trees = natsorted(zomb_trees)
+    
+    # for each tree outputted by Simphy, replace the Zombi gene tree with the simphy tree. 
+    for z_tree, s_tree in zip(zomb_trees, simph_trees):
+        
+        # Copy the contents of the simphy tree file
+        txt = Path(output + f"/simphy_output/locus_tree/gene/{rep}/" + s_tree).read_text()
+        
+        # This switches it back to zombi naming conventions
+        txt = re.sub("_0", "", txt)
+        
+        # Simphy prunes tres automatically, so you want to replace the pruned trees
+        z_tree = re.sub("complete", "pruned", z_tree)
+        with open(output + f"/zombi_output/{rep}/G/Gene_trees/" + z_tree, 'w') as wfd:
+            wfd.write(txt)
+
+# For division trees. 
+for rep in reps:
+    # get a list of all the trees made by simphy. 
+    simph_trees = os.listdir(output + f"/simphy_output/locus_tree/division/{rep}/")
+    simph_trees = natsorted(simph_trees)[1:]
+    
+    # get a list of all the zombi trees that went into simphy. 
+    zomb_trees = os.listdir(output + f"/zombi_output/{rep}/G/sym_Division_trees/")
+    zomb_trees = natsorted(zomb_trees)
+    
+    # for each tree outputted by Simphy, replace the Zombi gene tree with the simphy tree. 
+    for z_tree, s_tree in zip(zomb_trees, simph_trees):
+        
+        # Copy the contents of the simphy tree file
+        txt = Path(output + f"/simphy_output/locus_tree/division/{rep}/" + s_tree).read_text()
+        
+        # This switches it back to zombi naming conventions
+        txt = re.sub("_0", "", txt)
+        
+        # Simphy prunes tres automatically, so you want to replace the pruned trees
+        z_tree = re.sub("complete", "pruned", z_tree)
+        with open(output + f"/zombi_output/{rep}/G/Division_trees/" + z_tree, 'w') as wfd:
+            wfd.write(txt)

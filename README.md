@@ -8,19 +8,28 @@
 
 ### **Introduction** ###
 
-**Fork Description** This fork is an effort by the Mirarab lab and Dr. Krister M. Swenson to create a simulation program which is able to simulate the evolution of large-scale eukaryotic genomes from a pre-set ancestral root genome.
+**Fork Description:**
 
-**Zombi** Zombi is a multilevel simulation program that allows for the simulation of species trees, gene/intergene trees, and sequence evolution. Importantly, the gene/intergene tree simulation incorporates large scale genomic rearrangements into its simulation, such as transpositions and inversions. 
+This fork is an effort by the Mirarab lab and Dr. Krister M. Swenson to create a simulation program which is able to simulate the evolution of large-scale eukaryotic genomes from a pre-set ancestral root genome.
 
-**SimPhy** SimPhy is a fast, open source simulation program that can simulate multiple gene families evolving under gene duplication and loss, gene conversion, and incomplete lineage sorting. 
+**Zombi:** 
 
-**ZombiPhy** ZombiPhy is a Python based pipeline that integrates the outputs of Zombi and SimPhy together in order to create a more complete simulation that considers both large scale genomic rearrangements and incomplete lineage sorting. 
+Zombi is a multilevel simulation program that allows for the simulation of species trees, gene/intergene trees, and sequence evolution. Importantly, the gene/intergene tree simulation incorporates large scale genomic rearrangements into its simulation, such as transpositions and inversions. 
+
+**SimPhy:** 
+
+SimPhy is a fast, open source simulation program that can simulate multiple gene families evolving under gene duplication and loss, gene conversion, and incomplete lineage sorting. 
+
+**ZombiPhy:** 
+
+ZombiPhy is a Python based pipeline that integrates the outputs of Zombi and SimPhy together in order to create a more complete simulation that considers both large scale genomic rearrangements and incomplete lineage sorting. 
 
 ----------
 
 ### **Installation** ###
 
-**Installing Zombi**
+**Installing Zombi:**
+
 First, clone the repository to your computer using git clone. If you are unfamiliar with git, please see the 
 github docs here https://docs.github.com/en/get-started/using-git.
 
@@ -59,14 +68,16 @@ used to configure your environment.
     cd Zombi
     pip install -e .
         
-**Installing SimPhy**
+**Installing SimPhy:**
+
 There are two methods for installing SimPhy, Compilation and pre-compiled binaries. We reccommend using the pre-compiled binaries, as they are by far the simplest method for installing SimPhy. You can find the precompiled binaries here: https://github.com/adamallo/SimPhy/releases/latest 
 
 If you wish to compile SimPhy, please follow the instructions in the SimPhy manual here: https://github.com/adamallo/SimPhy/wiki/Manual#4-obtaining-simphy
 
 ## **Running ZombiPhy** ##
 
-**Overview**
+**Overview:**
+
 The ZombiPhy pipeline can be broken down into 5 main steps:
 1. SimPhy generates a species tree.
 2. The species tree is converted into a format identical to the output of Zombi's **T** mode.
@@ -76,14 +87,16 @@ The ZombiPhy pipeline can be broken down into 5 main steps:
 
 The first 4 steps are done using the **ZombiPhy.py** script, which automates the steps for ease of use. The final step is done using a seperate Python script, **Name Pending**, as it is **very computationally expensive**
 
-**Parameters**
+**Parameters:**
+
 A majority of the parameters fed to ZombiPhy are specified in parameter tsv files rather than in arguments. ZombiPhy parameter files, such as the one in the Parameters folder, are split into two section. 
 
 The first section is a set of arguments to SimPhy. This allows you to change parameters such as the number of replicates and the distribution from which to draw the gene/species specific rate heterogeneity parameters. Note that you should be able to add any of the arguments specified in https://github.com/adamallo/SimPhy/wiki/Manual to this section of the parameters file to add them to the SimPhy call, though this has not been thouroughly tested. For more information on using SimPhy, please see https://github.com/adamallo/SimPhy/wiki/Manual. 
 
 The second section details the parameters that will be inputted into Zombi during genome simulation. This allows you to change parameters such as the duplication, loss, inversion, and transposition rates. Note that unlike the SimPhy parameters section, you cannot add nor remove any of the Zombi parameters. For more information on these parameters, please see the genome generation section of the Zombi wiki at https://github.com/AADavin/Zombi/wiki/Generating-Genomes. 
 
-**Running ZombiPhy**
+**Running ZombiPhy:**
+
 ZombiPhy accepts 5 different arguments:
 1. -s_loc is the location of the precompiled binaries for SimPhy (if you compiled SimPhy, then you can replace this with the command used to call SimPhy). 
 2. -params is the location of the zombiphy parameters file. 
@@ -157,7 +170,6 @@ ZombiPhy runs SimPhy twice. The second run uses the -LR argument to input a set 
 
 - The pseudogeneization option for Zombi, and by extension ZombiPhy, is broken. For now, this just means that the pseudogeneization option in the ZombiPhy/Zombi genome parameters file must always be left at 0.
 - Inputting locus trees with horizontal transfers into SimPhy is broken. For now, this means that the transfer rate in the ZombiPhy/Zombi genome parameters file must always be left at 0.
-- Inputting locus trees with losses into SimPhy causes a couple of specific issues. This only causes problems in a rare circumstance where a duplication occurs but one of the duplicates is lost. Under these circumstances, the branch length of the surviving duplicate will be inaccurate. For now, pruned trees are inputted into SimPhy and this inaccuracy is ignored, but it must be addressed in the future.
 - Zombi cannot support full eukaryotic genomes. The internal infrastructure needed for inputting in an entire, multi-chromosome genome into Zombi does not yet exist. This will have to be implemented in a future version of the program.
 - There appears to be a bug in Zombi where certain events affect far too many genes (e.g. an inversion happening to 95% of the genes). This is likely due to a problem with how Zombi chooses the number of genes to be affected by each individual event.  
     

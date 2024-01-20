@@ -5,6 +5,7 @@ Output/
 Output_folder/
 */.ipynb_checkpoints
 ./.ipynb_checkpoints
+.ipynb_checkpoints/*
 .Rhistory
 .DS_store
 /*_output/
