@@ -61,6 +61,30 @@ def divide_by_time_increase(array):
     transformed_array = numpy.log(array)
     return (transformed_array)
 
+# def read_parameters(parameters_file, program="zombi"):
+    
+#     parameters = dict()
+#     sect = "zombi"
+    
+#     with open(parameters_file) as f:
+        
+#         for line in f:
+            
+#             if line[0] == "#" or line == "\n":
+#                 continue
+                
+#             # Define which section of the
+#             if "[SIMPHY PARAMETERS]" in line:
+#                 sect = "simphy"
+#             elif "[ZOMBI PARAMETERS]" in line:
+#                 sect = "zombi" 
+                
+#             elif ("\t" or " " in line) and program == sect:
+#                 parameter, value = re.split("[\t ]", line.strip())
+#                 parameters[parameter] = value
+                
+#     return parameters
+
 def read_parameters(parameters_file, program="zombi"):
     
     parameters = dict()
@@ -73,11 +97,13 @@ def read_parameters(parameters_file, program="zombi"):
             if line[0] == "#" or line == "\n":
                 continue
                 
-            # Define which section of the
-            if "--- SIMPHY PARAMETERS ---" in line:
+            # Define which section of the parameters file to work with. 
+            if "[SIMPHY PARAMETERS]" in line:
                 sect = "simphy"
-            elif "--- ZOMBI PARAMETERS ---" in line:
+            elif "[ZOMBI PARAMETERS]" in line:
                 sect = "zombi" 
+            elif "[ZOMBIPHY PARAMETERS]" in line:
+                sect = "zombiphy" 
                 
             elif ("\t" or " " in line) and program == sect:
                 parameter, value = re.split("[\t ]", line.strip())

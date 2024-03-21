@@ -65,15 +65,23 @@ def make_ultrametric(tree):
     return tree
 
 def apply_ultrametric(events, trees, output, rep, type = "Gene"):
+    lost_trees = 0
     for event, tree in zip(events, trees):
-    
+        
         # Load the tree.
         t = Tree(output + f"/zombi_output/{rep}/G/{type}_trees/" + tree, format = 1)
     
         # If the tree is a single leaf (caused by origination or transfer) skip it. 
         if len(t) < 2:
+            lost_trees += 1
             continue
-    
+
+        # If the tree contains less than 2 living descendents, skip it. 
+        events=pd.read_csv(output + f"/zombi_output/{rep}/G/{type}_families/" + event, sep='\t')
+        if list(events["EVENT"]).count("F") < 2:
+            lost_trees += 1
+            continue
+
         # Force the tree to be ultrametric. 
         t = make_ultrametric(t)
     
@@ -81,6 +89,7 @@ def apply_ultrametric(events, trees, output, rep, type = "Gene"):
         t.write(outfile = output + f"/zombi_output/{rep}/G/sym_{type}_trees/" + tree, format = 1)
         shutil.copyfile(output + f"/zombi_output/{rep}/G/{type}_families/" + event,
                        output + f"/zombi_output/{rep}/G/sym_{type}_events/" + event)
+    return(lost_trees)
 
 def write_nexus(rep, output, type = "Gene"):
     # Create a dictionary to translate Zombi events to Simphy language (999 is used as a specific ignore key).
@@ -121,7 +130,7 @@ def write_nexus(rep, output, type = "Gene"):
             nodes = pd.DataFrame({'NODES': nodes_full, 'nodes': nodes_trunc})
     
             # Merge the u_mult data and the event data with the IN ORDER nodes. 
-            merged_1 = pd.merge(nodes, u_mults)
+            merged_1 = pd.merge(nodes, u_mults, how="left", sort = False)
             merged_2 = pd.merge(merged_1, events)
 
             # Remove inversion and transpositions as they do not create new nodes. 
@@ -159,9 +168,12 @@ def write_nexus(rep, output, type = "Gene"):
         wfd.write('end;')
 
 # For each rep, multiply all values in the tree by a gene specific rate modifier.
-def simphy_mult(gamma_values, locus_trees_path, rep, output):
+def simphy_mult(gamma_values, locus_trees_path, rep, output, rate_multiplier = 1.0):
     # Find the correct alpha. 
     alpha = gamma_values["gene_alpha"][rep - 1]
+
+    # Correct the alpha based on the rate modifier.
+    alpha = alpha*rate_multiplier
 
     # Get the list of all trees for that rep. 
     all_s_trees = os.listdir(output + locus_trees_path + f"{rep}/1")

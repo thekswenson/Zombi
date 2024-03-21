@@ -85,7 +85,7 @@ The ZombiPhy pipeline can be broken down into 5 main steps:
 4. Gene trees generated from step 4 are fed into SimPhy as locus trees. This generates new gene trees that incorporate incomplete lineage sorting.
 5. The new, SimPhy generated gene trees are fed back into Zombi which is then run in its **S** mode, which generates sequences from the tree. 
 
-The first 4 steps are done using the **ZombiPhy.py** script, which automates the steps for ease of use. The final step is done using a seperate Python script, **Name Pending**, as it is **very computationally expensive**
+The first 4 steps are done using the **ZombiPhy.py** script, which automates the steps for ease of use. The final step is done using a seperate Python script, **Seqsim.py**, as it is **very computationally expensive**
 
 **Parameters:**
 
@@ -104,11 +104,22 @@ ZombiPhy accepts 5 different arguments:
 4. -g_loc is the location of the root genome gff file. In this example, 
 5. -fc is the feature choice. You can choose to look at either individual CDS regions or entire genes.
 
-Here is an example run of ZombiPhy using the default parameters in Parameters/ and the genome data from chicken chromosome 4 (Available here: https://ftp.ensembl.org/pub/release-110/gff3/gallus_gallus/)
+Here is an example run of ZombiPhy using the default parameters in Parameters/ZombiPhyParameters and the genome data from chicken chromosome 4 (Available here: https://ftp.ensembl.org/pub/release-110/gff3/gallus_gallus/)
 
     Python ZombiPhy.py -s_loc ../SimPhy_1.0.2/bin/simphy_mac64 -params Parameters/ZombiPhyParameters.tsv -o ../output -g_loc ../genomes/chicken/chr4.gff -fc gene
 
-**Running name pending** ... 
+**Running Seqsim.py** 
+
+Running Seqsim.py is very simple. There are 5 arguments:
+1. g_loc is the location of the reference genome (a fasta file).
+2. params is the location of a Sequence parameters file. These are completely identical to the sequence parameter file format of Zombi.
+3. -o is the location in which to save the output files. This MUST be identical to the location used for the ZombiPhy outputs.
+4. -r is the number of reps used for the ZombiPhy run.
+5. -p is the number of cores to use for the sequence simulation. 
+
+Here is an example run of seqsim using the default parameters in Parameters/ZombiPhyParameters and the genome data from chicken chromosome 4. Please note that running the following code requires a lot of time and processing, and is best done through a computing cluster. 
+
+    Python Seqsim.py -g_loc ../genomes/chicken/chr4.fa -params Parameters/SequenceParameters.tsv -o ../output -r 3 -p 8
 
 ### Running Zombi Independently ###
 
@@ -168,8 +179,8 @@ ZombiPhy runs SimPhy twice. The second run uses the -LR argument to input a set 
 
 ### Limitations of ZombiPhy and future tasks ###
 
-- The pseudogeneization option for Zombi, and by extension ZombiPhy, is broken. For now, this just means that the pseudogeneization option in the ZombiPhy/Zombi genome parameters file must always be left at 0.
-- Inputting locus trees with horizontal transfers into SimPhy is broken. For now, this means that the transfer rate in the ZombiPhy/Zombi genome parameters file must always be left at 0.
+- The pseudogeneization option for Zombi, and by extension ZombiPhy, does not work. For now, this just means that the pseudogeneization option in the ZombiPhy/Zombi genome parameters file must always be left at 0.
+- Inputting locus trees with horizontal transfers into SimPhy does not work. For now, this means that the transfer rate in the ZombiPhy/Zombi genome parameters file must always be left at 0.
 - Zombi cannot support full eukaryotic genomes. The internal infrastructure needed for inputting in an entire, multi-chromosome genome into Zombi does not yet exist. This will have to be implemented in a future version of the program.
 - There appears to be a bug in Zombi where certain events affect far too many genes (e.g. an inversion happening to 95% of the genes). This is likely due to a problem with how Zombi chooses the number of genes to be affected by each individual event.  
     
@@ -178,7 +189,7 @@ ZombiPhy runs SimPhy twice. The second run uses the -LR argument to input a set 
 
 Writen by Keegan R. Flanagan
 
-Please, if you have any doubts or need a hand, **please contact me here: keflanagan@ucsd.edu**
+If you have any doubts or need a hand, **please contact me here: keflanagan@ucsd.edu**
 
 ----------
 

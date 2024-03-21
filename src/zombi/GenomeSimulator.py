@@ -3265,15 +3265,6 @@ class GenomeSimulator():
 
         self.all_gene_families[myedge[0].split("_")[0]].register_event(str(time), "RM", ";".join([lineage, myedge[0], myedge[1]]))
 
-
-    #def get_gene_family_tree(self):
-
-    #    if len(self.gene_family["Gene_tree"].get_leaves()) < 3:
-    #        return "None"
-    #    else:
-    #        return self.gene_family["Gene_tree"].write(format=1)
-
-
     def select_advanced_length(self, lineage: str, p: float, reps=100,
                                ) -> Tuple[CircularChromosome, int, int, T_DIR]:
         """
@@ -3517,8 +3508,6 @@ class GenomeSimulator():
 
                 else:
                     # The cut has been propagated to a gene
-                    
-       
                     result_propagation = p_event.returnPieceAndCut(propagated_cut) 
                     gene, cut_within_gene = result_propagation
                         

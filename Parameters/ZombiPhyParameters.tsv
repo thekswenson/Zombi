@@ -1,11 +1,11 @@
---- SIMPHY PARAMETERS ---
-## Please do not alter the header above, it is used to separate the Simply and Zombi sections. 
+[SIMPHY PARAMETERS]
+## Please do not alter the header above, it is used to separate the tasks. 
 ## Please refer to the SimPhy manual for more details at https://github.com/adamallo/SimPhy/wiki/Manual
 ## Note that any of the additional Parameters specified in the manual can be added to this section. 
 #
 ## Species tree parameters
 #
--SL f:10 
+-SL f:5 
 -SP f:20000
 -SB f:0.0001
 -SU f:0.001
@@ -23,9 +23,17 @@
 #
 ## the random seed
 #
--CS 220
+-CS 256
 #
---- ZOMBI PARAMETERS ---
+[ZOMBIPHY PARAMETERS]
+## Please do not alter the header above, it is used to separate the tasks. 
+#
+### Intergene substitution rate modifier. 
+### Gene specific heterogeneity rates from simphy will be multiplied by this
+### value for intergenes. 
+MODIFIER 2.0
+#
+[ZOMBI PARAMETERS]
 ## Please do not alter the header above, it is used to separate the tasks. 
 ## Please refer to the Zombi manual for more details at https://github.com/AADavin/Zombi/wiki
 #
@@ -36,15 +44,15 @@
 ## Rates represent the frequency (and fixation probability) of the different events measure in time units (see your Species Tree)
 ##
 #
-DUPLICATION f:0.0001
+DUPLICATION f:0.001
 TRANSFER f:0
-LOSS f:0.0002
+LOSS f:0.0015
 #
 ## The next three events use always genome-wise rates
 #
-INVERSION f:0.0002
-TRANSPOSITION f:0.0002
-ORIGINATION f:0.0002
+INVERSION f:0.002
+TRANSPOSITION f:0.002
+ORIGINATION f:0
 #
 ## Extensions. Extensions determine how many contiguous genes are affected by a single event
 #
@@ -96,4 +104,4 @@ RATE_FILE False
 SCALE_RATES True
 #
 ## SEED : If 0, the SEED is chosen randomly
-SEED 39
+SEED 182
