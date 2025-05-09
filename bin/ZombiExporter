@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from collections import namedtuple
-from pprint import pprint
+from collections import defaultdict as ddict
 import sys
 import argparse
 
@@ -87,7 +87,7 @@ def export_FFGC(args):
                  '#(homologous) block information was encoded into the file\n'
                  '#named "families.txt".')
 
-    recid2pos: dict[str, CoordPair] = {}
+    fam2recid2pos: dict[str, dict[str, CoordPair]] = ddict(dict)
     leaves = get_leaf_names(proj_dir)
     for genome in leaves:
         #Read the gene order. Each line is a tab-separated list containing
@@ -113,7 +113,7 @@ def export_FFGC(args):
                 rec = fam2id2genome2rec[family][geneid][genome]
                 genomesequence += rec
                 assert rec.id
-                recid2pos[rec.id] = CoordPair(i, i+len(rec)-1, strand)
+                fam2recid2pos[family][rec.id] = CoordPair(i, i+len(rec)-1, strand)
                 gfflines += (f'{genome}\tZombi\tCDS\t{i}\t{i+len(rec)-1}\t'
                              f'.\t{strand}\t0\tID={family}_{geneid}\n')
                 i += len(rec)
@@ -134,9 +134,10 @@ def export_FFGC(args):
                 for genome, rec in genome2rec.items():
                     assert rec.id
                     famstr += (f'{family}_{id}|'
-                               f'{recid2pos[rec.id].start}:{recid2pos[rec.id].end}|'
+                               f'{fam2recid2pos[family][rec.id].start}:'
+                               f'{fam2recid2pos[family][rec.id].end}|'
                                f'chromosome|{genome}|'
-                               f'strand|{recid2pos[rec.id].strand} ')
+                               f'strand|{fam2recid2pos[family][rec.id].strand} ')
 
             f.write(famstr.strip() + '\n')
 
