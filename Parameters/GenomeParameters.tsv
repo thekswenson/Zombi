@@ -3,6 +3,9 @@
 #
 ## Main events
 #
+# Parameters can be prefixed by a distribution specifier
+# (f fixed, u uniform, n normal, l lognormal, e exponential, g geometric)
+#
 ## When using the G mode, these events use genome-wise rate.
 ## The next three events can have gene-family rates when using the Gm mode.
 ## Rates represent the frequency (and fixation probability) of the different events measure in time units (see your Species Tree)
@@ -59,7 +62,8 @@ SCALE_TREE 0
 #
 GENE_LENGTH f:100
 INTERGENE_LENGTH 100
-PSEUDOGENIZATION 0.5
+PSEUDOGENIZATION 0
+#PSEUDOGENIZATION 0.5
 #
 ### Gm SPECIFIC PARAMETERS ###
 # Include the whole path to the parameters file. The parameters file has a first line (header) and 4 tab separated columns with the name of the gene family (ignore), D, T and L rate.
