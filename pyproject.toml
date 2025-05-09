@@ -1,6 +1,48 @@
 [build-system]
-requires = [
-    "setuptools>=42",
-    "wheel"
+requires = ["hatchling >= 1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "zombi"
+version = "2.0.0a0"
+description = "A phylogenetic simulator of trees, genomes and sequences that accounts for dead lineages"
+authors = [{name = "Adrián A. Davín", email = "aaredav@gmail.com"}, {name= "Krister M. Swenson", email = "swenson@lirmm.fr"}]
+requires-python = ">=3.8"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
 ]
-build-backend = "setuptools.build_meta"
+dependencies = [
+    "numpy",
+    "networkx",
+    "pybedtools",
+    "biopython",
+    "bcbio-gff",
+    "ete3",
+    "pyvolve",
+]
+
+[project.urls]
+Homepage = "https://github.com/AADavin/Zombi"
+Issues = "https://github.com/AADavin/Zombi/issues"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/zombi"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/zombi"]
+include = [
+    "Parameters/*.tsv",
+    "Tutorials/*/*",
+    "Validations/*.tsv",
+]
+
+[project.scripts]
+RateCusomizer = "zombi.scripts.RateCustomizer:main"
+SpeciesSampler = "zombi.scripts.SpeciesSampler:main"
+Zombi = "zombi.scripts.Zombi:main"
+ZombiExporter = "zombi.scripts.ZombiExporter:main"

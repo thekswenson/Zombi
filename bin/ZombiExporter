@@ -1,0 +1,158 @@
+#!/usr/bin/env python3
+
+from collections import namedtuple
+from pprint import pprint
+import sys
+import argparse
+
+from pathlib import Path
+from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
+from Bio.Seq import Seq
+
+from zombi.Export import get_genes, get_leaf_names, random_seq
+from zombi.Export import whole_genome_to_GFF
+    
+    
+
+CoordPair = namedtuple('CoordPair', ['start', 'end', 'strand'])
+
+
+def main():
+    desc = 'Export simulated files to other formats.'
+    parser = argparse.ArgumentParser(description=desc)
+    subparsers = parser.add_subparsers(title='subcommands')
+
+    parent = argparse.ArgumentParser(add_help=False)
+    parent.add_argument('PROJ_DIR', type=Path,
+                        help='project directory')
+
+    p_ff = subparsers.add_parser('ffgc', aliases=['ff'], parents=[parent],
+                                 help='Export extant leaf genomes and '
+                                      'sequences for use with FFGC.')
+    p_gf = subparsers.add_parser('gff', aliases=['gf'],
+                                 parents=[parent],
+                                 help='Export the whole genomes as a single '
+                                      'GFF file.')
+ 
+    p_ff.add_argument('OUT_DIR', type=Path,
+                      help='output files to this directory')
+ 
+    p_ff.set_defaults(func=export_FFGC)
+    p_gf.set_defaults(func=export_GFF)
+
+    args = parser.parse_args()
+    
+    #proj_dir: Path = args.PROJ_DIR
+    #if not proj_dir.exists():
+    #    sys.exit(f'Error: the given PROJ_DIR does not exits.')
+
+    if 'func' not in vars(args):
+      parser.print_help()
+      sys.exit()
+
+    args.func(args) 
+
+
+    #MAIN:    __    __    __    __    __    __    __    __    __    __    __    __
+    #__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \_
+
+def export_FFGC(args):
+    """
+    Export the leaf genomes and sequence for use with FFGC:
+        1. a GFF file for each genome, having an interval for each gene
+        2. a fasta file for each of the gene orders, where the fasta file
+           contains the entire genome sequence
+        3. a family file where each line is a space-separated list of genes
+           in the same family
+    """
+    proj_dir: Path = args.PROJ_DIR
+    out_dir: Path = args.OUT_DIR
+
+    #Make the directory if it doesn't exist
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    genomesdir = proj_dir / 'G/Genomes'
+    genesdir = proj_dir / 'S/Genes'
+
+    genomesuffix = '_GENOME.tsv'
+    genesuffix = '_pruned.fasta'
+
+    #Read the gene sequences
+    fam2id2genome2rec = get_genes(genesdir, genesuffix)
+
+    gffheader = ('##gff-version 3\n'
+                 '#File intended for use with FFGC. IDs of elements are the\n'
+                 '#gene, transcript, and exon names.\n'
+                 '#(homologous) block information was encoded into the file\n'
+                 '#named "families.txt".')
+
+    recid2pos: dict[str, CoordPair] = {}
+    leaves = get_leaf_names(proj_dir)
+    for genome in leaves:
+        #Read the gene order. Each line is a tab-separated list containing
+        # position, family, strand, and gene ID.
+        gfile = genomesdir / f'{genome}{genomesuffix}'
+        with open(gfile) as f:
+            header = f.readline()                       #header
+            if not header.startswith('POSITION'):
+                raise(ValueError(f'Unexpected header in "{gfile}"'))
+        
+            genomesequence = SeqRecord(Seq(''))
+            gfflines = ''
+            i = 1
+            for line in f:
+                _, family, strand, geneid = line.strip().split('\t')
+
+                #TODO: the following is a workaround for the case when a gene
+                #originates on a leaf branch. The sequence is not simulated in
+                #this case, at present.
+                if family not in fam2id2genome2rec:
+                    fam2id2genome2rec[family][geneid][genome] = random_seq()
+
+                rec = fam2id2genome2rec[family][geneid][genome]
+                genomesequence += rec
+                assert rec.id
+                recid2pos[rec.id] = CoordPair(i, i+len(rec)-1, strand)
+                gfflines += (f'{genome}\tZombi\tCDS\t{i}\t{i+len(rec)-1}\t'
+                             f'.\t{strand}\t0\tID={family}_{geneid}\n')
+                i += len(rec)
+
+            with open(out_dir / f'{genome}.gff', 'w') as f:
+                f.write(gffheader + '\n' + gfflines)
+
+            assert len(genomesequence) == i - 1
+            genomesequence.id = genome
+            genomesequence.description = ''
+            SeqIO.write(genomesequence, out_dir / f'{genome}.fa', 'fasta')
+
+    #Write the family file
+    with open(out_dir / 'families.txt', 'w') as f:
+        for family, id2genome2rec in fam2id2genome2rec.items():
+            famstr = ''
+            for id, genome2rec in id2genome2rec.items():
+                for genome, rec in genome2rec.items():
+                    assert rec.id
+                    famstr += (f'{family}_{id}|'
+                               f'{recid2pos[rec.id].start}:{recid2pos[rec.id].end}|'
+                               f'chromosome|{genome}|'
+                               f'strand|{recid2pos[rec.id].strand} ')
+
+            f.write(famstr.strip() + '\n')
+
+
+def export_GFF(args):
+    """
+    Write a GFF will all intervals of the genome.
+    """
+    proj_dir: Path = args.PROJ_DIR
+    genomesdir = proj_dir / 'G/Genomes'
+
+    piecesfiles = [x for x in genomesdir.iterdir()
+                   if str(x).endswith('PIECES.tsv')]
+
+    whole_genome_to_GFF(piecesfiles, Path('genomes.gff'))
+
+
+if __name__ == "__main__":
+    main()                                           

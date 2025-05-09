@@ -3,7 +3,8 @@ from Bio.SeqRecord import SeqRecord
 from flask import g
 from zombi.SpeciesTreeSimulator import SpeciesTreeGenerator
 from zombi.GenomeSimulator import GenomeSimulator
-from zombi.SequenceSimulator import SequenceSimulator, whole_genome_to_GFF, write_whole_genome
+from zombi.SequenceSimulator import SequenceSimulator, write_whole_genome
+from zombi.Export import whole_genome_to_GFF
 from typing import Dict, Optional
 from pathlib import Path
 from collections import defaultdict
@@ -506,7 +507,7 @@ def simulate_sequences_on_tree(tree_file: str, gene_trees_folder: Path,
     family_lens : Dict[str, int]
         map genome or division family id to sequence length
     id_to_seq : Optional[Dict[str, SeqRecord]], optional
-        map genome or division family id to sequence length
+        map genome or division family id to sequence
     """
     family = tree_file.split("_")[0]
 
@@ -526,8 +527,7 @@ def simulate_sequences_on_tree(tree_file: str, gene_trees_folder: Path,
 
 
 
-if __name__ == "__main__":
-    
+def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("mode", type=str, choices=["T", "Ti", "Tb", "Tp", "Tm", "Ts", "F", "G", "Gu", "Gf", "Gm", "S", "Su", "Sf", "Ss"],
@@ -624,3 +624,6 @@ if __name__ == "__main__":
 
     else:
         print("Incorrect usage. Please select a mode: T, G or S")
+
+if __name__ == "__main__":
+    main()
