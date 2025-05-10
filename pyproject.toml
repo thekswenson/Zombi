@@ -24,7 +24,7 @@ dependencies = [
     "biopython",
     "bcbio-gff",
     "ete3",
-    "pyvolve",
+    "pyvolve>=1.0.1",
 ]
 
 [project.urls]

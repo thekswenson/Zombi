@@ -71,16 +71,17 @@ def myBasicTreeXMLLines(tree):
     return lines
 
 
-EVENTTAGCORRESPONDANCE = {    "D" : "duplication",
-                        "S" : "speciation",
-                        "C" : "leaf",
-                        "L":"loss",
-                        "Bo": "bifurcationOut",
-                        "bro": "branchingOut",
-                        "Tb": "transferBack",
-                        "SL": "speciationLoss",
-                        "broL": "branchingOutLoss"
-                        }
+EVENTTAGCORRESPONDANCE = { "D" : "tandemdup",
+                           "U" : "duplication",
+                           "S" : "speciation",
+                           "C" : "leaf",
+                           "L":"loss",
+                           "Bo": "bifurcationOut",
+                           "bro": "branchingOut",
+                           "Tb": "transferBack",
+                           "SL": "speciationLoss",
+                           "broL": "branchingOutLoss"
+                         }
 
 class RecEvent:
     def __init__(self, eventCode , species , ts = None , additionnalInfo = {}):
@@ -296,7 +297,10 @@ class ReconciledTree(ete3.TreeNode):
 
         return devent
 
-    def getEventsSummary(self , speciesTree, includeTransferReception  = True , includeTransferDeparture = False , speciesIdFeature = "name"):
+    def getEventsSummary(self , speciesTree: ete3.Tree,
+                         includeTransferReception = True,
+                         includeTransferDeparture = False,
+                         speciesIdFeature = "name"):
         """
         *recursive function*
         Takes:
@@ -306,11 +310,12 @@ class ReconciledTree(ete3.TreeNode):
              - speciesIdFeature (str) [default = "name"] : the feature to use as Id in the species tree (by default the name is used)
         Returns:
             (dict):
-                    keys are events type among : "duplication" , "loss" , "transferReception" , "transferDeparture"
+                    keys are events type among : "tandemdup", "duplication" , "loss" , "transferReception" , "transferDeparture"
                     values are  lists of species id
         """
 
-        EventsSummary = { "duplication" : [],
+        EventsSummary = { "tandemdup": [],
+                          "duplication" : [],
                           "loss" : [] }
 
         if includeTransferReception:
@@ -328,15 +333,17 @@ class ReconciledTree(ete3.TreeNode):
 
             report = False
 
-            reportTD = False
-            reportTR = False
-
-            if ( evtCode in ( EVENTTAGCORRESPONDANCE["SL"] , EVENTTAGCORRESPONDANCE["broL"] ) ) or (evtCode in ( "SL", "broL" )):
+            if((evtCode in (EVENTTAGCORRESPONDANCE["SL"], EVENTTAGCORRESPONDANCE["broL"])) or 
+               (evtCode in ("SL", "broL"))):
                 species = self.getLostSpecies( i , speciesTree, speciesIdFeature)
                 evtCode = "loss"
                 report = True
 
             elif evtCode == EVENTTAGCORRESPONDANCE["D"] or evtCode =="D":
+                evtCode = "tandemdup"
+                report = True
+
+            elif evtCode == EVENTTAGCORRESPONDANCE["U"] or evtCode =="U":
                 evtCode = "duplication"
                 report = True
 
@@ -530,7 +537,9 @@ class ReconciledTreeList:
 
         return lines
 
-    def getEventsSummary(self , includeTransferReception  = True , includeTransferDeparture = False , speciesIdFeature = "name" , indexBySpecies=False):
+    def getEventsSummary(self, includeTransferReception = True,
+                         includeTransferDeparture = False,
+                         speciesIdFeature = "name", indexBySpecies=False):
         """
         Retrieve an event summary over all the trees in the object
         !!only works if there is a species tree assigned to the object!!
@@ -541,18 +550,19 @@ class ReconciledTreeList:
              - indexBySpecies (str) [default = False] : if True, the returned dictionnary will have species as keys and event counts as values.
         Returns:
             (dict):
-                    keys are events type among : "duplication" , "loss" , "transferReception" , "transferDeparture"
+                    keys are events type among : "tandemdup", "duplication" , "loss" , "transferReception" , "transferDeparture"
                     values are  lists of species id
                    OR, if indexBySpecies=True:
                        keys are species id
-                       values are dict with keys among "duplication" , "loss" , "transferReception" , "transferDeparture"
+                       values are dict with keys among "tandemdup", "duplication" , "loss" , "transferReception" , "transferDeparture"
                                             and values as counts of the events in each species
         """
 
         if not self.hasSpTree():
             raise Exception("error : can't get an events summary when no species tree has been assigned.")
 
-        EventsSummary = { "duplication" : [],
+        EventsSummary = { "tandemdup": [],
+                          "duplication" : [],
                           "loss" : [] }
 
         if includeTransferReception:

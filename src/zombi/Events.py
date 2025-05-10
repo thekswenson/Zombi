@@ -2,8 +2,6 @@ import copy
 import abc
 from typing import List, Tuple
 
-from networkx.generators.classic import star_graph
-
 from zombi.Genomes import Intergene
 
 from .Interval import Interval
@@ -13,6 +11,7 @@ T_EVENT = str
 
 # Event types:
 TDUP = 'D'  #: Tandem Duplication
+DUP = 'U'   #: dUplication
 FER = 'T'   #: Transfer
 LOSS = 'L'  #: Loss
 INV = 'I'   #: Inversion
@@ -1197,7 +1196,7 @@ class Transposition(EventTwoCuts):
         """
         Set `self.afterL`, `self.afterR`, and `self.afterH` for the case
         where the segment is translocated into the right breakpoint region and
-        the tranlocated region wraps.
+        the translocated region WRAPS.
 
             S1 J0 J1l J1r ... I0 I1 S0  becomes
             ... I0 J1l I1 S0 S1 J0 J1r
@@ -1241,7 +1240,7 @@ class Transposition(EventTwoCuts):
         """
         Set `self.afterL`, `self.afterR`, and `self.afterH` for the case
         where the segment is translocated into the right breakpoint region and
-        the tranlocated region wraps.
+        the translocated region WRAPS.
 
             S1 J0 J1 ... I0l I0r I1 S0  becomes
             ... I0l I1 S0 S1 J0 I0r J1

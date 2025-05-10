@@ -25,7 +25,9 @@ class Zombi():
         self.sequence_parameters = dict()
 
     def T(self, parameters_file, experiment_folder, advanced_mode):
-
+        """
+        Simulate the Species Tree
+        """
         tree_folder = os.path.join(experiment_folder, "T")
 
         events_file = os.path.join(tree_folder, "Events.tsv")
@@ -121,7 +123,9 @@ class Zombi():
             
 
     def G(self, parameters_file, experiment_folder, advanced_mode, root_genome):
-
+        """
+        Simulate Genomes
+        """
         parameters = af.prepare_genome_parameters(af.read_parameters(parameters_file))
         events_file = os.path.join(experiment_folder, "T/Events.tsv")
         scaled_file = os.path.join(experiment_folder, "T/ScaledEvents.tsv")
@@ -223,7 +227,9 @@ class Zombi():
 
     def S(self, parameters_file, experiment_folder, advanced_mode,
           num_threads: int, fasta_file: str):
-
+        """
+        Simulate Sequences
+        """
         genome_folder = os.path.join(experiment_folder, "G")
         
         gene_trees_folder = Path(experiment_folder, "G/Gene_trees")

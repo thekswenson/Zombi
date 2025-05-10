@@ -7,7 +7,7 @@ import copy
 import random
 import os
 import networkx as nx
-from typing import Tuple, Set, Dict, Union
+from typing import Union
 
 import itertools
 
@@ -43,13 +43,13 @@ class GenomeSimulator():
         self.distances_to_start = self._read_distances_to_start(events_file) # Only useful when computing assortative transfers
         self.complete_tree = self._read_tree(events_file.replace("Events.tsv", "CompleteTree.nwk"))
 
-        self.all_genomes: Dict[str, Genome] = dict()
-        self.all_gene_families: Dict[str, GeneFamily] = dict()
+        self.all_genomes: dict[str, Genome] = dict()
+        self.all_gene_families: dict[str, GeneFamily] = dict()
 
-        self.all_division_families: Dict[str, DivisionFamily] = dict()
+        self.all_division_families: dict[str, DivisionFamily] = dict()
 
         self.gene_families_counter = 0
-        self.active_genomes: Set[str] = set()
+        self.active_genomes: set[str] = set()
 
         if self.parameters["RATE_FILE"] != "False":
             if self.parameters["SCALE_RATES"] == "True":
@@ -575,7 +575,7 @@ class GenomeSimulator():
         return t
 
     def return_new_identifiers_for_segment(self, segment):
-
+        """ For each gene get the next unused identifier for it's family. """
         new_identifiers = list()
 
         for gene in segment:
@@ -584,6 +584,20 @@ class GenomeSimulator():
             new_identifiers.append(new_id)
 
         return new_identifiers
+
+    def copy_segment(self, segment: list[Gene]):
+        """
+        Deep copy the genes of the segment, while updating the gene_id.
+        """
+        newids = self.return_new_identifiers_for_segment(segment)
+    
+        new_segment = []
+        for gene, newid in zip(segment, newids):
+            new_gene = copy.deepcopy(gene)
+            new_gene.gene_id = newid
+            new_segment.append(new_gene)
+    
+        return new_segment
 
     def return_new_identifiers_for_segment_with_divisions(self, segment):
 
@@ -753,7 +767,7 @@ class GenomeSimulator():
         return genome
 
     def make_gene(self, gene_feature: SeqFeature, species_tree_node: str,
-                  time: int, family_mode = False, empirical_rates = False) -> Tuple[Gene, GeneFamily]:
+                  time: int, family_mode = False, empirical_rates = False) -> tuple[Gene, GeneFamily]:
         """
         Make a new gene in a new gene family, based on the given `gene_feature`.
 
@@ -821,8 +835,11 @@ class GenomeSimulator():
         return gene, gene_family
 
     def run(self):
-
-        d = af.obtain_value(self.parameters["DUPLICATION"])
+        """
+        Simulate the genomes with no intergenes.
+        """
+        d = af.obtain_value(self.parameters["TANDEMDUP"])
+        u = af.obtain_value(self.parameters["DUPLICATION"])
         t = af.obtain_value(self.parameters["TRANSFER"])
         l = af.obtain_value(self.parameters["LOSS"])
         i = af.obtain_value(self.parameters["INVERSION"])
@@ -856,7 +873,7 @@ class GenomeSimulator():
             if self.parameters["VERBOSE"] == 1:
                 print("Simulating genomes. Time %s" % str(current_time))
 
-            time_to_next_genome_event = self.get_time_to_next_event(len(self.active_genomes), [d, t, l, i, c, o])
+            time_to_next_genome_event = self.get_time_to_next_event(len(self.active_genomes), [d, u, t, l, i, c, o])
 
             elapsed_time = float(current_time) - elapsed_time
 
@@ -893,9 +910,13 @@ class GenomeSimulator():
             else:
 
                 current_time += time_to_next_genome_event
-                self.evolve_genomes(d, t, l, i, c, o, current_time)
+                self.evolve_genomes(d, u, t, l, i, c, o, current_time)
+
 
     def run_i(self):
+        """
+        This is interactive mode, which doesn't appear in the documentation.
+        """
 
         # Interactome mode
 
@@ -1051,7 +1072,9 @@ class GenomeSimulator():
 
 
     def run_u(self):
-
+        """
+        Simulate genomes with user defined genome rates (using RatesCustomizer).
+        """
         genome = self.fill_genome()
         self.active_genomes.add(genome.species)
         self.all_genomes["Root"] = genome
@@ -1110,7 +1133,8 @@ class GenomeSimulator():
 
     def run_f(self):
 
-        d = af.obtain_value(self.parameters["DUPLICATION"])
+        d = af.obtain_value(self.parameters["TANDEMDUP"])
+        u = af.obtain_value(self.parameters["DUPLICATION"])
         t = af.obtain_value(self.parameters["TRANSFER"])
         l = af.obtain_value(self.parameters["LOSS"])
         i = af.obtain_value(self.parameters["INVERSION"])
@@ -1192,7 +1216,7 @@ class GenomeSimulator():
             else:
 
                 current_time += time_to_next_genome_event
-                self.advanced_evolve_genomes_f(d, t, l, i, c, o, current_time)
+                self.advanced_evolve_genomes_f(d, u, t, l, i, c, o, current_time)
 
     def run_f_debug(self, injected_events): # Only for debugging purposes
 
@@ -1392,10 +1416,11 @@ class GenomeSimulator():
                 self.transfer_rates[dn][rc] = float(wt)
 
 
-    def choose_event(self, duplication, transfer, loss, inversion, transposition, origination):
+    def choose_event(self, tandemdup, duplication, transfer, loss, inversion,
+                     transposition, origination):
 
-        draw = numpy.random.choice(["D", "T", "L", "I", "P", "O"], 1,
-                                   p=af.normalize([duplication, transfer, loss, inversion, transposition, origination]))
+        draw = numpy.random.choice(["D", "U", "T", "L", "I", "P", "O"], 1,
+                                   p=af.normalize([tandemdup, duplication, transfer, loss, inversion, transposition, origination]))
         return draw
 
     def choose_event_i(self, duplication, transfer, loss, inversion, transposition, origination, remove, rewire):
@@ -1412,15 +1437,21 @@ class GenomeSimulator():
         else:
             return None
 
-    def evolve_genomes(self, duplication, transfer, loss, inversion, transposition, origination, time):
+    def evolve_genomes(self, tandemdup, duplication, transfer, loss, inversion,
+                       transposition, origination, time: float):
 
         lineage = random.choice(list(self.active_genomes))
-        event = self.choose_event(duplication, transfer, loss, inversion, transposition, origination)
+        event = self.choose_event(tandemdup, duplication, transfer, loss, inversion, transposition, origination)
 
         if event == "D":
-            d_e = self.parameters["DUPLICATION_EXTENSION"]
-            self.make_duplication(d_e, lineage, time)
+            d_e = self.parameters["TANDEMDUP_EXTENSION"]
+            self.make_tandemdup(d_e, lineage, time)
             return "D", lineage
+
+        elif event == "U":
+            u_e = self.parameters["DUPLICATION_EXTENSION"]
+            self.make_duplication(u_e, lineage, time)
+            return "U", lineage
 
         elif event == "T":
 
@@ -1472,6 +1503,7 @@ class GenomeSimulator():
             segment = [gene]
             chromosome.insert_segment(position, segment)
             return "O", lineage
+
 
     def evolve_genomes_i(self, duplication, transfer, loss, inversion, transposition, origination, remove, rewire, time):
 
@@ -1537,7 +1569,8 @@ class GenomeSimulator():
             interactome = self.all_genomes[lineage].interactome
 
             node_degrees = [d + 1 for n, d in interactome.degree()]
-            choice = numpy.random.choice(interactome.nodes, 1, p=af.normalize(node_degrees))[0]
+            choice = numpy.random.choice(interactome.nodes, 1,
+                                         p=af.normalize(node_degrees))[0]
 
             interactome.add_node(str(gene))
             interactome.add_edge(str(gene), choice)
@@ -1558,8 +1591,12 @@ class GenomeSimulator():
 
 
     def evolve_genomes_m(self, time):
+        """
+        Evolve genome with family-wise rates.
+        """
 
-        d_e = self.parameters["DUPLICATION_EXTENSION"]
+        d_e = self.parameters["TANDEMDUP_EXTENSION"]
+        u_e = self.parameters["DUPLICATION_EXTENSION"]
         t_e = self.parameters["TRANSFER_EXTENSION"]
         l_e = self.parameters["LOSS_EXTENSION"]
         i_e = self.parameters["INVERSION_EXTENSION"]
@@ -1582,11 +1619,12 @@ class GenomeSimulator():
 
         lineage = numpy.random.choice(mactive_genomes, 1, p=af.normalize(mweights))[0]
 
-        d, t, l, i, p, o = 0, 0, 0, 0, 0, 0
+        d, u, t, l, i, p, o = 0, 0, 0, 0, 0, 0, 0
 
         for chromosome in self.all_genomes[lineage]:
             for gene in chromosome:
-                d += self.all_gene_families[gene.gene_family].rates["DUPLICATION"]
+                d += self.all_gene_families[gene.gene_family].rates["TANDEMDUP"]
+                u += self.all_gene_families[gene.gene_family].rates["DUPLICATION"]
                 t += self.all_gene_families[gene.gene_family].rates["TRANSFER"]
                 l += self.all_gene_families[gene.gene_family].rates["LOSS"]
 
@@ -1596,14 +1634,20 @@ class GenomeSimulator():
 
         #print(d,t,l,i,p,o)
 
-        event = self.choose_event(d, t, l, i, p, o)
+        event = self.choose_event(d, u, t, l, i, p, o)
 
         ####
 
         if event == "D":
 
-            self.make_duplication(d_e, lineage, time, family_mode=True)
+            self.make_tandemdup(d_e, lineage, time, family_mode=True)
             return "D", lineage
+
+        elif event == "U":
+
+            self.make_duplication(u_e, lineage, time, family_mode=True)
+            return "U", lineage
+
 
         elif event == "T":
 
@@ -1663,13 +1707,15 @@ class GenomeSimulator():
             [sum(self.branch_event_rates[x]) for x in active_genomes]))[0]
 
         d,t,l,i,c,o = self.branch_event_rates[lineage]
+        u = 'f:0'         #TODO: add functionality to RateCustomizer
 
-        event = self.choose_event(d,t,l,i,c,o)
+        event = self.choose_event(d,u,t,l,i,c,o)
 
         d_e, t_e, l_e, i_e, c_e = self.branch_extension_rates[lineage]
+        u_e = 'f:0'         #TODO: add functionality to RateCustomizer
 
         if event == "D":
-            self.make_duplication(d_e, lineage, time)
+            self.make_tandemdup(d_e, lineage, time)
             return "D", lineage
 
         elif event == "T":
@@ -1713,11 +1759,13 @@ class GenomeSimulator():
 
             return "O", lineage
 
-    def advanced_evolve_genomes_f(self, duplication, transfer, loss, inversion, transposition, origination, time):
+
+    def advanced_evolve_genomes_f(self, tandemdup, duplication, transfer, loss,
+                                  inversion, transposition, origination, time):
         
         # Evolve genomes with intergenes
-
-        d_e = int(af.obtain_value(self.parameters["DUPLICATION_EXTENSION"]))
+        d_e = int(af.obtain_value(self.parameters["TANDEMDUP_EXTENSION"]))
+        u_e = int(af.obtain_value(self.parameters["DUPLICATION_EXTENSION"]))
         t_e = int(af.obtain_value(self.parameters["TRANSFER_EXTENSION"]))
         l_e = int(af.obtain_value(self.parameters["LOSS_EXTENSION"]))
         i_e = int(af.obtain_value(self.parameters["INVERSION_EXTENSION"]))
@@ -1739,7 +1787,7 @@ class GenomeSimulator():
 
 
         lineage = random.choice(list(self.active_genomes))
-        event = self.choose_event(duplication, transfer, loss, inversion, transposition, origination)
+        event = self.choose_event(tandemdup, duplication, transfer, loss, inversion, transposition, origination)
 
         self.update_genome_indices(lineage)
 
@@ -1939,7 +1987,7 @@ class GenomeSimulator():
             total += sum(events)
 
         if total == 0:
-            return 1000000000000000 # We sent an arbitrarily big number. Probably not the most elegant thing to do
+            return 1000000000000000.0 # We sent an arbitrarily big number. Probably not the most elegant thing to do
         else:
             time = numpy.random.exponential(1/total)
             return time
@@ -2072,11 +2120,8 @@ class GenomeSimulator():
 
             for gene in chromosome:
 
-                new_id1 = self.return_new_identifiers_for_segment([gene])
-                new_id2 = self.return_new_identifiers_for_segment([gene])
-
-                new_gene1 = af.copy_segment([Gene()], new_id1)[0]
-                new_gene2 = af.copy_segment([Gene()], new_id2)[0]
+                new_gene1 = self.copy_segment([gene])[0]
+                new_gene2 = self.copy_segment([gene])[0]
 
                 new_gene1.species = c1
                 new_gene2.species = c2
@@ -2167,24 +2212,25 @@ class GenomeSimulator():
                         map(str, [genome.species, gene.gene_id])))
 
 
-    def make_duplication(self, p, lineage, time, family_mode = False):
+    def make_tandemdup(self, p: float, lineage: str, time: float,
+                       family_mode = False):
+        """
+        Tandemly duplicate a segment of genes.
+        """
 
         chromosome = self.all_genomes[lineage].select_random_chromosome()
 
         if family_mode == True:
             affected_genes = chromosome.obtain_affected_genes_accounting_for_family_rates(p, self.all_gene_families, "DUPLICATION")
         else:
-            affected_genes = chromosome.obtain_affected_genes(p)
+            affected_genes = chromosome.obtain_affected_indices(p)
 
         segment = chromosome.obtain_segment(affected_genes)
 
-        new_identifiers1 = self.return_new_identifiers_for_segment(segment)
-        new_identifiers2 = self.return_new_identifiers_for_segment(segment)
-
         # Now we create two segments
 
-        copied_segment1 = af.copy_segment(segment, new_identifiers1)
-        copied_segment2 = af.copy_segment(segment, new_identifiers2)
+        copied_segment1 = self.copy_segment(segment)
+        copied_segment2 = self.copy_segment(segment)
 
         # We insert the two new segments after the last position of the old segment
 
@@ -2214,19 +2260,69 @@ class GenomeSimulator():
             self.all_gene_families[gene_family].genes.append(copied_segment2[i])
             self.all_gene_families[gene_family].register_event(time, "D", ";".join(map(str, nodes)))
 
+
+    def make_duplication(self, p: float, lineage: str, time: float,
+                         family_mode = False):
+        """
+        Duplicate a segment of genes to a (uniform) random location.
+        """
+        chromosome = self.all_genomes[lineage].select_random_chromosome()
+
+        if family_mode == True:
+            raise(NotImplementedError("Family mode not implemented for duplication"))
+            affected_genes = chromosome.obtain_affected_genes_accounting_for_family_rates(p, self.all_gene_families, "DUPLICATION")
+        else:
+            affected_genes = chromosome.obtain_affected_indices(p)
+            while len(affected_genes) == len(chromosome.genes):
+                affected_genes = chromosome.obtain_affected_indices(p)
+                
+        segment = chromosome.obtain_segment(affected_genes)
+
+        # Now we create two segments
+        copied_segment1 = self.copy_segment(segment)
+        copied_segment2 = self.copy_segment(segment)
+
+        # Replace the segment with the first copy
+        chromosome.replace_segment(affected_genes, copied_segment1)
+
+        if([g.gene_family for g in segment] != \
+           [chromosome.genes[i].gene_family for i in affected_genes]):
+            print(affected_genes[0], affected_genes[-1])
+            print(f'{segment} != {chromosome.genes[affected_genes[0]:affected_genes[-1]+1]}')
+
+        # Insert the second segment at a random location.
+        insert_pos = chromosome.select_random_position(affected_genes)
+        chromosome.insert_segment(insert_pos, copied_segment2)
+
+        # Register the duplication in the affected gene families
+        for i, gene in enumerate(segment):
+            nodes = [gene.species,
+                     gene.gene_id,
+                     copied_segment1[i].species,
+                     copied_segment1[i].gene_id,
+                     copied_segment2[i].species,
+                     copied_segment2[i].gene_id]
+
+            gene.active = False
+
+            # We add the genes to the list of genes in the gene family
+            gene_family = gene.gene_family
+
+            self.all_gene_families[gene_family].genes.append(copied_segment1[i])
+            self.all_gene_families[gene_family].genes.append(copied_segment2[i])
+            self.all_gene_families[gene_family].register_event(time, "U", ";".join(map(str, nodes)))
+
+
     def make_duplication_interactome(self, p, lineage, time):
 
         chromosome = self.all_genomes[lineage].select_random_chromosome()
-        affected_genes = chromosome.obtain_affected_genes(p)
+        affected_genes = chromosome.obtain_affected_indices(p)
         segment = chromosome.obtain_segment(affected_genes)
-
-        new_identifiers1 = self.return_new_identifiers_for_segment(segment)
-        new_identifiers2 = self.return_new_identifiers_for_segment(segment)
 
         # Now we create two segments
 
-        copied_segment1 = af.copy_segment(segment, new_identifiers1)
-        copied_segment2 = af.copy_segment(segment, new_identifiers2)
+        copied_segment1 = self.copy_segment(segment)
+        copied_segment2 = self.copy_segment(segment)
 
         # We insert the two new segments after the last position of the old segment
 
@@ -2338,13 +2434,10 @@ class GenomeSimulator():
         segment = chromosome.obtain_segment(genepositions)
         intergene_segment = chromosome.obtain_intergenic_segment(intergenepositions[1:])
 
-        new_identifiers1 = self.return_new_identifiers_for_segment(segment)
-        new_identifiers2 = self.return_new_identifiers_for_segment(segment)
-
         # We duplicate the genes
 
-        new_segment_1 = af.copy_segment(segment, new_identifiers1)
-        new_segment_2 = af.copy_segment(segment, new_identifiers2)
+        new_segment_1 = self.copy_segment(segment)
+        new_segment_2 = self.copy_segment(segment)
 
         # And the intergenes, which will have incorrect lengths until we update
         # them later
@@ -2520,18 +2613,16 @@ class GenomeSimulator():
         if family_mode == True:
             affected_genes = chromosome1.obtain_affected_genes_accounting_for_family_rates(p, self.all_gene_families, "TRANSFER")
         else:
-            affected_genes = chromosome1.obtain_affected_genes(p)
+            affected_genes = chromosome1.obtain_affected_indices(p)
 
         segment = chromosome1.obtain_segment(affected_genes)
-        new_identifiers1 = self.return_new_identifiers_for_segment(segment)
-        new_identifiers2 = self.return_new_identifiers_for_segment(segment)
 
         inverted = False
 
         # Now we create two segments
 
-        copied_segment1 = af.copy_segment(segment, new_identifiers1)
-        copied_segment2 = af.copy_segment(segment, new_identifiers2)
+        copied_segment1 = self.copy_segment(segment)
+        copied_segment2 = self.copy_segment(segment)
 
         # We insert the first segment (leaving transfer) in the same position than the previous segment
         # We do this just to change the identifiers of the numbers
@@ -2645,11 +2736,8 @@ class GenomeSimulator():
     def make_transfer_interactome(self, p, donor, recipient, time):
 
         chromosome1 = self.all_genomes[donor].select_random_chromosome()
-        affected_genes = chromosome1.obtain_affected_genes(p)
+        affected_genes = chromosome1.obtain_affected_indices(p)
         segment = chromosome1.obtain_segment(affected_genes)
-
-        new_identifiers1 = self.return_new_identifiers_for_segment(segment)
-        new_identifiers2 = self.return_new_identifiers_for_segment(segment)
 
         inverted = False
 
@@ -2658,8 +2746,8 @@ class GenomeSimulator():
 
         # Now we create two segments
 
-        copied_segment1 = af.copy_segment(segment, new_identifiers1)
-        copied_segment2 = af.copy_segment(segment, new_identifiers2)
+        copied_segment1 = self.copy_segment(segment)
+        copied_segment2 = self.copy_segment(segment)
 
         # We insert the first segment (leaving transfer) in the same position than the previous segment
         # We do this just to change the identifiers of the numbers
@@ -2828,13 +2916,10 @@ class GenomeSimulator():
         totallen = donorchrom.intergenes[-1].total_flanking[1]
         numintergenes = len(donorchrom.intergenes)
             
-        new_identifiers1 = self.return_new_identifiers_for_segment(segment)
-        new_identifiers2 = self.return_new_identifiers_for_segment(segment)
-
         # Now we create two segments
 
-        copied_segment1 = af.copy_segment(segment, new_identifiers1)
-        copied_segment2 = af.copy_segment(segment, new_identifiers2)
+        copied_segment1 = self.copy_segment(segment)
+        copied_segment2 = self.copy_segment(segment)
 
         new_intergene_segment = [copy.deepcopy(donorchrom.intergenes[x])
                                  for x in igpositions[1:]]
@@ -2924,7 +3009,7 @@ class GenomeSimulator():
         if family_mode == True:
             affected_genes = chromosome.obtain_affected_genes_accounting_for_family_rates(p, self.all_gene_families, "LOSS")
         else:
-            affected_genes = chromosome.obtain_affected_genes(p)
+            affected_genes = chromosome.obtain_affected_indices(p)
         segment = chromosome.obtain_segment(affected_genes)
 
         # Now we check we are not under the minimum size
@@ -3057,7 +3142,7 @@ class GenomeSimulator():
     def make_inversion(self, p, lineage, time):
 
         chromosome = self.all_genomes[lineage].select_random_chromosome()
-        affected_genes = chromosome.obtain_affected_genes(p)
+        affected_genes = chromosome.obtain_affected_indices(p)
         segment = chromosome.obtain_segment(affected_genes)
         chromosome.invert_segment(affected_genes)
 
@@ -3144,15 +3229,23 @@ class GenomeSimulator():
         for gene in segment:
             self.all_gene_families[gene.gene_family].register_event(str(time), "I", ";".join(map(str,[lineage, gene.gene_id])))
 
-    def make_transposition(self, p, lineage, time):
 
+    def make_transposition(self, p: float, lineage: str, time: float):
+        """
+        Do a transposition on the given lineage. A segment is put in a new
+        location chosen uniformly at random.
+        """
         chromosome = self.all_genomes[lineage].select_random_chromosome()
-        affected_genes = chromosome.obtain_affected_genes(p)
+        #Get a range of consecutive genome indices
+        affected_genes = chromosome.obtain_affected_indices(p)
+        #Get the corresponding segment
         segment = chromosome.obtain_segment(affected_genes)
-        chromosome.cut_and_paste(affected_genes)
+        #Do the transposition
+        chromosome.cut_and_paste(segment)
 
         for gene in segment:
             self.all_gene_families[gene.gene_family].register_event(str(time), "P", ";".join(map(str,[lineage, gene.gene_id])))
+
 
     def make_transposition_intergenic(self, chromosome: CircularChromosome,
                                       c1, c2, d: T_DIR, c3, lineage, time):
@@ -3291,7 +3384,7 @@ class GenomeSimulator():
 
 
     def select_advanced_length(self, lineage: str, p: float, reps=100,
-                               ) -> Tuple[CircularChromosome, int, int, T_DIR]:
+                               ) -> tuple[CircularChromosome, int, int, T_DIR]:
         """
         Return a pair of specific coordinates for intergenic regions according
         to `p` on a chromosome of `lineage`. The event must cover at least one gene
@@ -3534,7 +3627,6 @@ class GenomeSimulator():
                 else:
                     # The cut has been propagated to a gene
                     
-       
                     result_propagation = p_event.returnPieceAndCut(propagated_cut) 
                     gene, cut_within_gene = result_propagation
                         
@@ -3843,6 +3935,7 @@ class GenomeSimulator():
                 raise(Exception('Piece index cannot be found "{tcL, tcR}"'))
 
         return pieces_affected, indexes_affected, wrapping
+
 
     def make_duplication_divisions(self, time, event):
         

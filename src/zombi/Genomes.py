@@ -2,7 +2,7 @@ import itertools
 import random
 import ete3
 from functools import reduce
-from typing import List, Tuple, Optional, TypeVar, Union
+from typing import Union
 
 import numpy
 
@@ -26,7 +26,7 @@ class GeneFamily():
 
     Attributes
     ----------
-    events: List[Tuple[str, str, str]]
+    events: list[tuple[str, str, str]]
         list of events (time, type, location) where time is a string
         representing a float, type is the single capital character representing
         the event type (e.g. 'O', 'I', etc.), and location is a ';' delimited
@@ -41,7 +41,7 @@ class GeneFamily():
         self.gff_id = ''                #unique ID from the gff file
 
         self.genes = list()
-        self.events: List[Tuple[str, str, str]] = list()
+        self.events: list[tuple[str, str, str]] = list()
         self.event_counter = 0  # Each time that the family is modified in any form, we have to update the event counter
         self.gene_ids_counter = 0
 
@@ -55,8 +55,8 @@ class GeneFamily():
 
         self.events.append((time, event, genes))
 
-    def generate_tree(self):
 
+    def generate_tree(self):
 
         def find_descendant(surviving_nodes, node):
 
@@ -100,7 +100,7 @@ class GeneFamily():
                 times[nodename] = float(current_time)
                 surviving_nodes[nodename] = {"state": 0, "descendant": "None"}
 
-            elif event == "S" or event == "D" or event == "T":
+            elif event == "S" or event == "D" or event == "U" or event == "T":
 
                 p, g0, c1, g1, c2, g2 = nodes.split(";")
 
@@ -152,6 +152,7 @@ class GeneFamily():
 
                     mynode = find_descendant(surviving_nodes, c2nodename)
                     surviving_nodes[pnodename] = {"state": -1, "descendant": mynode}
+                
 
         extanttree = RT.ReconciledTree()
         completetree = RT.ReconciledTree()
@@ -162,7 +163,7 @@ class GeneFamily():
         wquick_nodes = dict()
         equick_nodes = dict()
 
-        for i, values in enumerate(events):
+        for values in events:
 
             current_time, event, nodes = values
 
@@ -188,7 +189,7 @@ class GeneFamily():
                 e = RT.RecEvent("P", p, int(float(current_time)))
                 mynode.addEvent(e, append=True)
 
-            if event == "S" or event == "D" or event == "T":
+            if event == "S" or event == "D" or event == "U" or event == "T":
 
                 p, g0, c1, g1, c2, g2 = nodes.split(";")
                 pnodename = p + "_" + g0
@@ -311,7 +312,7 @@ class GeneFamily():
                 mynode = tree & myname
                 mynode.is_active = False
 
-            elif event == "D":
+            elif event == "D" or event == "U":
 
                 sp, gp, c1, g1, c2, g2 = nodes.split(";")
                 myname = sp + "_" + gp
@@ -383,6 +384,10 @@ class Gene():
     """
     Attributes
     ----------
+    gene_family: str
+        the name of the gene family
+    gene_id: int
+        the unique identifier of the gene within the family
     length: int
         the length of the gene
     start: int
@@ -406,20 +411,21 @@ class Gene():
 
     def __init__(self):
 
-        self.active = True
+        self.active = True    # Inactive when no longer on the current branch,
+                              # or replaced (warning even events like transfer,
+                              # duplication, speciation will deactivate a gene)
         self.orientation = ""
         self.gene_family = "" # FIX this variable should have the same name that the division one
         self.gene_id = -1  # FIX this variable should have the same name that the division one
         self.sequence = ""
         self.species = ""
-        self.gene_family = ""
         self.importance = 0
         self.length = 0
         self.start: int              #: pythonic (inclusive start, 0 indexed)
         self.end: int                #: pythonic (non-inclusive end)
         self.total_flanking: T_PAIR         #: not pythonic (both inclusive)
         self.specific_flanking: T_PAIR      #: not pythonic (both inclusive)
-        self.ptype = "Gene" # For debugging purposes
+        self.ptype = "Gene"                 # For debugging purposes
 
     def determine_orientation(self):
 
@@ -445,6 +451,9 @@ class Gene():
         #myname = str(self.gene_family) + "_" + str(self.gene_id)
         #myname = "_".join(map(str, (self.gene_family, self.length)))
         return myname
+
+    def __repr__(self):
+        return f'{self.gene_family}_{self.gene_id}'
 
     def __len__(self):
         return self.length
@@ -519,7 +528,7 @@ class Intergene():
         self.total_flanking: T_PAIR             #: not pythonic (both inclusive)
         self.specific_flanking: T_PAIR          #: not pythonic (both inclusive)
         self.id = 0                             # Only for debugging purposes
-        self.divisions: List[Division] = list() # List containing the divisions
+        self.divisions: list[Division] = list() # List containing the divisions
 
     @property
     def sc1(self):
@@ -636,7 +645,7 @@ class DivisionFamily():
                 times[nodename] = float(current_time)
                 surviving_nodes[nodename] = {"state": 0, "descendant": "None"}
 
-            elif event == "S" or event == "D" or event == "T":
+            elif event == "S" or event == "D" or event == "U" or event == "T":
 
                 p, g0, c1, g1, c2, g2 = nodes.split(";")
 
@@ -724,7 +733,7 @@ class DivisionFamily():
                 e = RT.RecEvent("P", p, int(float(current_time)))
                 mynode.addEvent(e, append=True)
 
-            if event == "S" or event == "D" or event == "T":
+            if event == "S" or event == "D" or event == "U" or event == "T":
 
                 p, g0, c1, g1, c2, g2 = nodes.split(";")
                 pnodename = p + "_" + g0
@@ -809,7 +818,7 @@ class DivisionFamily():
 class Chromosome():
     """
     A chromosome that knows its genes and intergenes, as well as its
-    `map_of_locations`, which is the representation of the chromsome as a
+    `map_of_locations`, which is the representation of the chromosome as a
     list of Intervals representing, in alternations, the Genes and Intergenes.
 
     Attributes
@@ -828,17 +837,17 @@ class Chromosome():
     def __init__(self, num_nucleotides = 0):
 
         self.has_intergenes = False
-        self.intergenes: List[Intergene] = list()
-        self.genes: List[Gene] = list()
+        self.intergenes: list[Intergene] = list()
+        self.genes: list[Gene] = list()
         self.shape = ""
         self.length = 0                         # length in genes?
         self.num_nucleotides = num_nucleotides  # length in nucleotides
 
-        self.map_of_locations: List[Interval] = []
+        self.map_of_locations: list[Interval] = []
 
         self.total_rates = 0
 
-        self.event_history: List = []
+        self.event_history = []
 
         self.pieces = list() # In the F mode, keeps a list of genes and divisions
 
@@ -849,7 +858,20 @@ class Chromosome():
             total_length += intergene.length
         return total_length
 
-    def select_random_position(self):
+    def select_random_position(self, blacklist: list[int]=[]):
+        """
+        Get a random gene position.
+
+        Parameters
+        ----------
+        blacklist: list[int]
+            A list of positions that are not allowed to be selected.
+        """
+        if blacklist:
+            positions = [i for i in range(len(self.genes)) if i not in blacklist]
+            if not positions:
+                raise ValueError("All positions blacklisted!")
+            return numpy.random.choice(positions)
 
         return numpy.random.randint(len(self.genes))
 
@@ -1033,7 +1055,7 @@ class Chromosome():
 
                 
     def select_random_coordinate_in_intergenic_regions(self,
-                                                       exclude: List[int] = None
+                                                       exclude: list[int] = None
                                                       ) -> int:
         """
         Return a random intergene specific breakpoint coordinate.
@@ -1202,7 +1224,7 @@ class Chromosome():
 
 
     def return_affected_region(self, c1: int, c2: int, direction: T_DIR
-                               ) -> Tuple[List[int], List[int],
+                               ) -> tuple[list[int], list[int],
                                           T_PAIR, T_PAIR, Interval, Interval]:
         """
         Return information about the genes and intergenes between the given
@@ -1375,7 +1397,7 @@ class Chromosome():
     def remove_segment(self, segment):
         raise(NotImplementedError)
 
-    def obtain_affected_genes(self, p_extension) -> List[int]:
+    def obtain_affected_indices(self, p_extension) -> list[int]:
         raise(NotImplementedError)
 
     def obtain_affected_genes_accounting_for_family_rates(self, p_extension,
@@ -1393,42 +1415,48 @@ class Chromosome():
         raise(NotImplementedError)
 
 
-ChromosomeType = TypeVar('ChromosomeType', bound=Chromosome)
+#ChromosomeType = TypeVar('ChromosomeType', bound=Chromosome)
 class CircularChromosome(Chromosome):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.shape = "C"
 
-    def obtain_segment(self, affected_genes) -> List[Gene]:
+    def obtain_segment(self, affected_genes) -> list[Gene]:
 
         segment = [self.genes[x] for x in affected_genes]
 
         return segment
 
-    def obtain_intergenic_segment(self, affected_intergenes) -> List[Intergene]:
+    def obtain_intergenic_segment(self, affected_intergenes) -> list[Intergene]:
 
         segment = [self.intergenes[x] for x in affected_intergenes]
 
         return segment
 
-    def remove_segment(self, segment):
-
+    def remove_segment(self, segment: list[Gene]):
+        """ Remove these genes (works with circular chromosomes) """
         for gene in segment:
             self.genes.remove(gene)
 
-    def remove_intersegment(self, intersegment: List[Intergene]):
+    def replace_segment(self, affected_positions: list[int],
+                        new_segment: list[Gene]):
+        """ Replace the genes in `self.genes` with the new segment.  """
+        assert len(affected_positions) == len(new_segment)
+        for i, j in enumerate(affected_positions):
+            self.genes[j] = new_segment[i]
+
+    def remove_intersegment(self, intersegment: list[Intergene]):
 
         for intergene in intersegment:
             self.intergenes.remove(intergene)
 
-    def insert_segment(self, position, segment):
+    def insert_segment(self, position: int, segment: list[Gene]):
+        """ Splice the segment into the genes list """
+        self.genes[position:position] = segment
 
-        for i, x in enumerate(segment):
-            self.genes.insert(position + i, x)
-
-    def invert_segment(self, affected_genes: List[int],
-                       affected_intergenes: List[int]=[]):
+    def invert_segment(self, affected_genes: list[int],
+                       affected_intergenes: list[int]=[]):
         """
         Invert the genes in `self.genes`. Invert all but the first and last
         intergenes in `self.intergenes` if `affected_intergenes` is provided.
@@ -1561,8 +1589,8 @@ class CircularChromosome(Chromosome):
                     
             
 
-    def inversion_wrap_lengths(self, affected_genes: List[int]
-                               ) -> Tuple[int, int, int, int]:
+    def inversion_wrap_lengths(self, affected_genes: list[int]
+                               ) -> tuple[int, int, int, int]:
         """
         An inversion breaks two breakpoints (in intergenes B1 and B2), replacing
         the gene and intergenes in-place so that, when and inversion wraps
@@ -1629,26 +1657,26 @@ class CircularChromosome(Chromosome):
         return sfirstlen, ssecondlen, tfirstlen, tsecondlen
 
 
-    def cut_and_paste(self, affected_genes):
-
-        segment = [self.genes[x] for x in affected_genes]
-        new_segment = list()
-
+    def cut_and_paste(self, segment: list[Gene]) -> None:
+        """
+        Copy the genes at the given indices to a new location chosen uniformly
+        at random.
+        """
         if len(segment) == len(self.genes):
-            return 0
+            return
 
         for gene in segment:
-            new_segment.append(self.genes.pop(self.genes.index(gene)))
+            self.genes.remove(gene)
 
         position = self.select_random_position()
-        for i, gene in enumerate(new_segment):
-            self.genes.insert(position + i, gene)
+        self.genes[position:position] = segment
 
 
-    def obtain_affected_genes(self, p_extension) -> List[int]:
-
-        # Returns the index list of the affected genes
-
+    def obtain_affected_indices(self, p_extension) -> list[int]:
+        """
+        Returns the index list of the affected genes. This will be a range
+        of consecutive integers that can WRAP around.
+        """
         position = self.select_random_position()
         length = self.select_random_length(p_extension)
         total_length = len(self.genes)
@@ -1663,7 +1691,9 @@ class CircularChromosome(Chromosome):
                 affected_genes.append(i - total_length)
             else:
                 affected_genes.append(i)
+
         return affected_genes
+
 
     def obtain_affected_genes_accounting_for_family_rates(self, p_extension, gene_families, mrate):
 
@@ -1907,7 +1937,7 @@ class Genome():
     def __init__(self):
 
         self.species = ""
-        self.chromosomes: List[ChromosomeType] = list()
+        self.chromosomes: list[Chromosome] = list()
 
     def start_genome(self, input):
 
@@ -1918,7 +1948,10 @@ class Genome():
             elif shape == "C":
                 self.chromosomes.append(CircularChromosome(size))
 
-    def select_random_chromosome(self) -> ChromosomeType:
+    def select_random_chromosome(self) -> CircularChromosome:
+        """
+        At the moment, this just return the one and only chromosome.
+        """
 
         # I have to weight by the length of each chromosome
 

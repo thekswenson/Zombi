@@ -326,18 +326,6 @@ def generate_events(tree_file):
     return events
 
 
-def copy_segment(segment, new_identifiers):
-
-    new_segment = list()
-
-    for i,gene in enumerate(segment):
-        new_gene = copy.deepcopy(gene)
-        new_gene.gene_id = new_identifiers[i]
-        new_segment.append(new_gene)
-
-    return new_segment
-
-
 def return_vector_of_distances(self, tree_file):
 
     self.distances_to_root = dict()
