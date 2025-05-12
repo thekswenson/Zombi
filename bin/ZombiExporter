@@ -2,6 +2,7 @@
 
 from collections import namedtuple
 from collections import defaultdict as ddict
+import json
 import sys
 import argparse
 
@@ -9,13 +10,180 @@ from pathlib import Path
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
+import networkx as nx
 
 from zombi.Export import get_genes, get_leaf_names, random_seq
 from zombi.Export import whole_genome_to_GFF
     
     
+# Constants
+GENOMES = 'G/Genomes'
+FAMILIES = 'G/Gene_families'
+GENES = 'S/Genes'
 
 CoordPair = namedtuple('CoordPair', ['start', 'end', 'strand'])
+
+
+# FUNCTIONS ___________________________________________________________________
+
+
+def getPosOrthologs(eventsfile) -> list[list[tuple[str, str]]]:
+    """
+    Return sets of positional orthologs.
+
+    Notes
+    -----
+        Note that the notion of positional ortholog is not ambiguous in the
+        presence of tandem duplications. In this case, the leftmost copy is
+        considered the original.
+
+    Returns
+    -------
+        list[list[tuple[str, str]]]
+            Lists constaining position orthologs of the form (node, gene_id)
+    """
+    #Build a DAG (tree) from the given events file. Remove edges for each
+    #U or D event. The surviving leaves in each connected component form a
+    #set of positional orthologs.
+    # 
+    #Each line of the file (after the header) is a tab-separated
+    #list of the form:
+    #   TIME EVENT_CHARACTER NODE_SPECIFIER
+    #
+    #Each pair of elements in the NODE_SPECIFIER is a semicolon-separated list
+    #of the form:
+    #   SPECIESTREE_NODE;GENE_ID
+    #where there is a new GENE_ID for each node of the gene tree.
+    #
+    #See https://github.com/AADavin/Zombi/wiki/Generating-Genomes#output for
+    #details.
+    G = nx.DiGraph()
+    with open(eventsfile) as f:
+        f.readline()                       #header
+        for line in f:
+            _, event, nodespec = line.strip().split('\t')
+            if event == 'S' or event == 'T':            #speciation or transfer
+                p, c1, c2 = getNodeNames(nodespec)
+                G.add_edge(p, c1)
+                G.add_edge(p, c2)
+
+            elif event == 'U' or event == 'D':          #duplication
+                p, c1, c2 = getNodeNames(nodespec)
+                G.add_edge(p, c1)          #original copy is the first
+                G.add_node(c2)
+
+            elif event == 'F':                          #surviving leaf
+                l = getNodeName(nodespec)
+                G.nodes[l]['leaf'] = True
+
+    #Traverse the connected components, keeping the leaves:
+    polists = []
+    for component in nx.weakly_connected_components(G):
+        leaves = [n for n in component if 'leaf' in G.nodes[n]]
+        if len(leaves):
+            polists.append(leaves)
+
+    return polists
+
+
+def getNodeNames(nodespec: str) \
+    -> tuple[tuple[str, str], tuple[str, str], tuple[str, str]]:
+    """ Return the node names.  """
+    pn, p, cn1, c1, cn2, c2 = nodespec.split(';')
+    return (pn, p), (cn1, c1), (cn2, c2)
+
+
+def getNodeName(nodespec: str) -> tuple[str, str]:
+    """ Return the node name.  """
+    node, id = nodespec.split(';')
+    return (node, id)
+
+
+GFFHEADER = ('##gff-version 3\n'
+             '#File intended for use with FFGC. IDs of elements are the\n'
+             '#gene, transcript, and exon names.\n'
+             '#(homologous) block information was encoded into the file\n'
+             '#named "families.txt".')
+BEDHEADER = ('#Blocks written with the name column containing the family id.\n'
+             '#The seventh column contains the gene name.')
+
+def processGeneFamilies(fam2id2genome2rec: dict[str, dict[str, dict[str, SeqRecord]]],
+                        projdir: Path, outdir: Path,
+                        gff=True) -> dict[str, dict[str, CoordPair]]:
+    """
+    For each gene family, create a GFF or BED file with the intervals of the
+    genes in the family. Also create a FASTA file with genome sequence.
+
+    Parameters
+    ----------
+    fam2id2genome2rec : dict[str, dict[str, dict[str, SeqRecord]]]
+        Map family id to gene id to genome to SeqRecord.
+    gff : bool
+        If True, create GFF files. If False, create BED files.
+
+    Returns
+    -------
+    dict[str, dict[str, CoordPair]]
+        Map family id to gene id to start and end coordinates.
+    """
+    genomesdir = projdir / GENOMES
+    genomesuffix = '_GENOME.tsv'
+
+    fam2recid2pos: dict[str, dict[str, CoordPair]] = ddict(dict)
+    leaves = get_leaf_names(projdir)
+    for genome in leaves:
+        #Read the gene order. Each line is a tab-separated list containing
+        # position, family, strand, and gene ID.
+        gfile = genomesdir / f'{genome}{genomesuffix}'
+        with open(gfile) as f:
+            header = f.readline()                       #header
+            if not header.startswith('POSITION'):
+                raise(ValueError(f'Unexpected header in "{gfile}"'))
+        
+            genomesequence = SeqRecord(Seq(''))
+            lines = ''
+            i = 1
+            for line in f:
+                _, family, strand, geneid = line.strip().split('\t')
+
+                #TODO: the following is a workaround for the case when a gene
+                #is the last surviving representative. The sequence is not
+                #simulated by Zombi in this case, at present.
+                #if family not in fam2id2genome2rec:
+                #    fam2id2genome2rec[family][geneid][genome] = random_seq()
+                #    print(f'Gene {family}_{geneid} not simulated in {genome}. ')
+
+                rec = fam2id2genome2rec[family][geneid][genome]
+                genomesequence += rec
+                assert rec.id
+                fam2recid2pos[family][rec.id] = CoordPair(i, i+len(rec)-1, strand)
+                if gff:
+                    lines += (f'{genome}\tZombi\tCDS\t{i}\t{i+len(rec)-1}\t'
+                              f'.\t{strand}\t0\tID={family}_{geneid}\n')
+                else:
+                    lines += (f'{genome}\t{i-1}\t{i+len(rec)-1}\t{family}\t0\t'
+                              f'{strand}\t{family}_{geneid}\n')
+                i += len(rec)
+
+            if gff:
+                lines = GFFHEADER + '\n' + lines
+                outfile = outdir / f'{genome}.gff'
+            else:
+                lines = BEDHEADER + '\n' + lines
+                outfile = outdir / f'{genome}.bed'
+
+            with open(outfile, 'w') as f:
+                f.write(lines)
+
+            assert len(genomesequence) == i - 1
+            genomesequence.id = genome
+            genomesequence.description = ''
+            SeqIO.write(genomesequence, outdir / f'{genome}.fa', 'fasta')
+
+    return fam2recid2pos
+
+
+# _____________________________________________________________________________
 
 
 def main():
@@ -27,26 +195,42 @@ def main():
     parent.add_argument('PROJ_DIR', type=Path,
                         help='project directory')
 
-    p_ff = subparsers.add_parser('ffgc', aliases=['ff'], parents=[parent],
-                                 help='Export extant leaf genomes and '
-                                      'sequences for use with FFGC.')
     p_gf = subparsers.add_parser('gff', aliases=['gf'],
                                  parents=[parent],
                                  help='Export the whole genomes as a single '
                                       'GFF file.')
+    p_po = subparsers.add_parser('posortho', aliases=['po'],
+                                 parents=[parent],
+                                 help='Export the positional ortholog sets.')
+    p_ff = subparsers.add_parser('ffgc', aliases=['ff'], parents=[parent],
+                                 help='Export extant leaf genomes and '
+                                      'sequences for use with FFGC.')
+    p_bd = subparsers.add_parser('bed', aliases=['bd'], parents=[parent],
+                                 help='Export the blocks as a BED file and'
+                                      'FASTA files.')
  
+    p_gf.add_argument('OUT_FILE', type=Path,
+                      help='output file')
+    p_gf.add_argument('-p', '--pieces', action='store_true',
+                      help='use _PIECES.tsv files instead _GENOME.tsv files')
+    p_po.add_argument('OUT_FILE', type=Path,
+                      help='the JSON file')
+
     p_ff.add_argument('OUT_DIR', type=Path,
                       help='output files to this directory')
+
+    p_bd.add_argument('OUT_DIR', type=Path,
+                      help='output files to this directory')
+    p_bd.add_argument('-p', '--pieces', action='store_true',
+                      help='use _PIECES.tsv files instead _GENOME.tsv files')
  
-    p_ff.set_defaults(func=export_FFGC)
     p_gf.set_defaults(func=export_GFF)
+    p_po.set_defaults(func=export_PositionalOrthologs)
+    p_ff.set_defaults(func=export_FFGC)
+    p_bd.set_defaults(func=export_BED)
 
     args = parser.parse_args()
     
-    #proj_dir: Path = args.PROJ_DIR
-    #if not proj_dir.exists():
-    #    sys.exit(f'Error: the given PROJ_DIR does not exits.')
-
     if 'func' not in vars(args):
       parser.print_help()
       sys.exit()
@@ -56,6 +240,43 @@ def main():
 
     #MAIN:    __    __    __    __    __    __    __    __    __    __    __    __
     #__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \_
+
+
+def export_PositionalOrthologs(args):
+    """
+    Make a TSV file with the positional orthologs.
+    """
+    proj_dir: Path = args.PROJ_DIR
+    out_file: Path = args.OUT_FILE
+
+    #Make sure the directory for the output file exists
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+
+    #For each gene family, get the positional orthologs and output them in
+    #JSON format:
+    familiesdir = proj_dir / FAMILIES
+    eventssuffix = '_events.tsv'
+    fam2orthosets = {}
+    for famfile in familiesdir.iterdir():
+        if famfile.name.endswith(eventssuffix):
+            fam = famfile.name.replace(eventssuffix, '')
+            fam2orthosets[fam] = getPosOrthologs(famfile)
+
+    with open(out_file, 'w') as f:
+        f.write('{"comment": "Map family to positional ortholog lists. Each '
+                'list has pairs (species, geneid). Produced by ZombiExporter."'
+                ',\n"data": {\n')
+        left = len(fam2orthosets)
+        for fam, orthosets in fam2orthosets.items():
+            left -= 1
+            f.write(f'"{fam}": ')
+            json.dump(orthosets, f)
+            if left:
+                f.write(',')
+            f.write('\n')
+
+        f.write('}}\n')
+
 
 def export_FFGC(args):
     """
@@ -72,59 +293,13 @@ def export_FFGC(args):
     #Make the directory if it doesn't exist
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    genomesdir = proj_dir / 'G/Genomes'
-    genesdir = proj_dir / 'S/Genes'
-
-    genomesuffix = '_GENOME.tsv'
-    genesuffix = '_pruned.fasta'
-
     #Read the gene sequences
+    genesdir = proj_dir / GENES
+    genesuffix = '_complete.fasta'
     fam2id2genome2rec = get_genes(genesdir, genesuffix)
 
-    gffheader = ('##gff-version 3\n'
-                 '#File intended for use with FFGC. IDs of elements are the\n'
-                 '#gene, transcript, and exon names.\n'
-                 '#(homologous) block information was encoded into the file\n'
-                 '#named "families.txt".')
-
-    fam2recid2pos: dict[str, dict[str, CoordPair]] = ddict(dict)
-    leaves = get_leaf_names(proj_dir)
-    for genome in leaves:
-        #Read the gene order. Each line is a tab-separated list containing
-        # position, family, strand, and gene ID.
-        gfile = genomesdir / f'{genome}{genomesuffix}'
-        with open(gfile) as f:
-            header = f.readline()                       #header
-            if not header.startswith('POSITION'):
-                raise(ValueError(f'Unexpected header in "{gfile}"'))
-        
-            genomesequence = SeqRecord(Seq(''))
-            gfflines = ''
-            i = 1
-            for line in f:
-                _, family, strand, geneid = line.strip().split('\t')
-
-                #TODO: the following is a workaround for the case when a gene
-                #originates on a leaf branch. The sequence is not simulated in
-                #this case, at present.
-                if family not in fam2id2genome2rec:
-                    fam2id2genome2rec[family][geneid][genome] = random_seq()
-
-                rec = fam2id2genome2rec[family][geneid][genome]
-                genomesequence += rec
-                assert rec.id
-                fam2recid2pos[family][rec.id] = CoordPair(i, i+len(rec)-1, strand)
-                gfflines += (f'{genome}\tZombi\tCDS\t{i}\t{i+len(rec)-1}\t'
-                             f'.\t{strand}\t0\tID={family}_{geneid}\n')
-                i += len(rec)
-
-            with open(out_dir / f'{genome}.gff', 'w') as f:
-                f.write(gffheader + '\n' + gfflines)
-
-            assert len(genomesequence) == i - 1
-            genomesequence.id = genome
-            genomesequence.description = ''
-            SeqIO.write(genomesequence, out_dir / f'{genome}.fa', 'fasta')
+    fam2recid2pos = processGeneFamilies(fam2id2genome2rec, proj_dir, out_dir,
+                                        gff=True)
 
     #Write the family file
     with open(out_dir / 'families.txt', 'w') as f:
@@ -132,14 +307,16 @@ def export_FFGC(args):
             famstr = ''
             for id, genome2rec in id2genome2rec.items():
                 for genome, rec in genome2rec.items():
-                    assert rec.id
-                    famstr += (f'{family}_{id}|'
-                               f'{fam2recid2pos[family][rec.id].start}:'
-                               f'{fam2recid2pos[family][rec.id].end}|'
-                               f'chromosome|{genome}|'
-                               f'strand|{fam2recid2pos[family][rec.id].strand} ')
+                    if rec.id in fam2recid2pos[family]:
+                        famstr += (f'{family}_{id}|'
+                                   f'{fam2recid2pos[family][rec.id].start}:'
+                                   f'{fam2recid2pos[family][rec.id].end}|'
+                                   f'chromosome|{genome}|'
+                                   f'strand|'
+                                   f'{fam2recid2pos[family][rec.id].strand} ')
 
-            f.write(famstr.strip() + '\n')
+            if famstr:
+                f.write(famstr.strip() + '\n')
 
 
 def export_GFF(args):
@@ -147,12 +324,47 @@ def export_GFF(args):
     Write a GFF will all intervals of the genome.
     """
     proj_dir: Path = args.PROJ_DIR
-    genomesdir = proj_dir / 'G/Genomes'
+    out_file: Path = args.OUT_FILE
+    use_pieces = args.pieces
+    if not use_pieces:
+        raise NotImplementedError('Exporting _GENOME.tsv to GFF is not '
+                                  'yet supported.')
+
+    genomesdir = proj_dir / GENOMES
+
+    #Make sure the directory for the output file exists
+    out_file.parent.mkdir(parents=True, exist_ok=True)
 
     piecesfiles = [x for x in genomesdir.iterdir()
-                   if str(x).endswith('PIECES.tsv')]
+                   if x.name.endswith('PIECES.tsv')]
 
-    whole_genome_to_GFF(piecesfiles, Path('genomes.gff'))
+    if not piecesfiles:
+        raise ValueError(f'No _PIECES.tsv files found in "{genomesdir}"')
+
+    whole_genome_to_GFF(piecesfiles, out_file)
+
+
+def export_BED(args):
+    """
+    For each genome, creates a BED with all intervals of the genome, along with
+    a FASTA file containing the genome sequence.
+    """
+    proj_dir: Path = args.PROJ_DIR
+    out_dir: Path = args.OUT_DIR
+    use_pieces = args.pieces
+    if use_pieces:
+        raise NotImplementedError('Exporting _PIECES.tsv to BED is not '
+                                  'yet supported.')
+
+    #Make the directory if it doesn't exist
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    #Read the gene sequences
+    genesdir = proj_dir / GENES
+    genesuffix = '_complete.fasta'
+    fam2id2genome2rec = get_genes(genesdir, genesuffix)
+
+    processGeneFamilies(fam2id2genome2rec, proj_dir, out_dir, gff=False)
 
 
 if __name__ == "__main__":
