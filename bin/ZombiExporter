@@ -27,13 +27,14 @@ CoordPair = namedtuple('CoordPair', ['start', 'end', 'strand'])
 # FUNCTIONS ___________________________________________________________________
 
 
-def getPosOrthologs(eventsfile) -> list[list[tuple[str, str]]]:
+def getPosOrthologs(eventsfile, fam='') -> list[list[tuple[str, str]]]:
     """
-    Return sets of positional orthologs.
+    Return sets of positional orthologs. If fam is not empty, prepend it
+    to the gene name.
 
     Notes
     -----
-        Note that the notion of positional ortholog is not ambiguous in the
+        Note that the notion of positional ortholog is ambiguous in the
         presence of tandem duplications. In this case, the leftmost copy is
         considered the original.
 
@@ -42,7 +43,7 @@ def getPosOrthologs(eventsfile) -> list[list[tuple[str, str]]]:
         list[list[tuple[str, str]]]
             Lists constaining position orthologs of the form (node, gene_id)
     """
-    #Build a DAG (tree) from the given events file. Remove edges for each
+    #Build a directed tree from the given events file. Remove edges for each
     #U or D event. The surviving leaves in each connected component form a
     #set of positional orthologs.
     # 
@@ -63,17 +64,17 @@ def getPosOrthologs(eventsfile) -> list[list[tuple[str, str]]]:
         for line in f:
             _, event, nodespec = line.strip().split('\t')
             if event == 'S' or event == 'T':            #speciation or transfer
-                p, c1, c2 = getNodeNames(nodespec)
+                p, c1, c2 = getNodeNames(nodespec, fam)
                 G.add_edge(p, c1)
                 G.add_edge(p, c2)
 
             elif event == 'U' or event == 'D':          #duplication
-                p, c1, c2 = getNodeNames(nodespec)
+                p, c1, c2 = getNodeNames(nodespec, fam)
                 G.add_edge(p, c1)          #original copy is the first
                 G.add_node(c2)
 
             elif event == 'F':                          #surviving leaf
-                l = getNodeName(nodespec)
+                l = getNodeName(nodespec, fam)
                 G.nodes[l]['leaf'] = True
 
     #Traverse the connected components, keeping the leaves:
@@ -86,17 +87,17 @@ def getPosOrthologs(eventsfile) -> list[list[tuple[str, str]]]:
     return polists
 
 
-def getNodeNames(nodespec: str) \
+def getNodeNames(nodespec: str, prefix: str) \
     -> tuple[tuple[str, str], tuple[str, str], tuple[str, str]]:
     """ Return the node names.  """
     pn, p, cn1, c1, cn2, c2 = nodespec.split(';')
-    return (pn, p), (cn1, c1), (cn2, c2)
+    return (pn, prefix+p), (cn1, prefix+c1), (cn2, prefix+c2)
 
 
-def getNodeName(nodespec: str) -> tuple[str, str]:
+def getNodeName(nodespec: str, prefix: str) -> tuple[str, str]:
     """ Return the node name.  """
     node, id = nodespec.split(';')
-    return (node, id)
+    return (node, prefix+id)
 
 
 GFFHEADER = ('##gff-version 3\n'
@@ -206,15 +207,21 @@ def main():
                                  help='Export extant leaf genomes and '
                                       'sequences for use with FFGC.')
     p_bd = subparsers.add_parser('bed', aliases=['bd'], parents=[parent],
-                                 help='Export the blocks as a BED file and'
+                                 help='Export the blocks as a BED file and '
                                       'FASTA files.')
+    p_du = subparsers.add_parser('dupinfo', aliases=['du'], parents=[parent],
+                                 help='Make a TSV file mapping family id to '
+                                      'number of duplications.')
  
     p_gf.add_argument('OUT_FILE', type=Path,
                       help='output file')
     p_gf.add_argument('-p', '--pieces', action='store_true',
                       help='use _PIECES.tsv files instead _GENOME.tsv files')
+
     p_po.add_argument('OUT_FILE', type=Path,
                       help='the JSON file')
+    p_po.add_argument('-n', '--no-family', action='store_true',
+                      help='exclude family id from the gene name')
 
     p_ff.add_argument('OUT_DIR', type=Path,
                       help='output files to this directory')
@@ -223,11 +230,15 @@ def main():
                       help='output files to this directory')
     p_bd.add_argument('-p', '--pieces', action='store_true',
                       help='use _PIECES.tsv files instead _GENOME.tsv files')
+
+    p_du.add_argument('OUT_FILE', type=Path,
+                      help='output TSV file')
  
     p_gf.set_defaults(func=export_GFF)
     p_po.set_defaults(func=export_PositionalOrthologs)
     p_ff.set_defaults(func=export_FFGC)
     p_bd.set_defaults(func=export_BED)
+    p_du.set_defaults(func=export_DupInfo)
 
     args = parser.parse_args()
     
@@ -248,6 +259,7 @@ def export_PositionalOrthologs(args):
     """
     proj_dir: Path = args.PROJ_DIR
     out_file: Path = args.OUT_FILE
+    no_family = args.no_family
 
     #Make sure the directory for the output file exists
     out_file.parent.mkdir(parents=True, exist_ok=True)
@@ -260,7 +272,8 @@ def export_PositionalOrthologs(args):
     for famfile in familiesdir.iterdir():
         if famfile.name.endswith(eventssuffix):
             fam = famfile.name.replace(eventssuffix, '')
-            fam2orthosets[fam] = getPosOrthologs(famfile)
+            fam2orthosets[fam] = getPosOrthologs(famfile,
+                                                 '' if no_family else fam+'_')
 
     with open(out_file, 'w') as f:
         f.write('{"comment": "Map family to positional ortholog lists. Each '
@@ -269,6 +282,9 @@ def export_PositionalOrthologs(args):
         left = len(fam2orthosets)
         for fam, orthosets in fam2orthosets.items():
             left -= 1
+            if len(orthosets) == 0:
+                continue
+
             f.write(f'"{fam}": ')
             json.dump(orthosets, f)
             if left:
@@ -365,6 +381,44 @@ def export_BED(args):
     fam2id2genome2rec = get_genes(genesdir, genesuffix)
 
     processGeneFamilies(fam2id2genome2rec, proj_dir, out_dir, gff=False)
+
+
+def export_DupInfo(args):
+    """
+    Make a TSV file mapping family id to number of duplications.
+    The columns are:
+        FAMILY DUPTOTAL DUPS TANDEMDUPS    
+    """
+    proj_dir: Path = args.PROJ_DIR
+    out_file: Path = args.OUT_FILE
+
+    #Make sure the directory for the output file exists
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+
+    #For each gene family, get the number of duplications:
+    familiesdir = proj_dir / FAMILIES
+    eventssuffix = '_events.tsv'
+    fam2dups = {}
+    for famfile in familiesdir.iterdir():
+        if famfile.name.endswith(eventssuffix):
+            fam = famfile.name.replace(eventssuffix, '')
+            with open(famfile) as f:
+                f.readline()                       #header
+                dups = 0
+                tandemdups = 0
+                for line in f:
+                    _, event, _ = line.strip().split('\t')
+                    if event == 'U':
+                        dups += 1
+                    elif event == 'D':
+                        tandemdups += 1
+
+            fam2dups[fam] = (dups, tandemdups)
+
+    with open(out_file, 'w') as f:
+        f.write('FAMILY_ID\tTOTAL_DUPS\tDUPS\tTANDEM_DUPS\n')
+        for fam, (dups, tandemdups) in fam2dups.items():
+            f.write(f'{fam}\t{dups+tandemdups}\t{dups}\t{tandemdups}\n')
 
 
 if __name__ == "__main__":
