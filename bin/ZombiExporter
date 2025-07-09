@@ -276,22 +276,28 @@ def export_PositionalOrthologs(args):
                                                  '' if no_family else fam+'_')
 
     with open(out_file, 'w') as f:
-        f.write('{"comment": "Map family to positional ortholog lists. Each '
-                'list has pairs (species, geneid). Produced by ZombiExporter."'
-                ',\n"data": {\n')
-        left = len(fam2orthosets)
-        for fam, orthosets in fam2orthosets.items():
-            left -= 1
-            if len(orthosets) == 0:
-                continue
+        json.dump({'comment': 'Map family to positional ortholog lists. Each '
+                              'list has pairs (species, geneid). Produced by '
+                              'ZombiExporter.', 'data': fam2orthosets},
+                  f, indent=2)
+        #f.write('{"comment": "Map family to positional ortholog lists. Each '
+        #        'list has pairs (species, geneid). Produced by ZombiExporter."'
+        #f.write('{"comment": "Map family to positional ortholog lists. Each '
+        #        'list has pairs (species, geneid). Produced by ZombiExporter."'
+        #        ',\n"data": {\n')
+        #left = len(fam2orthosets)
+        #for fam, orthosets in fam2orthosets.items():
+        #    left -= 1
+        #    if len(orthosets) == 0:
+        #        continue
 
-            f.write(f'"{fam}": ')
-            json.dump(orthosets, f)
-            if left:
-                f.write(',')
-            f.write('\n')
+        #    f.write(f'"{fam}": ')
+        #    json.dump(orthosets, f)
+        #    if left:
+        #        f.write(',')
+        #    f.write('\n')
 
-        f.write('}}\n')
+        #f.write('}}\n')
 
 
 def export_FFGC(args):
