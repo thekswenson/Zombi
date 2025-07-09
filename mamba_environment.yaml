@@ -1,0 +1,16 @@
+name: zombi
+channels:                                                                       
+  - conda-forge                                                                 
+  - bioconda
+  - default
+dependencies:
+  - snakemake
+  - numpy
+  - flask
+  - networkx
+  - pybedtools
+  - biopython
+  - bcbio-gff
+  - ete3
+  - pip:
+    - pyvolve>=1.0.1
