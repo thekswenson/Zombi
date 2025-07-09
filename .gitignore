@@ -6,3 +6,5 @@ data/
 Validations/
 build/
 dist/
+seqgentest*/
+test*/
