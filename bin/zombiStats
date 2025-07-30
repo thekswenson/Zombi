@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+
+from collections import defaultdict as ddict
+from itertools import combinations
+import sys
+import argparse
+
+from pathlib import Path
+from Bio import SeqIO
+from Bio.Align import Alignment
+import numpy as np
+    
+    
+# Constants
+GENOMES = 'G/Genomes'
+FAMILIES = 'G/Gene_families'
+GENES = 'S/Genes'
+
+
+# FUNCTIONS ___________________________________________________________________
+
+
+
+
+# _____________________________________________________________________________
+
+
+def main():
+    desc = 'Calculate various statistics about the simulated genomes.'
+    parser = argparse.ArgumentParser(description=desc)
+    subparsers = parser.add_subparsers(title='subcommands')
+
+    parent = argparse.ArgumentParser(add_help=False)
+    parent.add_argument('PROJ_DIR', type=Path,
+                        help='project directory')
+
+    p_al = subparsers.add_parser('alignments', aliases=['al'],
+                                 parents=[parent],
+                                 help='Get information about the sequence '
+                                      'alignments (of surviving taxa).')
+ 
+    p_al.set_defaults(func=analyze_alignments)
+
+    args = parser.parse_args()
+    
+    if 'func' not in vars(args):
+      parser.print_help()
+      sys.exit()
+
+    args.func(args) 
+
+
+    #MAIN:    __    __    __    __    __    __    __    __    __    __    __    __
+    #__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \_
+
+
+def analyze_alignments(args):
+    """
+    Get information about the sequence alignments.
+    """
+    proj_dir: Path = args.PROJ_DIR
+
+    maxmismatches = 0
+    minmismatches = sys.maxsize
+    maxratio = 0
+    minratio = np.inf
+    for alignfile in proj_dir.glob(f'{GENES}/*_pruned.fasta'):
+        #Read the alignment with biopython:
+        alignment = SeqIO.parse(alignfile, 'fasta')
+        for s1, s2 in combinations(alignment, 2):
+            #Check each column of the pairwise alignments
+            c = Alignment([s1, s2]).counts()
+            ratio = c.mismatches / len(s1)
+            if ratio > maxratio:
+                maxratio = ratio
+            if ratio < minratio:
+                minratio = ratio
+            if c.mismatches > maxmismatches:
+                maxmismatches = c.mismatches
+            if c.mismatches < minmismatches:
+                minmismatches = c.mismatches
+
+    print(f'Min mismatch ratio: {minratio} ({minmismatches})')
+    print(f'Max mismatch ratio: {maxratio:.3} ({maxmismatches})')
+
+       
+
+
+if __name__ == "__main__":
+    main()                                           
