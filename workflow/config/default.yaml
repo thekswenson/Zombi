@@ -1,0 +1,62 @@
+---
+
+REPS: 1
+MAX_THREADS: 44
+SIMDIR: 'simulations'
+
+#Simulator parameters. Rate parameters specified with character id:
+# (f fixed, u uniform, n normal, l lognormal, e exponential, g geometric)
+#
+#See Parameters/SpeciesTreeParameters.tsv, Parameters/GenomeParameters.tsv,
+#    Parameters/SequenceParameters.tsv for all the possible values that can
+#    be set, along with their defaults.
+#
+ZOMBI:
+  SPECIESTREE:
+    TOTAL_LINEAGES: 5
+
+  GENOME:
+    #INITIAL_GENOME_SIZE: 100
+    #MIN_GENOME_SIZE: 10
+    TANDEMDUP: 'f:0'
+    DUPLICATION: ['f:2']
+    TRANSFER: 'f:0'
+    LOSS: 'f:1'
+    #INVERSION: ['f:2']
+    TRANSPOSITION: 'f:0'
+    ORIGINATION: 'f:0'
+    #TANDEMDUP_EXTENSION: 'g:0.5'
+    DUPLICATION_EXTENSION: 'g:0.5'
+    #TRANSFER_EXTENSION: 'g:1'
+    LOSS_EXTENSION: 'g:0.5'
+    #INVERSION_EXTENSION: 'g:0.05'
+    TRANSPOSITION_EXTENSION: 'g:0.5'
+    #ORIGINATION_EXTENSION: 'g:0.5'
+
+  SEQUENCE:     #These are lists. All combinations will be generated.
+    SEQUENCE_SIZE: [1000]
+    #SEQUENCE: ['nucleotide']    #{nucleotide, amino-acid, codon}
+    SCALING: [0.5]
+
+#FFGC parameters:
+# Long versions of the PW_PARAMS flags are:  --numeric --self_comparison
+# --min_genome_number=1 --min_contig_len=1 --threshold 0.1 --stringency=0.8
+FFGC:
+  PATH: '/home/kms/home/software/FFGC'
+  SOLVER_CPUS: 30
+  FAMILIES_LEVEL: 2
+  MAX_MATCHING: True
+  PW_PARAMS: '-NS -n1 -l1 -t0.0 -s0.0'
+  ALIGN_EVALUE: 0.1
+  ALIGN_PRG: 'blast'   #{blast, diamond}}
+  BLAST_CMD: 'blastn'
+  FFADJ_ALPHA: 1.0
+  SOLVER_TIME: 10       #in minutes
+
+#MCGP parameters.
+MCGP:
+  ALGS: ['00-bad-model', '00b-single-blob', '01-gurobi-FW',
+         '03b-gurobi-native-components', '04b-gurobi-native-components-pruning',
+         '05-greedy', '07-iterative-color', '11a-he2004-phylo-filter',
+         '11-he2004-phylo', '12-star']
+  WIN_RADII: [5]

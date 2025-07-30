@@ -8,3 +8,5 @@ build/
 dist/
 seqgentest*/
 test*/
+.snakemake/
+simulations/

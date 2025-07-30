@@ -1,0 +1,51 @@
+# coding: utf-8
+"""
+To prevent the simulations from accidentally being rerun, there are lock files
+(e.g. lock_G.flag) that are saved in the simulation directory. To rerun the
+simulation, remove the lock file.
+(The reason for this is that different projects share the same simulations so
+ that the results are comparable. We don't want one project to accidentally
+ erase simulations that another project depends on.)
+"""
+import shutil
+
+import pandas as pd
+
+from pathlib import Path
+from itertools import combinations
+
+from scripts.parameters import treeParamDir, genomeParamDir, sequenceParamDir
+from scripts.parameters import PDirNames
+
+include: 'rules/zombi.smk'
+
+#### BASIC CONSTANTS ####
+
+TREECONFIG = 'Parameters/SpeciesTreeParameters.tsv'
+GENOMECONFIG = 'Parameters/GenomeParameters.tsv'
+SEQCONFIG = 'Parameters/SequenceParameters.tsv'
+
+#### CONFIG VALUES ####
+
+
+#-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-
+# Targets
+#-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-
+
+def buildTargetList(wildcards):
+  """
+  Build the list of ultimate targets based on the settings.
+  """
+  files = []
+  files += expand(SIMDIR + '/sequences/{tparams}{gparams}{sparams}rep{rep}/S/Genes',
+                  tparams=treeParamDir(ZOMBI_TREEP, TREECONFIG),
+                  gparams=genomeParamDir(ZOMBI_GENP, GENOMECONFIG),
+                  sparams=sequenceParamDir(ZOMBI_SEQP, SEQCONFIG),
+                  rep=range(REPS))
+
+  return files
+
+rule all:
+  input:
+    buildTargetList
+

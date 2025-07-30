@@ -12,5 +12,6 @@ dependencies:
   - biopython
   - bcbio-gff
   - ete3
+  - pip
   - pip:
     - pyvolve>=1.0.1
