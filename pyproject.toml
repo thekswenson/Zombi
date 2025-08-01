@@ -36,15 +36,17 @@ include = ["src/zombi"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/zombi"]
-include = [
-    "Parameters/*.tsv",
-    "Tutorials/*/*",
-    "Validations/*.tsv",
-]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"Parameters" = "share/zombi/Parameters"
+"Tutorials" = "share/zombi/Tutorials"
+"Validations" = "share/zombi/Validations" 
+"workflow" = "share/zombi/workflow"
 
 [project.scripts]
-RateCusomizer = "zombi.scripts.RateCustomizer:main"
-SpeciesSampler = "zombi.scripts.SpeciesSampler:main"
-Zombi = "zombi.scripts.Zombi:main"
-ZombiExporter = "zombi.scripts.ZombiExporter:main"
-ZombiStats = "zombi.scripts.ZombiStats:main"
+zombiRateCustomizer = "zombi.scripts.zombiRateCustomizer:main"
+zombiSpeciesSampler = "zombi.scripts.zombiSpeciesSampler:main"
+zombi = "zombi.scripts.zombi:main"
+zombiExporter = "zombi.scripts.zombiExporter:main"
+zombiStats = "zombi.scripts.zombiStats:main"
+zombiGenerator = "zombi.scripts.zombiGenerator:main"

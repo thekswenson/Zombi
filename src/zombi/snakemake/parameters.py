@@ -154,6 +154,9 @@ def getParamDirs(params: dict[str, list], defaultconfig: str) -> list[str]:
   -----
   - Parameters appear in the same order as in the default config file.
   """
+  if not params:
+    return ['']
+
   #Get the parameter order:
   keys = []
   for key in getParams(defaultconfig):

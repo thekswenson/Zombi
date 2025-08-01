@@ -12,10 +12,9 @@ import shutil
 
 from pathlib import Path
 
-from scripts.parameters import modParams, PDirNames
-from scripts.parameters import getTreeParams, getGenomeParams, getSequenceParams
-
-#configfile: 'workflow/config/default.yaml'
+from zombi.snakemake.parameters import modParams, PDirNames
+from zombi.snakemake.parameters import getTreeParams, getGenomeParams
+from zombi.snakemake.parameters import getSequenceParams
 
 #Config File Globals:
 SIMDIR = str(Path(config.get('SIMDIR', 'simulations')))  #Remove trailing slash
@@ -31,6 +30,27 @@ ZOMBI_TREEP = ZOMBI_P['SPECIESTREE']
 TPARAMS = PDirNames.TPARAMS.value
 GPARAMS = PDirNames.GPARAMS.value
 SPARAMS = PDirNames.SPARAMS.value
+
+TREECONFIG = f'Parameters/SpeciesTreeParameters.tsv'
+GENOMECONFIG = f'Parameters/GenomeParameters.tsv'
+SEQCONFIG = f'Parameters/SequenceParameters.tsv'
+
+# For the All rule
+#_______________________________________________________________________________
+
+def buildAllTargetList(wildcards):
+  """
+  Build the list of ultimate targets based on the settings.
+  """
+  files = []
+  files += expand(SIMDIR + '/sequences/{tparams}{gparams}{sparams}rep{rep}/S/Genes',
+                  tparams=treeParamDir(ZOMBI_TREEP, TREECONFIG),
+                  gparams=genomeParamDir(ZOMBI_GENP, GENOMECONFIG),
+                  sparams=sequenceParamDir(ZOMBI_SEQP, SEQCONFIG),
+                  rep=range(REPS))
+
+  return files
+
 
 
 # Run Zombi 
@@ -55,7 +75,7 @@ rule zombi_run_T:
                            f'rerun remove "{lockfile}"')
 
       #Run the simulation
-    shell('Zombi T {input.paramfile} ' + SIMDIR +
+    shell('zombi T {input.paramfile} ' + SIMDIR +
           '/trees/{wildcards.tparams}/rep{wildcards.rep} &> {log}')
     lockfile.touch()
 
@@ -81,7 +101,7 @@ rule zombi_run_G:
                            f'rerun remove "{lockfile}"')
 
       #Run the simulation
-    shell('Zombi G {input.paramfile} ' + SIMDIR +
+    shell('zombi G {input.paramfile} ' + SIMDIR +
           '/genomes/{wildcards.tgparams}/rep{wildcards.rep} &> {log}')
     lockfile.touch()
 
@@ -108,7 +128,7 @@ rule zombi_run_S:
                           f'rerun remove "{lockfile}"')
 
       #Run the simulation
-    shell('Zombi S -p {threads} {input.paramfile} ' + SIMDIR +
+    shell('zombi S -p {threads} {input.paramfile} ' + SIMDIR +
           '/sequences/{wildcards.tgsparams}/rep{wildcards.rep} &> {log}')
     lockfile.touch()
 
@@ -147,7 +167,7 @@ rule zombi_link_to_TG:
     shell(f'cp -r {input.genomedir} {output.genomelink}')
 
 
-# Create extra output files using ZombiExporter
+# Create extra output files using zombiExporter
 #____________________________________________________________________________
 
 rule zombi_positional_orthologs:
@@ -161,7 +181,7 @@ rule zombi_positional_orthologs:
     SIMDIR + '/genomes/{gparams}/rep{rep}/positional_orthologs-z_orig.json',
 
   shell:
-    'ZombiExporter po ' + SIMDIR + '/{wildcards.gparams}/rep{wildcards.rep} {output}'
+    'zombiExporter po ' + SIMDIR + '/{wildcards.gparams}/rep{wildcards.rep} {output}'
 
 
 rule zombi_duplications_file:
@@ -175,7 +195,7 @@ rule zombi_duplications_file:
     SIMDIR + '/genomes/{gparams}/rep{rep}/duplication_counts_orig.tsv',
 
   run:
-    shell('ZombiExporter dupinfo ' + SIMDIR + '/{wildcards.gparams}/rep{wildcards.rep} {output}')
+    shell('zombiExporter dupinfo ' + SIMDIR + '/{wildcards.gparams}/rep{wildcards.rep} {output}')
 
 
 #rule Zombi_duplicates_file_toproject:

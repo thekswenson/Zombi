@@ -14,38 +14,18 @@ import pandas as pd
 from pathlib import Path
 from itertools import combinations
 
-from scripts.parameters import treeParamDir, genomeParamDir, sequenceParamDir
-from scripts.parameters import PDirNames
+from zombi.snakemake.parameters import treeParamDir, genomeParamDir
+from zombi.snakemake.parameters import sequenceParamDir, PDirNames
 
+configfile: 'workflow/config/config.yaml'
 include: 'rules/zombi.smk'
-
-#### BASIC CONSTANTS ####
-
-TREECONFIG = 'Parameters/SpeciesTreeParameters.tsv'
-GENOMECONFIG = 'Parameters/GenomeParameters.tsv'
-SEQCONFIG = 'Parameters/SequenceParameters.tsv'
-
-#### CONFIG VALUES ####
 
 
 #-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-
 # Targets
 #-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-
 
-def buildTargetList(wildcards):
-  """
-  Build the list of ultimate targets based on the settings.
-  """
-  files = []
-  files += expand(SIMDIR + '/sequences/{tparams}{gparams}{sparams}rep{rep}/S/Genes',
-                  tparams=treeParamDir(ZOMBI_TREEP, TREECONFIG),
-                  gparams=genomeParamDir(ZOMBI_GENP, GENOMECONFIG),
-                  sparams=sequenceParamDir(ZOMBI_SEQP, SEQCONFIG),
-                  rep=range(REPS))
-
-  return files
-
 rule all:
   input:
-    buildTargetList
+    buildAllTargetList
 

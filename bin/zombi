@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 from Bio.SeqRecord import SeqRecord
-from flask import g
 from zombi.SpeciesTreeSimulator import SpeciesTreeGenerator
 from zombi.GenomeSimulator import GenomeSimulator
 from zombi.SequenceSimulator import SequenceSimulator, write_whole_genome

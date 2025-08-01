@@ -1,20 +1,18 @@
 #!/usr/bin/env python3
+"""
+Generate simulations across a range of parameters.
 
-from collections import defaultdict as ddict
-from itertools import combinations
-import sys
+This script prepares a Snakemfile at the given project directory.  Snakemake
+is then used to create the simulations.
+"""
 import argparse
+import shutil
+import sys
 
 from pathlib import Path
-from Bio import SeqIO
-from Bio.Align import Alignment
-import numpy as np
-    
-    
+
+
 # Constants
-GENOMES = 'G/Genomes'
-FAMILIES = 'G/Gene_families'
-GENES = 'S/Genes'
 
 
 # FUNCTIONS ___________________________________________________________________
@@ -26,65 +24,49 @@ GENES = 'S/Genes'
 
 
 def main():
-    desc = 'Calculate various statistics about the simulated genomes.'
-    parser = argparse.ArgumentParser(description=desc)
-    subparsers = parser.add_subparsers(title='subcommands')
+  desc = 'Generate simulations across a range of parameters.'
+  parser = argparse.ArgumentParser(description=desc)
 
-    parent = argparse.ArgumentParser(add_help=False)
-    parent.add_argument('PROJ_DIR', type=Path,
-                        help='project directory')
+  parser.add_argument('PROJ_DIR', type=Path,
+                      help='project directory')
 
-    p_al = subparsers.add_parser('alignments', aliases=['al'],
-                                 parents=[parent],
-                                 help='Get information about the sequence '
-                                      'alignments (of surviving taxa).')
- 
-    p_al.set_defaults(func=analyze_alignments)
+  args = parser.parse_args()
+  proj_dir = args.PROJ_DIR
 
-    args = parser.parse_args()
-    
-    if 'func' not in vars(args):
-      parser.print_help()
-      sys.exit()
+  #MAIN:    __    __    __    __    __    __    __    __    __    __    __    __
+  #__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \_
 
-    args.func(args) 
+  if not proj_dir.exists():
+    proj_dir.mkdir(parents=True, exist_ok=True)
 
+  #Copy the Snakefile from the template directory to the project directory
+  workflow = Path(sys.prefix) / 'share/zombi/workflow/'
+  snakefile = workflow / 'template/Snakefile_template'
+  if not snakefile.exists():
+    sys.exit(f'Problem with installation: "{snakefile}" not found.')
+        
+  print(f'Copying files...', end=' ')
+  shutil.copy(snakefile, Path(proj_dir) / 'Snakefile')
 
-    #MAIN:    __    __    __    __    __    __    __    __    __    __    __    __
-    #__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \_
+  #Copy the config file to the project directory
+  configfile = workflow / 'config/config.yaml'
+  if not configfile.exists():
+    sys.exit(f'Problem with installation: "{configfile}" not found.')
 
+  shutil.copy(configfile, proj_dir)
 
-def analyze_alignments(args):
-    """
-    Get information about the sequence alignments.
-    """
-    proj_dir: Path = args.PROJ_DIR
+  #Copy the Parameters directory
+  parameters = Path(sys.prefix) / 'share/zombi/Parameters'
+  if not parameters.exists():
+    sys.exit(f'Problem with installation: "{parameters}" not found.')
 
-    maxmismatches = 0
-    minmismatches = sys.maxsize
-    maxratio = 0
-    minratio = np.inf
-    for alignfile in proj_dir.glob(f'{GENES}/*_pruned.fasta'):
-        #Read the alignment with biopython:
-        alignment = SeqIO.parse(alignfile, 'fasta')
-        for s1, s2 in combinations(alignment, 2):
-            #Check each column of the pairwise alignments
-            c = Alignment([s1, s2]).counts()
-            ratio = c.mismatches / len(s1)
-            if ratio > maxratio:
-                maxratio = ratio
-            if ratio < minratio:
-                minratio = ratio
-            if c.mismatches > maxmismatches:
-                maxmismatches = c.mismatches
-            if c.mismatches < minmismatches:
-                minmismatches = c.mismatches
+  shutil.copytree(parameters, Path(proj_dir) / 'Parameters')
+  print(f'done.')
 
-    print(f'Min mismatch ratio: {minratio} ({minmismatches})')
-    print(f'Max mismatch ratio: {maxratio:.3} ({maxmismatches})')
-
-       
-
+  print(f'To generate simulations, run snakemake in the project directory:\n'
+        f'  `cd {proj_dir}`\n'
+        f'  edit {proj_dir}/config.yaml\n'
+        f'  `snakemake -c 1 --configfile config.yaml`')
 
 if __name__ == "__main__":
     main()                                           

@@ -1,0 +1,31 @@
+# coding: utf-8
+"""
+This Snakefile is used to run Zombi simulations over a range of parameters.
+
+It is an empty workflow that includes the rules installed in the mamba
+environment. The configfile is loaded and then the all rule from the
+installation is used, based on those values.
+"""
+import sys
+from importlib import resources
+
+from zombi.snakemake.parameters import treeParamDir, genomeParamDir
+from zombi.snakemake.parameters import sequenceParamDir, PDirNames
+
+configfile: 'config.yaml'
+
+rules = Path(sys.prefix) / 'share/zombi/workflow/rules'
+snakefile = rules / 'zombi.smk'
+if not snakefile.exists():
+  raise FileNotFoundError(f'Installation problem: "{snakefile}" not found.')
+
+include: str(snakefile)
+
+
+#-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-
+# Targets
+#-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-
+
+rule all:
+  input:
+    buildAllTargetList

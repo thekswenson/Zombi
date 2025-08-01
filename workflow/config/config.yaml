@@ -1,0 +1,41 @@
+---
+
+REPS: 1                #Repeat each combination of parameters ths many times.
+MAX_THREADS: 44        #Never use more than this number of threads.
+SIMDIR: 'simulations'  #The base output directory.
+
+#Simulator parameters. Rate parameters specified with character id:
+# (f fixed, u uniform, n normal, l lognormal, e exponential, g geometric)
+#
+#See Parameters/SpeciesTreeParameters.tsv, Parameters/GenomeParameters.tsv,
+#    Parameters/SequenceParameters.tsv for all the possible values that can
+#    be set, along with their defaults.
+#
+#When these are lists. All combinations from all lists will be generated.
+#
+ZOMBI:
+  SPECIESTREE:
+    #TOTAL_LINEAGES: 5
+
+  GENOME:
+    #INITIAL_GENOME_SIZE: 100
+    #MIN_GENOME_SIZE: 10
+    #TANDEMDUP: 'f:0'
+    #DUPLICATION: ['f:2']
+    #TRANSFER: 'f:0'
+    #LOSS: 'f:1'
+    #INVERSION: ['f:2']
+    #TRANSPOSITION: 'f:0'
+    #ORIGINATION: 'f:0'
+    #TANDEMDUP_EXTENSION: 'g:0.5'
+    #DUPLICATION_EXTENSION: 'g:0.5'
+    #TRANSFER_EXTENSION: 'g:1'
+    #LOSS_EXTENSION: 'g:0.5'
+    #INVERSION_EXTENSION: 'g:0.05'
+    #TRANSPOSITION_EXTENSION: 'g:0.5'
+    #ORIGINATION_EXTENSION: 'g:0.5'
+
+  SEQUENCE:
+    #SEQUENCE_SIZE: [1000]
+    #SEQUENCE: ['nucleotide']    #{nucleotide, amino-acid, codon}
+    #SCALING: [0.5]
