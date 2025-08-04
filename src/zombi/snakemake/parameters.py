@@ -1,16 +1,208 @@
 """
 Functions dealing with parameters.
 """
+import re
+import sys
 
 from itertools import product
 from enum import Enum
-import re
+from pathlib import Path
 
+# The location of zombi.smk and the export.smk files:
+share_zombi = Path(sys.prefix) / 'share/zombi'
+rules = share_zombi / 'workflow/rules'
+zombi_snakefile = rules / 'zombi.smk'
+if not zombi_snakefile.exists():
+  raise FileNotFoundError(f'Installation problem: "{zombi_snakefile}" not found.')
+ZOMBI_SNAKEFILE = str(zombi_snakefile)
+zombi_export_snakefile = rules / 'export.smk'
+ZOMBI_EXPORT_SNAKEFILE = str(zombi_export_snakefile)
+
+#parameters_dir = share_zombi / 'Parameters'
+#if not parameters_dir.exists():
+#  raise FileNotFoundError(f'Installation problem: "{parameters_dir}" not found.')
+#TREECONFIG = str(parameters_dir / 'SpeciesTreeParameters.yaml')
+#GENOMECONFIG = str(parameters_dir / 'GenomeParameters.yaml')
+#SEQCONFIG = str(parameters_dir / 'SequenceParameters.yaml')
 
 class PDirNames(str, Enum):
   TPARAMS = 'treeparams'
   GPARAMS = 'genomeparams'
   SPARAMS = 'sequenceparams'
+
+
+# Generate Parameter Path Strings
+#_______________________________________________________________________________
+
+
+def zombiFullParamDirs(treeparams: dict[str, list], treeconfig: str,
+                       genomeparams: dict[str, list], genomeconfig: str,
+                       seqparams: dict[str, list], seqconfig: str) -> list[str]:
+  """
+  Generate the list of parameter directories.
+  The directories will include replicate wildcards for the tree (trep), genome
+  (grep), and sequence (srep) parameters.
+  """
+  treedirs = zombiTreeParamDirs(treeparams, treeconfig)
+  genomedirs = zombiGenomeParamDirs(genomeparams, genomeconfig)
+  seqdirs = zombiSeqParamDirs(seqparams, seqconfig)
+  dirs = []
+  for tdir, gdir, sdir in product(treedirs, genomedirs, seqdirs):
+    dirs.append(f'{tdir}{gdir}{sdir}')
+
+  return dirs
+
+
+def zombiFullParamStrs(treeparams: dict[str, list], treeconfig: str,
+                       genomeparams: dict[str, list], genomeconfig: str,
+                       seqparams: dict[str, list], seqconfig: str) -> list[str]:
+  """
+  Generate the list of parameter strings.  This is the `zombiFullParamDirs()`
+  with slashes '/' replaced by underscores '_'.
+  The names will include replicate wildcards for the tree (trep), genome
+  (grep), and sequence (srep) parameters.
+  """
+  return [d.replace('/', '_').strip('_')
+          for d in zombiFullParamDirs(treeparams, treeconfig,
+                                      genomeparams, genomeconfig,
+                                      seqparams, seqconfig)]
+
+
+def zombiTreeParamDirs(treeparams: dict[str, list], defaultconfig: str) \
+  -> list[str]:
+  """
+  Create the parameter directories for the given parameters.  Each value could
+  be a single value or a list of values.
+  The directories will include replicate wildcards for the tree (trep), genome
+  (grep), and sequence (srep) parameters.
+  """
+  return [f'{PDirNames.TPARAMS.value}-rep{{trep}}/{d}'
+          for d in zombiParamDirs(treeparams, defaultconfig)]
+
+
+def zombiTreeParamStrs(treeparams: dict[str, list], defaultconfig: str) \
+  -> list[str]:
+  """
+  Create the parameter strings for the given parameters.  This is the same as
+  `zombiTreeParamDirs()`, but replaces slashes '/' with underscores '_'.
+  The names will include replicate wildcards for the tree (trep), genome
+  (grep), and sequence (srep) parameters.
+  """
+  return [d.replace('/', '_').strip('_')
+          for d in zombiTreeParamDirs(treeparams, defaultconfig)]
+
+
+def zombiGenomeParamDirs(genomeparams: dict[str, list], defaultconfig: str) \
+  -> list[str]:
+  """
+  Create the parameter directories for the given parameters.  Each value could
+  be a single value or a list of values.
+  The directories will include replicate wildcards for the tree (trep), genome
+  (grep), and sequence (srep) parameters.
+  """
+  return [f'{PDirNames.GPARAMS.value}-rep{{grep}}/{d}'
+          for d in zombiParamDirs(genomeparams, defaultconfig)]
+
+          
+def zombiGenomeParamStrs(genomeparams: dict[str, list], defaultconfig: str) \
+  -> list[str]:
+  """
+  Create the parameter strings for the given parameters.  This is the same as
+  `zombiGenomeParamDirs()`, but replaces slashes '/' with underscores '_'.
+  The names will include replicate wildcards for the tree (trep), genome
+  (grep), and sequence (srep) parameters.
+  """
+  return [d.replace('/', '_').strip('_')
+          for d in zombiGenomeParamDirs(genomeparams, defaultconfig)]
+
+
+def zombiSeqParamDirs(seqparams: dict[str, list], defaultconfig: str) \
+  -> list[str]:
+  """
+  Create the parameter directories for the given parameters.  Each value could
+  be a single value or a list of values.
+  The directories will include replicate wildcards for the tree (trep), genome
+  (grep), and sequence (srep) parameters.
+  """
+  return [f'{PDirNames.SPARAMS.value}-rep{{srep}}/{d}'
+          for d in zombiParamDirs(seqparams, defaultconfig)]
+
+
+def zombiSeqParamStrs(seqparams: dict[str, list], defaultconfig: str) \
+  -> list[str]:
+  """
+  Create the parameter strings for the given parameters.  This is the same as
+  `zombiSeqParamDirs()`, but replaces slashes '/' with underscores '_'.
+  The names will include replicate wildcards for the tree (trep), genome
+  (grep), and sequence (srep) parameters.
+  """
+  return [d.replace('/', '_').strip('_')
+          for d in zombiSeqParamDirs(seqparams, defaultconfig)]
+
+
+def zombiParamDirs(params: dict[str, list], defaultconfig: str) -> list[str]:
+  """
+  Create the parameter part for the directory name.  Each parameter could be a
+  single value or a list of values. The directory names look like:
+
+    <PARAMETER_NAME>-<VALUE>/<PARAMETER_NAME>-<VALUE>/.../
+
+  Notes
+  -----
+  - Parameters appear in the same order as in the default config file.
+  """
+  if not params:
+    return ['']
+
+  #Get the parameter order:
+  keys = []
+  for key in getParamOrder(defaultconfig):
+    if key in params:
+      keys.append(key)
+
+  pkeyset = set(params.keys())
+  keyset = set(keys)
+  if not pkeyset <= keyset:
+    raise ValueError(f'Parameter {pkeyset - keyset} not in {defaultconfig}!')
+
+  pathcomponents: list[list[str]] = [] #lists of strings, one for each parameter
+  for key in keys:
+    component = []
+    if isinstance(params[key], list):
+      for value in params[key]:
+        component.append(f'{key}-{value}/')
+    else:
+      component.append(f'{key}-{params[key]}/')
+
+    pathcomponents.append(component)
+
+  return [''.join(combo) for combo in product(*pathcomponents)]
+
+
+def getParamOrder(defaultfile: str) -> list[str]:
+  """
+  Get a list of the parameters as they appear in the config file.
+  """
+  keys = []
+  with open(defaultfile) as f:
+    pattern = re.compile(r'(\S+)\s+(\S+)')
+    for line in f:
+      line = line.strip()
+      if not line or line.startswith('#'):
+        continue
+
+      if m := re.search(pattern, line):
+        param = m.group(1)
+        if param in keys:
+          raise ValueError(f'Duplicate parameter "{param}" found '
+                           f'in {defaultfile}.')
+        else:
+          keys.append(param)
+
+      else:
+        raise ValueError(f'Unexpected line in "{defaultfile}":\n"{line}"')
+
+  return keys
 
 
 # Parameter File Modification
@@ -45,14 +237,14 @@ def getParamDict(paramspath: str, pdirname: PDirNames) -> dict[str, str]:
     raise ValueError(f'Parameter path "{paramspath}" missing delimiter '
                      f'directory "{pdirname.value}".')
 
-  _, remainder = paramspath.split(pdirname.value)
+  _, remainder = re.split(fr'{pdirname.value}-rep\d+', paramspath)
   if remainder and remainder[0] == '/':
     remainder = remainder[1:]
 
   #Remove the other parameters from the remainder:
-  remainder = remainder.split(PDirNames.TPARAMS)[0]
-  remainder = remainder.split(PDirNames.GPARAMS)[0]
-  params = remainder.split(PDirNames.SPARAMS)[0]
+  remainder = re.split(fr'{PDirNames.TPARAMS}-rep\d+', remainder)[0]
+  remainder = re.split(fr'{PDirNames.GPARAMS}-rep\d+', remainder)[0]
+  params = re.split(fr'{PDirNames.SPARAMS}-rep\d+', remainder)[0]
 
   #Organize the parameters by delimiter:
   if not params:
@@ -111,101 +303,6 @@ def subConfig(config: str, pattern: str, value) -> str:
 
   return re.sub(pattern, lambda m: f'{m.group(1)}{value}', config)
 
-
-# Generate Parameter Path Strings
-#_______________________________________________________________________________
-
-
-def treeParamDir(treeparams: dict[str, list], defaultconfig: str):
-  """
-  Create the parameter directories for the given parameters.  Each value could
-  be a single value or a list of values.
-  """
-  return [f'{PDirNames.TPARAMS.value}/{d}'
-          for d in getParamDirs(treeparams, defaultconfig)]
-
-
-def genomeParamDir(genomeparams: dict[str, list], defaultconfig: str):
-  """
-  Create the parameter directories for the given parameters.  Each value could
-  be a single value or a list of values.
-  """
-  return [f'{PDirNames.GPARAMS.value}/{d}'
-          for d in getParamDirs(genomeparams, defaultconfig)]
-
-
-def sequenceParamDir(seqparams: dict[str, list], defaultconfig: str):
-  """
-  Create the parameter directories for the given parameters.  Each value could
-  be a single value or a list of values.
-  """
-  return [f'{PDirNames.SPARAMS.value}/{d}'
-          for d in getParamDirs(seqparams, defaultconfig)]
-
-
-def getParamDirs(params: dict[str, list], defaultconfig: str) -> list[str]:
-  """
-  Create the parameter string for the directory name.  Each parameter could be a
-  single value or a list of values. The directory names look like:
-
-    <PARAMETER_NAME>-<VALUE>/<PARAMETER_NAME>-<VALUE>/.../
-
-  Notes
-  -----
-  - Parameters appear in the same order as in the default config file.
-  """
-  if not params:
-    return ['']
-
-  #Get the parameter order:
-  keys = []
-  for key in getParams(defaultconfig):
-    if key in params:
-      keys.append(key)
-
-  pkeyset = set(params.keys())
-  keyset = set(keys)
-  if not pkeyset <= keyset:
-    raise ValueError(f'Parameter {pkeyset - keyset} not in {defaultconfig}!')
-
-  pathcomponents: list[list[str]] = [] #lists of strings, one for each parameter
-  for key in keys:
-    component = []
-    if isinstance(params[key], list):
-      for value in params[key]:
-        component.append(f'{key}-{value}/')
-    else:
-      component.append(f'{key}-{params[key]}/')
-
-    pathcomponents.append(component)
-
-  return [''.join(combo) for combo in product(*pathcomponents)]
-
-
-def getParams(defaultfile: str) -> list[str]:
-  """
-  Get a list of the parameters as they appear in the config file.
-  """
-  keys = []
-  with open(defaultfile) as f:
-    pattern = re.compile(r'(\S+)\s+(\S+)')
-    for line in f:
-      line = line.strip()
-      if not line or line.startswith('#'):
-        continue
-
-      if m := re.search(pattern, line):
-        param = m.group(1)
-        if param in keys:
-          raise ValueError(f'Duplicate parameter "{param}" found '
-                           f'in {defaultfile}.')
-        else:
-          keys.append(param)
-
-      else:
-        raise ValueError(f'Unexpected line in "{defaultfile}":\n"{line}"')
-
-  return keys
 
 
 # OLD Configfile Modification that are very specific and fragile

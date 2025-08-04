@@ -41,7 +41,7 @@ def main():
 
   #Copy the Snakefile from the template directory to the project directory
   workflow = Path(sys.prefix) / 'share/zombi/workflow/'
-  snakefile = workflow / 'template/Snakefile_template'
+  snakefile = workflow / 'template/Snakefile_template.smk'
   if not snakefile.exists():
     sys.exit(f'Problem with installation: "{snakefile}" not found.')
         

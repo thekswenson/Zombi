@@ -1,6 +1,22 @@
 """
 Rules for running the Zombi simulator.
 
+Final simulated trees will be at directories of the form:
+  SIMDIR/trees/treeparams-rep0/TP1/.../T/
+
+Final simulated genomes will be at directories of the form:
+  SIMDIR/genomes/treeparams-rep0/TP1/.../genomeparams-rep0/GP1/.../G/
+
+Final simulated sequences will be at directories of the form:
+  SIMDIR/sequences/treeparams-rep0/TP1/.../genomeparams-rep0/GP1/.../sequenceparams-rep0/SP1/.../S/
+
+- The `TP1`, `GP1`, and `SP1` are the tree, genome, and sequence parameters,
+  respectively. `rep0` is the replicate number (because any set of parameters
+  for each of the steps can have many replicates).
+- The parameter directories (e.g. `TP1`) are named by the zombi parameters from
+  the config.yaml file, and have a minus `-` separating each parameter name from
+  its value.
+
 Note that, to prevent the simulations from accidentally being rerun, there
 are lock files (e.g. lock_G.flag) that are saved in the simulation directory. To
 rerun the simulation, remove the lock file.
@@ -14,12 +30,15 @@ from pathlib import Path
 
 from zombi.snakemake.parameters import modParams, PDirNames
 from zombi.snakemake.parameters import getTreeParams, getGenomeParams
-from zombi.snakemake.parameters import getSequenceParams
+from zombi.snakemake.parameters import getSequenceParams, zombiSeqParamDirs
+from zombi.snakemake.parameters import zombiTreeParamDirs, zombiGenomeParamDirs
 
 #Config File Globals:
 SIMDIR = str(Path(config.get('SIMDIR', 'simulations')))  #Remove trailing slash
 MAX_THREADS = config.get('MAX_THREADS', 1)
-REPS = int(config.get('REPS', 1))
+TREPS = int(config.get('TREPS', 1))
+GREPS = int(config.get('GREPS', 1))
+SREPS = int(config.get('SREPS', 1))
 
 #Access to config values
 ZOMBI_P = config['ZOMBI']
@@ -34,6 +53,13 @@ SPARAMS = PDirNames.SPARAMS.value
 TREECONFIG = f'Parameters/SpeciesTreeParameters.tsv'
 GENOMECONFIG = f'Parameters/GenomeParameters.tsv'
 SEQCONFIG = f'Parameters/SequenceParameters.tsv'
+if not os.path.exists(TREECONFIG):
+  raise FileNotFoundError(f'Installation problem: "{TREECONFIG}" not found.')
+if not os.path.exists(GENOMECONFIG):
+  raise FileNotFoundError(f'Installation problem: "{GENOMECONFIG}" not found.')
+if not os.path.exists(SEQCONFIG):
+  raise FileNotFoundError(f'Installation problem: "{SEQCONFIG}" not found.')
+
 
 # For the All rule
 #_______________________________________________________________________________
@@ -43,11 +69,11 @@ def buildAllTargetList(wildcards):
   Build the list of ultimate targets based on the settings.
   """
   files = []
-  files += expand(SIMDIR + '/sequences/{tparams}{gparams}{sparams}rep{rep}/S/Genes',
-                  tparams=treeParamDir(ZOMBI_TREEP, TREECONFIG),
-                  gparams=genomeParamDir(ZOMBI_GENP, GENOMECONFIG),
-                  sparams=sequenceParamDir(ZOMBI_SEQP, SEQCONFIG),
-                  rep=range(REPS))
+  files += expand(expand(SIMDIR + '/sequences/{tparams}{gparams}{sparams}S/Genes',
+                         tparams=zombiTreeParamDirs(ZOMBI_TREEP, TREECONFIG),
+                         gparams=zombiGenomeParamDirs(ZOMBI_GENP, GENOMECONFIG),
+                         sparams=zombiSeqParamDirs(ZOMBI_SEQP, SEQCONFIG)),
+                  trep=range(TREPS), grep=range(GREPS), srep=range(SREPS))
 
   return files
 
@@ -56,90 +82,114 @@ def buildAllTargetList(wildcards):
 # Run Zombi 
 #_______________________________________________________________________________
 
+#rule zombi_run_T:
+#  """ Simulate trees. Remove the lock file to rerun! """
+#  input:
+#    paramfile = SIMDIR + '/trees/' + TPARAMS + '-rep{trep}/parameters/SpeciesTreeParameters.tsv',
+#
+#  output:
+#    directory(SIMDIR + '/trees/' + TPARAMS + '-rep{trep}/T'),
+#    SIMDIR + '/trees/' + TPARAMS + '-rep{trep}/{tparams}/T/ExtantTree.nwk',
+#
+#  log:
+#    SIMDIR + '/trees/' + TPARAMS + '-rep{trep}/logs/T.log'
+#
+#  run:
+#    lockfile = Path(SIMDIR + f'/trees/{TPARAMS}-rep{wildcards.trep}/{wildcards.tparams}/lock_T.flag')
+#    if lockfile.exists():
+#      raise WorkflowError(f'Simulation protected by lockfile. Use -t, or to '
+#                           f'rerun remove "{lockfile}"')
+#
+#      #Run the simulation
+#    shell('zombi T {input.paramfile} ' + SIMDIR +
+#          '/trees/{TPARAMS}-rep{wildcards.trep}/{wildcards.tparams} &> {log}')
+#    lockfile.touch()
+
+
 rule zombi_run_T:
   """ Simulate trees. Remove the lock file to rerun! """
   input:
-    paramfile = SIMDIR + '/trees/{tparams}/rep{rep}/parameters/SpeciesTreeParameters.tsv',
+    paramfile = SIMDIR + '/trees/{tparams}/parameters/SpeciesTreeParameters.tsv',
 
   output:
-    directory(SIMDIR + '/trees/{tparams}/rep{rep}/T'),
-    SIMDIR + '/trees/{tparams}/rep{rep}/T/ExtantTree.nwk',
+    directory(SIMDIR + '/trees/{tparams}/T'),
+    SIMDIR + '/trees/{tparams}/T/ExtantTree.nwk',
 
   log:
-    SIMDIR + '/trees/{tparams}/rep{rep}/logs/T.log'
+    SIMDIR + '/trees/{tparams}/logs/T.log'
 
   run:
-    lockfile = Path(SIMDIR + f'/trees/{wildcards.tparams}/rep{wildcards.rep}/lock_T.flag')
+    lockfile = Path(SIMDIR + f'/trees/{wildcards.tparams}/lock_T.flag')
     if lockfile.exists():
       raise WorkflowError(f'Simulation protected by lockfile. Use -t, or to '
                            f'rerun remove "{lockfile}"')
 
       #Run the simulation
     shell('zombi T {input.paramfile} ' + SIMDIR +
-          '/trees/{wildcards.tparams}/rep{wildcards.rep} &> {log}')
+          '/trees/{wildcards.tparams} &> {log}')
     lockfile.touch()
 
 
 rule zombi_run_G:
   """ Simulate genomes. Remove the lock file to rerun! """
   input:
-    SIMDIR + '/genomes/{tgparams}/rep{rep}/T',
-    paramfile = SIMDIR + '/genomes/{tgparams}/rep{rep}/parameters/GenomeParameters.tsv',
+    SIMDIR + '/genomes/{tgparams}/T',
+    paramfile = SIMDIR + '/genomes/{tgparams}/parameters/GenomeParameters.tsv',
 
   output:
-    directory(SIMDIR + '/genomes/{tgparams}/rep{rep}/G'),
-    directory(SIMDIR + '/genomes/{tgparams}/rep{rep}/G/Genomes'),
-    directory(SIMDIR + '/genomes/{tgparams}/rep{rep}/G/Gene_families'),
+    directory(SIMDIR + '/genomes/{tgparams}/G'),
+    directory(SIMDIR + '/genomes/{tgparams}/G/Genomes'),
+    directory(SIMDIR + '/genomes/{tgparams}/G/Gene_families'),
 
   log:
-    SIMDIR + '/genomes/{tgparams}/rep{rep}/logs/G.log'
+    SIMDIR + '/genomes/{tgparams}/logs/G.log'
 
   run:
-    lockfile = Path(SIMDIR + f'/genomes/{wildcards.tgparams}/rep{wildcards.rep}/lock_G.flag')
+    lockfile = Path(SIMDIR + f'/genomes/{wildcards.tgparams}/lock_G.flag')
     if lockfile.exists():
       raise WorkflowError(f'Simulation protected by lockfile. Use -t, or to '
                            f'rerun remove "{lockfile}"')
 
       #Run the simulation
     shell('zombi G {input.paramfile} ' + SIMDIR +
-          '/genomes/{wildcards.tgparams}/rep{wildcards.rep} &> {log}')
+          '/genomes/{wildcards.tgparams} &> {log}')
     lockfile.touch()
 
 
 rule zombi_run_S:
   """ Simulate sequences. Remove the lock file to rerun! """
   input:
-    SIMDIR + '/sequences/{tgsparams}/rep{rep}/G',
-    paramfile = SIMDIR + '/sequences/{tgsparams}/rep{rep}/parameters/SequenceParameters.tsv',
+    SIMDIR + '/sequences/{tgsparams}/G',
+    paramfile = SIMDIR + '/sequences/{tgsparams}/parameters/SequenceParameters.tsv',
 
   output:
-    directory(SIMDIR + '/sequences/{tgsparams}/rep{rep}/S/Genes'),
+    directory(SIMDIR + '/sequences/{tgsparams}/S/Genes'),
 
   log:
-    SIMDIR + '/sequences/{tgsparams}/rep{rep}/logs/S.log',
+    SIMDIR + '/sequences/{tgsparams}/logs/S.log',
 
   threads:
     4       #Curently the S mode of Zombi only uses 4 threads maximum
 
   run:
-    lockfile = Path(SIMDIR + f'/sequences/{wildcards.tgsparams}/rep{wildcards.rep}/lock_S.flag')
+    lockfile = Path(SIMDIR + f'/sequences/{wildcards.tgsparams}/lock_S.flag')
     if lockfile.exists():
       raise WorkflowError(f'Simulation protected by lockfile. Use -t, or to '
                           f'rerun remove "{lockfile}"')
 
       #Run the simulation
     shell('zombi S -p {threads} {input.paramfile} ' + SIMDIR +
-          '/sequences/{wildcards.tgsparams}/rep{wildcards.rep} &> {log}')
+          '/sequences/{wildcards.tgsparams} &> {log}')
     lockfile.touch()
 
 
 rule zombi_link_to_T:
   """ Create a symlink to the T directory in the genomes G directory. """
   input:
-    SIMDIR + '/trees/{tparams}/rep{rep}/T',
+    SIMDIR + '/trees/{tparams}/T',
 
   output:
-    directory(SIMDIR + '/genomes/{tparams}/' + GPARAMS + '{gparams}rep{rep}/T'),
+    directory(SIMDIR + '/genomes/{tparams}/' + GPARAMS + '{gparams}/T'),
 
   run:
     #Path(str(output)).symlink_to(f'{os.getcwd()}/{input}')
@@ -149,14 +199,14 @@ rule zombi_link_to_T:
 rule zombi_link_to_TG:
   """ Create a symlink to the S directory in the genomes G directory. """
   input:
-    treedir=SIMDIR + '/trees/{tparams}/rep{rep}/T',
-    genomedir=SIMDIR + '/genomes/{tparams}/' + GPARAMS + '{gparams}rep{rep}/G',
+    treedir=SIMDIR + '/trees/{tparams}/T',
+    genomedir=SIMDIR + '/genomes/{tparams}/' + GPARAMS + '{gparams}G',
 
   output:
     treelink=directory(SIMDIR + '/sequences/{tparams}/' + GPARAMS + '{gparams}' + 
-                       SPARAMS + '{sparams}rep{rep}/T'),
+                       SPARAMS + '{sparams}/T'),
     genomelink=directory(SIMDIR + '/sequences/{tparams}/' + GPARAMS + '{gparams}' + 
-                         SPARAMS + '{sparams}rep{rep}/G'),
+                         SPARAMS + '{sparams}/G'),
 
   run:
     #Path(str(output.treelink)).symlink_to(f'{os.getcwd()}/{input.treedir}')
@@ -175,13 +225,13 @@ rule zombi_positional_orthologs:
   Get the positional orthologs file from the Zombi output.
   """
   input:
-    SIMDIR + '/genomes/{gparams}/rep{rep}/G/Gene_families',
+    SIMDIR + '/genomes/{gparams}/G/Gene_families',
 
   output:
-    SIMDIR + '/genomes/{gparams}/rep{rep}/positional_orthologs-z_orig.json',
+    SIMDIR + '/genomes/{gparams}/positional_orthologs-z_orig.json',
 
   shell:
-    'zombiExporter po ' + SIMDIR + '/{wildcards.gparams}/rep{wildcards.rep} {output}'
+    'zombiExporter po ' + SIMDIR + '/{wildcards.gparams} {output}'
 
 
 rule zombi_duplications_file:
@@ -189,21 +239,21 @@ rule zombi_duplications_file:
   Create the duplications file for the Zombi output.
   """
   input:
-    SIMDIR + '/genomes/{gparams}/rep{rep}/G/Genomes',
+    SIMDIR + '/genomes/{gparams}/G/Genomes',
 
   output:
-    SIMDIR + '/genomes/{gparams}/rep{rep}/duplication_counts_orig.tsv',
+    SIMDIR + '/genomes/{gparams}/duplication_counts_orig.tsv',
 
   run:
-    shell('zombiExporter dupinfo ' + SIMDIR + '/{wildcards.gparams}/rep{wildcards.rep} {output}')
+    shell('zombiExporter dupinfo ' + SIMDIR + '/{wildcards.gparams} {output}')
 
 
 #rule Zombi_duplicates_file_toproject:
 #  input:
-#    SIMDIR + '/genomes/{zparams}/{rep}/duplication_counts_orig.tsv',
+#    SIMDIR + '/genomes/{zparams}/duplication_counts_orig.tsv',
 #
 #  output:
-#    OUTDIR + '/genomes/{project}/{zparams}/{rep}/duplication_counts.tsv',
+#    OUTDIR + '/genomes/{project}/{zparams}/duplication_counts.tsv',
 #  
 #  shell:
 #    "ln -s '../../../../../{input}' '{output}'"
@@ -221,7 +271,7 @@ rule zombi_parameters_T:
     'Parameters/SpeciesTreeParameters.tsv'
 
   output:
-    SIMDIR + '/trees/{tparams}/rep{rep}/parameters/SpeciesTreeParameters.tsv',
+    SIMDIR + '/trees/{tparams}/parameters/SpeciesTreeParameters.tsv',
 
   run:
     outfile = Path(str(output))
@@ -242,7 +292,7 @@ rule zombi_parameters_G:
     'Parameters/GenomeParameters.tsv'
 
   output:
-    SIMDIR + '/genomes/{gparams}/rep{rep}/parameters/GenomeParameters.tsv',
+    SIMDIR + '/genomes/{tgparams}/parameters/GenomeParameters.tsv',
 
   run:
     outfile = Path(str(output))
@@ -251,7 +301,7 @@ rule zombi_parameters_G:
     #Copy the file
     shutil.copy(str(input), outfile.parent)
     #Substitute the settings
-    modParams(outfile, getGenomeParams(wildcards.gparams))
+    modParams(outfile, getGenomeParams(wildcards.tgparams))
 
 
 rule zombi_parameters_S:
@@ -263,7 +313,7 @@ rule zombi_parameters_S:
     'Parameters/SequenceParameters.tsv'
 
   output:
-    SIMDIR + '/sequences/{sparams}/rep{rep}/parameters/SequenceParameters.tsv',
+    SIMDIR + '/sequences/{zparams}/parameters/SequenceParameters.tsv',
 
   run:
     outfile = Path(str(output))
@@ -272,4 +322,4 @@ rule zombi_parameters_S:
     #Copy the file
     shutil.copy(str(input), outfile.parent)
     #Substitute the settings
-    modParams(outfile, getSequenceParams(wildcards.sparams))
+    modParams(outfile, getSequenceParams(wildcards.zparams))
