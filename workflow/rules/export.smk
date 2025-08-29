@@ -24,16 +24,19 @@ OUTDIR = config['OUTDIR']
 rule Zombi_positional_orthologs_toproject:
   """
   Make a soft link in the inference project directory to the positional
-  orthologs file.
+  orthologs file.  We link to a fully qualified path so that the SIMDIR
+  and OUTDIR don't need to be in the same directory.
   """
   input:
-    SIMDIR + '/{zparams}/rep{rep}/positional_orthologs-z_orig.json',
+    SIMDIR + '/genomes/{zparams}/positional_orthologs-z_orig.json',
 
   output:
-    OUTDIR + '/{project}/{zparams}/rep{rep}/zombi/positional_orthologs-z.json',
+    OUTDIR + '/{project}/{zparams}/zombi/positional_orthologs-z.json',
   
-  shell:
-    "ln -s '../../../../../{input}' '{output}'"
+  run:
+    #Convert the relative path to a fully qualified path:
+    inpath = Path(input[0]).resolve()
+    shell("ln -s '{inpath}' '{output}'")
 
 
 rule export_Zombi_to_MCGP:
@@ -41,21 +44,21 @@ rule export_Zombi_to_MCGP:
   Create MCGP input files in `mcgp_input/` in the simulation directory.
   """
   input:
-    SIMDIR + '/{zparams}/rep{rep}/S/Genes',
-    SIMDIR + '/{zparams}/rep{rep}/G/Genomes',
-    treefile = SIMDIR + '/{zparams}/rep{rep}/T/ExtantTree.nwk',
+    SIMDIR + '/sequences/{zparams}/S/Genes',
+    SIMDIR + '/genomes/{zparams}/G/Genomes',
+    treefile = SIMDIR + '/trees/{zparams}/T/ExtantTree.nwk',
 
   output:
-    exonsdir = directory(SIMDIR + '/{zparams}/rep{rep}/mcgp_input/exons'),
-    dataconfig = SIMDIR + '/{zparams}/rep{rep}/mcgp_input/input_config.yaml',
-    families = SIMDIR + '/{zparams}/rep{rep}/mcgp_input/all_gene_families.yaml',
-    treefile = SIMDIR + '/{zparams}/rep{rep}/mcgp_input/ExtantTree.nwk',
+    exonsdir = directory(SIMDIR + '/sequences/{zparams}/mcgp_input/exons'),
+    dataconfig = SIMDIR + '/sequences/{zparams}/mcgp_input/input_config.yaml',
+    families = SIMDIR + '/sequences/{zparams}/mcgp_input/all_gene_families.yaml',
+    treefile = SIMDIR + '/sequences/{zparams}/mcgp_input/ExtantTree.nwk',
 
   run:
-    datadir = Path(SIMDIR) / f'{wildcards.zparams}/rep{wildcards.rep}/mcgp_input'
+    datadir = Path(SIMDIR) / 'sequences' / wildcards.zparams / 'mcgp_input'
     #Create the BED files with families as names
     shell('zombiExporter bed ' + SIMDIR +
-          '/{wildcards.zparams}/rep{wildcards.rep} {datadir}')
+          '/sequences/{wildcards.zparams} {datadir}')
 
     #Copy the tree file to the output directory
     shutil.copy(input.treefile, output.treefile)
@@ -77,26 +80,28 @@ rule export_Zombi_to_FFGC:
   Create FFGC input files in `ffgc_input/` in the simulation directory.
   """
   input:
-    SIMDIR + '/{zparams}/rep{rep}/S/Genes',
-    SIMDIR + '/{zparams}/rep{rep}/G/Genomes',
+    SIMDIR + '/sequences/{zparams}/S/Genes',
+    SIMDIR + '/genomes/{zparams}/G/Genomes',
 
   output:
-    directory(SIMDIR + '/{zparams}/rep{rep}/ffgc_input')
+    directory(SIMDIR + '/sequences/{zparams}/ffgc_input')
 
   shell:
-    'zombiExporter ffgc ' + SIMDIR + '/{wildcards.zparams}/rep{wildcards.rep} {output}'
+    'zombiExporter ffgc ' + SIMDIR + '/sequences/{wildcards.zparams} {output}'
 
 
-rule Zombi_duplicates_file_toproject:
+rule Zombi_duplicates_file_to_project:
   """
-  Make a soft link in the inference project directory to the duplication counts
-  file.
+  Make a soft link in the inference project directory to the absolute path of
+  the duplication counts file.
   """
   input:
-    SIMDIR + '/{zparams}/rep{rep}/duplication_counts_orig.tsv',
+    SIMDIR + '/genomes/{zparams}/duplication_counts_orig.tsv',
 
   output:
-    OUTDIR + '/{project}/{zparams}/rep{rep}/zombi/duplication_counts.tsv',
+    OUTDIR + '/{project}/{zparams}/zombi/duplication_counts.tsv',
 
-  shell:
-    "ln -s '../../../../../{input}' '{output}'"
+  run:
+    #Convert the relative path to a fully qualified path:
+    inpath = Path(input[0]).resolve()
+    shell("ln -s '{inpath}' '{output}'")

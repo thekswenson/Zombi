@@ -61,6 +61,12 @@ if not os.path.exists(SEQCONFIG):
   raise FileNotFoundError(f'Installation problem: "{SEQCONFIG}" not found.')
 
 
+#### WILDCARD CONSTRAINTS ####
+
+wildcard_constraints:
+  project="[^/]+"  #Prevent `project` from matching across directories
+
+
 # For the All rule
 #_______________________________________________________________________________
 
@@ -231,7 +237,7 @@ rule zombi_positional_orthologs:
     SIMDIR + '/genomes/{gparams}/positional_orthologs-z_orig.json',
 
   shell:
-    'zombiExporter po ' + SIMDIR + '/{wildcards.gparams} {output}'
+    'zombiExporter po ' + SIMDIR + '/genomes/{wildcards.gparams} {output}'
 
 
 rule zombi_duplications_file:
@@ -245,7 +251,7 @@ rule zombi_duplications_file:
     SIMDIR + '/genomes/{gparams}/duplication_counts_orig.tsv',
 
   run:
-    shell('zombiExporter dupinfo ' + SIMDIR + '/{wildcards.gparams} {output}')
+    shell('zombiExporter dupinfo ' + SIMDIR + '/genomes/{wildcards.gparams} {output}')
 
 
 #rule Zombi_duplicates_file_toproject:

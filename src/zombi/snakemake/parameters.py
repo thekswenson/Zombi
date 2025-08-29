@@ -5,7 +5,7 @@ import re
 import sys
 
 from itertools import product
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 # The location of zombi.smk and the export.smk files:
@@ -25,7 +25,7 @@ ZOMBI_EXPORT_SNAKEFILE = str(zombi_export_snakefile)
 #GENOMECONFIG = str(parameters_dir / 'GenomeParameters.yaml')
 #SEQCONFIG = str(parameters_dir / 'SequenceParameters.yaml')
 
-class PDirNames(str, Enum):
+class PDirNames(StrEnum):
   TPARAMS = 'treeparams'
   GPARAMS = 'genomeparams'
   SPARAMS = 'sequenceparams'
@@ -53,6 +53,24 @@ def zombiFullParamDirs(treeparams: dict[str, list], treeconfig: str,
   return dirs
 
 
+def expandZombiFullParamDirs(treeparams: dict[str, list], treeconfig: str,
+                             genomeparams: dict[str, list], genomeconfig: str,
+                             seqparams: dict[str, list], seqconfig: str,
+                             treps: list[int],
+                             greps: list[int],
+                             sreps: list[int]) -> list[str]:
+  """
+  Get the full parameter directories, while expanding the replicate wildcards
+  to all possible combinations.
+  """
+  alldirs = zombiFullParamDirs(treeparams, treeconfig,
+                               genomeparams, genomeconfig,
+                               seqparams, seqconfig)
+  return [d.format(trep=t, grep=g, srep=s)
+          for t, g, s in product(treps, greps, sreps)
+          for d in alldirs]
+
+
 def zombiFullParamStrs(treeparams: dict[str, list], treeconfig: str,
                        genomeparams: dict[str, list], genomeconfig: str,
                        seqparams: dict[str, list], seqconfig: str) -> list[str]:
@@ -76,7 +94,7 @@ def zombiTreeParamDirs(treeparams: dict[str, list], defaultconfig: str) \
   The directories will include replicate wildcards for the tree (trep), genome
   (grep), and sequence (srep) parameters.
   """
-  return [f'{PDirNames.TPARAMS.value}-rep{{trep}}/{d}'
+  return [f'{PDirNames.TPARAMS}-rep{{trep}}/{d}'
           for d in zombiParamDirs(treeparams, defaultconfig)]
 
 
@@ -100,7 +118,7 @@ def zombiGenomeParamDirs(genomeparams: dict[str, list], defaultconfig: str) \
   The directories will include replicate wildcards for the tree (trep), genome
   (grep), and sequence (srep) parameters.
   """
-  return [f'{PDirNames.GPARAMS.value}-rep{{grep}}/{d}'
+  return [f'{PDirNames.GPARAMS}-rep{{grep}}/{d}'
           for d in zombiParamDirs(genomeparams, defaultconfig)]
 
           
@@ -124,7 +142,7 @@ def zombiSeqParamDirs(seqparams: dict[str, list], defaultconfig: str) \
   The directories will include replicate wildcards for the tree (trep), genome
   (grep), and sequence (srep) parameters.
   """
-  return [f'{PDirNames.SPARAMS.value}-rep{{srep}}/{d}'
+  return [f'{PDirNames.SPARAMS}-rep{{srep}}/{d}'
           for d in zombiParamDirs(seqparams, defaultconfig)]
 
 
@@ -156,7 +174,7 @@ def zombiParamDirs(params: dict[str, list], defaultconfig: str) -> list[str]:
 
   #Get the parameter order:
   keys = []
-  for key in getParamOrder(defaultconfig):
+  for key in _getParamOrder(defaultconfig):
     if key in params:
       keys.append(key)
 
@@ -179,7 +197,7 @@ def zombiParamDirs(params: dict[str, list], defaultconfig: str) -> list[str]:
   return [''.join(combo) for combo in product(*pathcomponents)]
 
 
-def getParamOrder(defaultfile: str) -> list[str]:
+def _getParamOrder(defaultfile: str) -> list[str]:
   """
   Get a list of the parameters as they appear in the config file.
   """
@@ -252,10 +270,17 @@ def getParamDict(paramspath: str, pdirname: PDirNames) -> dict[str, str]:
   elif params[-1] == '/':
     params = params[:-1]
 
-  return splitParams(params)
+  try:
+    return _splitParams(params)
+
+  except ValueError as e:
+    message = (f'We were extracting the "{pdirname.value}" parameters from '
+               f'"{paramspath}".\n')
+    raise ValueError(f'\nError extracting parameters from "{params}":  {e}'
+                     f'\n{message}')
 
 
-def splitParams(params: str) -> dict[str, str]:
+def _splitParams(params: str) -> dict[str, str]:
   """ Split the parameters string into a dictionary of key-value pairs. """
   paramdict = {}
   for param in params.split('/'):
@@ -280,13 +305,13 @@ def modParams(configfile: str, paramdict: dict[str, str]):
     c = f.read()
 
   for key, value in paramdict.items():
-    c = subConfig(c, rf'(^\s*{key}\s+)\S+', value)
+    c = _subConfig(c, rf'(^\s*{key}\s+)\S+', value)
 
   with open(configfile, 'w') as f:
     f.write(c)
 
 
-def subConfig(config: str, pattern: str, value) -> str:
+def _subConfig(config: str, pattern: str, value) -> str:
   """
   Modifies a pattern in the given config, if `value` is not None.
   """
@@ -303,6 +328,27 @@ def subConfig(config: str, pattern: str, value) -> str:
 
   return re.sub(pattern, lambda m: f'{m.group(1)}{value}', config)
 
+
+def getParamValues(configfile: str) -> dict[str, str]:
+  """
+  Get a dictionary of default parameters from the configfile.
+  """
+
+  param2val = {}
+  with open(configfile) as f:
+    for line in f:
+      if not line.strip() or line.startswith('#'):
+        continue
+
+      pattern = r'^(\S+)\s+(\S+)'
+      m = re.search(pattern, line)
+      if not m:
+        raise ValueError(f'Unexpected line format in {configfile}:\n'
+                         f'{line.strip()}')
+
+      param2val[m.group(1)] = m.group(2)
+
+  return param2val
 
 
 # OLD Configfile Modification that are very specific and fragile
@@ -609,4 +655,3 @@ def subConfig(config: str, pattern: str, value) -> str:
 #    param2val[param] = value
 #
 #  return param2val
-

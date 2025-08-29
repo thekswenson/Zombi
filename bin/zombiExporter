@@ -63,7 +63,10 @@ def getPosOrthologs(eventsfile, fam='') -> list[list[tuple[str, str]]]:
         f.readline()                       #header
         for line in f:
             _, event, nodespec = line.strip().split('\t')
-            if event == 'S' or event == 'T':            #speciation or transfer
+            if event == 'O':                            #root of gene tree
+                G.add_node((nodespec, f'{fam}1'))
+
+            elif event == 'S' or event == 'T':          #speciation or transfer
                 p, c1, c2 = getNodeNames(nodespec, fam)
                 G.add_edge(p, c1)
                 G.add_edge(p, c2)
@@ -89,15 +92,23 @@ def getPosOrthologs(eventsfile, fam='') -> list[list[tuple[str, str]]]:
 
 def getNodeNames(nodespec: str, prefix: str) \
     -> tuple[tuple[str, str], tuple[str, str], tuple[str, str]]:
-    """ Return the node names.  """
+    """
+    Return the node names. Return
+
+    (parent_species_node, parent_gene_node),
+    (child1_species_node, child1_gene_node),
+    (child2_species_node, child2_gene_node)
+    """
     pn, p, cn1, c1, cn2, c2 = nodespec.split(';')
     return (pn, prefix+p), (cn1, prefix+c1), (cn2, prefix+c2)
 
 
 def getNodeName(nodespec: str, prefix: str) -> tuple[str, str]:
-    """ Return the node name.  """
-    node, id = nodespec.split(';')
-    return (node, prefix+id)
+    """
+    Return the (speciestree_node, genetree_node) tuple.
+    """
+    snode, nid = nodespec.split(';')
+    return (snode, prefix+nid)
 
 
 GFFHEADER = ('##gff-version 3\n'
@@ -149,10 +160,11 @@ def processGeneFamilies(fam2id2genome2rec: dict[str, dict[str, dict[str, SeqReco
 
                 #TODO: the following is a workaround for the case when a gene
                 #is the last surviving representative. The sequence is not
-                #simulated by Zombi in this case, at present.
-                #if family not in fam2id2genome2rec:
-                #    fam2id2genome2rec[family][geneid][genome] = random_seq()
-                #    print(f'Gene {family}_{geneid} not simulated in {genome}. ')
+                #simulated by Zombi in this case, at present!
+                if family not in fam2id2genome2rec:
+                    fam2id2genome2rec[family][geneid][genome] = random_seq()
+                    print(f'Loner gene {family}_{geneid} not simulated in '
+                          f'{genome}. ')
 
                 rec = fam2id2genome2rec[family][geneid][genome]
                 genomesequence += rec
@@ -276,14 +288,14 @@ def export_PositionalOrthologs(args):
                                                  '' if no_family else fam+'_')
 
     with open(out_file, 'w') as f:
-        json.dump({'comment': 'Map family to positional ortholog lists. Each '
-                              'list has pairs (species, geneid). Produced by '
-                              'ZombiExporter.', 'data': fam2orthosets},
+        json.dump({'comment': 'Map gene family to positional ortholog lists. '
+                              'Each list has pairs (species, geneid). Produced '
+                              'by zombiExporter.', 'data': fam2orthosets},
                   f, indent=2)
         #f.write('{"comment": "Map family to positional ortholog lists. Each '
-        #        'list has pairs (species, geneid). Produced by ZombiExporter."'
+        #        'list has pairs (species, geneid). Produced by zombiExporter."'
         #f.write('{"comment": "Map family to positional ortholog lists. Each '
-        #        'list has pairs (species, geneid). Produced by ZombiExporter."'
+        #        'list has pairs (species, geneid). Produced by zombiExporter."'
         #        ',\n"data": {\n')
         #left = len(fam2orthosets)
         #for fam, orthosets in fam2orthosets.items():
