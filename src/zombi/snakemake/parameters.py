@@ -41,7 +41,7 @@ def zombiFullParamDirs(treeparams: dict[str, list], treeconfig: str,
   """
   Generate the list of parameter directories.
   The directories will include replicate wildcards for the tree (trep), genome
-  (grep), and sequence (srep) parameters.
+  (grep), and sequence (srep) parameters. Directories will end with a slash '/'.
   """
   treedirs = zombiTreeParamDirs(treeparams, treeconfig)
   genomedirs = zombiGenomeParamDirs(genomeparams, genomeconfig)
@@ -61,7 +61,8 @@ def expandZombiFullParamDirs(treeparams: dict[str, list], treeconfig: str,
                              sreps: list[int]) -> list[str]:
   """
   Get the full parameter directories, while expanding the replicate wildcards
-  to all possible combinations.
+  to all possible combinations. The directories returned by this function will
+  end with a slash '/'.
   """
   alldirs = zombiFullParamDirs(treeparams, treeconfig,
                                genomeparams, genomeconfig,
@@ -91,8 +92,7 @@ def zombiTreeParamDirs(treeparams: dict[str, list], defaultconfig: str) \
   """
   Create the parameter directories for the given parameters.  Each value could
   be a single value or a list of values.
-  The directories will include replicate wildcards for the tree (trep), genome
-  (grep), and sequence (srep) parameters.
+  The directories will include replicate wildcards for the tree (trep).
   """
   return [f'{PDirNames.TPARAMS}-rep{{trep}}/{d}'
           for d in zombiParamDirs(treeparams, defaultconfig)]
@@ -103,11 +103,29 @@ def zombiTreeParamStrs(treeparams: dict[str, list], defaultconfig: str) \
   """
   Create the parameter strings for the given parameters.  This is the same as
   `zombiTreeParamDirs()`, but replaces slashes '/' with underscores '_'.
-  The names will include replicate wildcards for the tree (trep), genome
-  (grep), and sequence (srep) parameters.
+  The names will include replicate wildcards for the tree (trep).
   """
   return [d.replace('/', '_').strip('_')
           for d in zombiTreeParamDirs(treeparams, defaultconfig)]
+
+
+def expandZombiGenomeParamDirs(treeparams: dict[str, list], treeconfig: str,
+                               genomeparams: dict[str, list], genomeconfig: str,
+                               treps: list[int],
+                               greps: list[int]) -> list[str]:
+  """
+  Get the parameter directories for genomes, while expanding the replicate
+  wildcards to all possible combinations. The directories returned by this
+  function will end with a slash '/'.
+  """
+  treedirs = zombiTreeParamDirs(treeparams, treeconfig)
+  genomedirs = zombiGenomeParamDirs(genomeparams, genomeconfig)
+  alldirs = []
+  for tdir, gdir in product(treedirs, genomedirs):
+    alldirs.append(f'{tdir}{gdir}')
+
+  return [d.format(trep=t, grep=g) for t, g in product(treps, greps)
+          for d in alldirs]
 
 
 def zombiGenomeParamDirs(genomeparams: dict[str, list], defaultconfig: str) \
@@ -115,20 +133,18 @@ def zombiGenomeParamDirs(genomeparams: dict[str, list], defaultconfig: str) \
   """
   Create the parameter directories for the given parameters.  Each value could
   be a single value or a list of values.
-  The directories will include replicate wildcards for the tree (trep), genome
-  (grep), and sequence (srep) parameters.
+  The directories will include replicate wildcards for the genome (grep).
   """
   return [f'{PDirNames.GPARAMS}-rep{{grep}}/{d}'
           for d in zombiParamDirs(genomeparams, defaultconfig)]
 
-          
+ 
 def zombiGenomeParamStrs(genomeparams: dict[str, list], defaultconfig: str) \
   -> list[str]:
   """
   Create the parameter strings for the given parameters.  This is the same as
   `zombiGenomeParamDirs()`, but replaces slashes '/' with underscores '_'.
-  The names will include replicate wildcards for the tree (trep), genome
-  (grep), and sequence (srep) parameters.
+  The names will include replicate wildcards for the genome (grep).
   """
   return [d.replace('/', '_').strip('_')
           for d in zombiGenomeParamDirs(genomeparams, defaultconfig)]
@@ -139,8 +155,7 @@ def zombiSeqParamDirs(seqparams: dict[str, list], defaultconfig: str) \
   """
   Create the parameter directories for the given parameters.  Each value could
   be a single value or a list of values.
-  The directories will include replicate wildcards for the tree (trep), genome
-  (grep), and sequence (srep) parameters.
+  The directories will include replicate wildcards for the sequence (srep).
   """
   return [f'{PDirNames.SPARAMS}-rep{{srep}}/{d}'
           for d in zombiParamDirs(seqparams, defaultconfig)]
@@ -151,8 +166,7 @@ def zombiSeqParamStrs(seqparams: dict[str, list], defaultconfig: str) \
   """
   Create the parameter strings for the given parameters.  This is the same as
   `zombiSeqParamDirs()`, but replaces slashes '/' with underscores '_'.
-  The names will include replicate wildcards for the tree (trep), genome
-  (grep), and sequence (srep) parameters.
+  The names will include replicate wildcards for the sequence (srep).
   """
   return [d.replace('/', '_').strip('_')
           for d in zombiSeqParamDirs(seqparams, defaultconfig)]

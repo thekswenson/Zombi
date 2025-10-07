@@ -21,6 +21,23 @@ OUTDIR = config['OUTDIR']
 # Process Zombi Output
 #____________________________________________________________________________
 
+rule Zombi_duplicates_file_to_project:
+  """
+  Make a soft link in the inference project directory to the absolute path of
+  the duplication counts file.
+  """
+  input:
+    SIMDIR + '/genomes/{tgparams}/duplication_counts_orig.tsv',
+
+  output:
+    OUTDIR + '/{project}/{tgparams}/' + SPARAMS + '{sparams}/zombi/duplication_counts.tsv',
+
+  run:
+    #Convert the relative path to a fully qualified path:
+    inpath = Path(input[0]).resolve()
+    shell("ln -s '{inpath}' '{output}'")
+
+
 rule Zombi_positional_orthologs_toproject:
   """
   Make a soft link in the inference project directory to the positional
@@ -28,11 +45,11 @@ rule Zombi_positional_orthologs_toproject:
   and OUTDIR don't need to be in the same directory.
   """
   input:
-    SIMDIR + '/genomes/{zparams}/positional_orthologs-z_orig.json',
+    SIMDIR + '/genomes/{tgparams}/positional_orthologs-z_orig.json',
 
   output:
-    OUTDIR + '/{project}/{zparams}/zombi/positional_orthologs-z.json',
-  
+    OUTDIR + '/{project}/{tgparams}/' + SPARAMS + '{sparams}/zombi/positional_orthologs-z.json',
+
   run:
     #Convert the relative path to a fully qualified path:
     inpath = Path(input[0]).resolve()
@@ -45,7 +62,7 @@ rule export_Zombi_to_MCGP:
   """
   input:
     SIMDIR + '/sequences/{zparams}/S/Genes',
-    SIMDIR + '/genomes/{zparams}/G/Genomes',
+    SIMDIR + '/sequences/{zparams}/G', #/Genomes',
     treefile = SIMDIR + '/trees/{zparams}/T/ExtantTree.nwk',
 
   output:
@@ -81,27 +98,10 @@ rule export_Zombi_to_FFGC:
   """
   input:
     SIMDIR + '/sequences/{zparams}/S/Genes',
-    SIMDIR + '/genomes/{zparams}/G/Genomes',
+    SIMDIR + '/sequences/{zparams}/G',  #/Genomes',
 
   output:
     directory(SIMDIR + '/sequences/{zparams}/ffgc_input')
 
   shell:
     'zombiExporter ffgc ' + SIMDIR + '/sequences/{wildcards.zparams} {output}'
-
-
-rule Zombi_duplicates_file_to_project:
-  """
-  Make a soft link in the inference project directory to the absolute path of
-  the duplication counts file.
-  """
-  input:
-    SIMDIR + '/genomes/{zparams}/duplication_counts_orig.tsv',
-
-  output:
-    OUTDIR + '/{project}/{zparams}/zombi/duplication_counts.tsv',
-
-  run:
-    #Convert the relative path to a fully qualified path:
-    inpath = Path(input[0]).resolve()
-    shell("ln -s '{inpath}' '{output}'")

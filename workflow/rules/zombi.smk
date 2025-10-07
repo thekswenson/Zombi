@@ -198,29 +198,40 @@ rule zombi_link_to_T:
     directory(SIMDIR + '/genomes/{tparams}/' + GPARAMS + '{gparams}/T'),
 
   run:
+    shutil.copytree(input[0], output[0])
+    #shell(f'cp -r {input[0]} {output[0]}')
     #Path(str(output)).symlink_to(f'{os.getcwd()}/{input}')
     #shell(f'ln -s {os.getcwd()}/{input[0]} {output[0]}')
-    shell(f'cp -r {input[0]} {output[0]}')
+
 
 rule zombi_link_to_TG:
   """ Create a symlink to the S directory in the genomes G directory. """
   input:
     treedir=SIMDIR + '/trees/{tparams}/T',
-    genomedir=SIMDIR + '/genomes/{tparams}/' + GPARAMS + '{gparams}G',
+    gdir=SIMDIR + '/genomes/{tparams}/' + GPARAMS + '{gparams}G',
 
   output:
     treelink=directory(SIMDIR + '/sequences/{tparams}/' + GPARAMS + '{gparams}' + 
                        SPARAMS + '{sparams}/T'),
-    genomelink=directory(SIMDIR + '/sequences/{tparams}/' + GPARAMS + '{gparams}' + 
-                         SPARAMS + '{sparams}/G'),
+    glink=directory(SIMDIR + '/sequences/{tparams}/' + GPARAMS + '{gparams}' + 
+                    SPARAMS + '{sparams}/G'),
+    #genomeslink=directory(SIMDIR + '/sequences/{tparams}/' + GPARAMS +
+    #                      '{gparams}' + SPARAMS + '{sparams}/G/Genomes'),
 
   run:
+    shutil.copytree(input.treedir, output.treelink)
+    try:
+      shutil.copytree(input.gdir, output.glink)
+    except Exception as e:
+      print(f'Error copying {input.gdir} to {output.glink}: {e}')
+      print(list(Path(output.glink).parent.iterdir()))
+      raise
+    #shell(f'cp -r {input.treedir} {output.treelink}')
+    #shell(f'cp -r {input.gdir} {output.glink}')
     #Path(str(output.treelink)).symlink_to(f'{os.getcwd()}/{input.treedir}')
-    #Path(str(output.genomelink)).symlink_to(f'{os.getcwd()}/{input.genomedir}')
+    #Path(str(output.glink)).symlink_to(f'{os.getcwd()}/{input.gdir}')
     #shell(f'ln -s {os.getcwd()}/{input.treedir} {output.treelink}')
-    #shell(f'ln -s {os.getcwd()}/{input.genomedir} {output.genomelink}')
-    shell(f'cp -r {input.treedir} {output.treelink}')
-    shell(f'cp -r {input.genomedir} {output.genomelink}')
+    #shell(f'ln -s {os.getcwd()}/{input.gdir} {output.glink}')
 
 
 # Create extra output files using zombiExporter
@@ -231,13 +242,13 @@ rule zombi_positional_orthologs:
   Get the positional orthologs file from the Zombi output.
   """
   input:
-    SIMDIR + '/genomes/{gparams}/G/Gene_families',
+    SIMDIR + '/genomes/{tgparams}/G/Gene_families',
 
   output:
-    SIMDIR + '/genomes/{gparams}/positional_orthologs-z_orig.json',
+    SIMDIR + '/genomes/{tgparams}/positional_orthologs-z_orig.json',
 
   shell:
-    'zombiExporter po ' + SIMDIR + '/genomes/{wildcards.gparams} {output}'
+    'zombiExporter po ' + SIMDIR + '/genomes/{wildcards.tgparams} {output}'
 
 
 rule zombi_duplications_file:
@@ -245,24 +256,13 @@ rule zombi_duplications_file:
   Create the duplications file for the Zombi output.
   """
   input:
-    SIMDIR + '/genomes/{gparams}/G/Genomes',
+    SIMDIR + '/genomes/{tgparams}/G/Genomes',
 
   output:
-    SIMDIR + '/genomes/{gparams}/duplication_counts_orig.tsv',
+    SIMDIR + '/genomes/{tgparams}/duplication_counts_orig.tsv',
 
   run:
-    shell('zombiExporter dupinfo ' + SIMDIR + '/genomes/{wildcards.gparams} {output}')
-
-
-#rule Zombi_duplicates_file_toproject:
-#  input:
-#    SIMDIR + '/genomes/{zparams}/duplication_counts_orig.tsv',
-#
-#  output:
-#    OUTDIR + '/genomes/{project}/{zparams}/duplication_counts.tsv',
-#  
-#  shell:
-#    "ln -s '../../../../../{input}' '{output}'"
+    shell('zombiExporter dupinfo ' + SIMDIR + '/genomes/{wildcards.tgparams} {output}')
 
 
 # Zombi Input
