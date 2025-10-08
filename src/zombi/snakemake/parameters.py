@@ -18,12 +18,12 @@ ZOMBI_SNAKEFILE = str(zombi_snakefile)
 zombi_export_snakefile = rules / 'export.smk'
 ZOMBI_EXPORT_SNAKEFILE = str(zombi_export_snakefile)
 
-#parameters_dir = share_zombi / 'Parameters'
-#if not parameters_dir.exists():
-#  raise FileNotFoundError(f'Installation problem: "{parameters_dir}" not found.')
-#TREECONFIG = str(parameters_dir / 'SpeciesTreeParameters.yaml')
-#GENOMECONFIG = str(parameters_dir / 'GenomeParameters.yaml')
-#SEQCONFIG = str(parameters_dir / 'SequenceParameters.yaml')
+parameters_dir = share_zombi / 'Parameters'
+if not parameters_dir.exists():
+  raise FileNotFoundError(f'Installation problem: "{parameters_dir}" not found.')
+DEFAULTTREECONFIG = str(parameters_dir / 'SpeciesTreeParameters.tsv')
+DEFAULTGENOMECONFIG = str(parameters_dir / 'GenomeParameters.tsv')
+DEFAULTSEQCONFIG = str(parameters_dir / 'SequenceParameters.tsv')
 
 class PDirNames(StrEnum):
   TPARAMS = 'treeparams'
@@ -240,6 +240,17 @@ def _getParamOrder(defaultfile: str) -> list[str]:
 # Parameter File Modification
 #_______________________________________________________________________________
 
+def getAllParams(paramspath: str) -> dict[str, str]:
+  """
+  Extract all parameter names from the `paramspath` directory string. Note that
+  the given paramspath should not have anything after the sequenceparams.
+  """
+  paramdict = {}
+  for pdirname in PDirNames:
+    paramdict.update(getParamDict(paramspath, pdirname))
+
+  return paramdict
+
 def getTreeParams(paramspath: str) -> dict[str, str]:
   """
   Extract tree parameters from the `paramspath` directory string.
@@ -347,7 +358,6 @@ def getParamValues(configfile: str) -> dict[str, str]:
   """
   Get a dictionary of default parameters from the configfile.
   """
-
   param2val = {}
   with open(configfile) as f:
     for line in f:
