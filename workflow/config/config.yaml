@@ -1,6 +1,8 @@
 ---
 
-REPS: 1                #Repeat each combination of parameters ths many times.
+TREPS: 1               #Repeat each tree param combination this many times.
+GREPS: 1               #Repeat each genome param combination this many times.
+SREPS: 1               #Repeat each sequence param combintion this many times.
 MAX_THREADS: 44        #Never use more than this number of threads.
 SIMDIR: 'simulations'  #The base output directory.
 
