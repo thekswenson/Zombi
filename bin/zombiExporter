@@ -361,8 +361,8 @@ def export_GFF(args):
     out_file: Path = args.OUT_FILE
     use_pieces = args.pieces
     if not use_pieces:
-        raise NotImplementedError('Exporting _GENOME.tsv to GFF is not '
-                                  'yet supported.')
+        raise NotImplementedError('Exporting _GENOME.tsv to GFF is not yet '
+                                  'supported.  Use the -p option.')
 
     genomesdir = proj_dir / GENOMES
 

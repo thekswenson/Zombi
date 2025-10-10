@@ -2,17 +2,19 @@
 Rules for running the Zombi simulator.
 
 Final simulated trees will be at directories of the form:
-  SIMDIR/trees/treeparams-rep0/TP1/.../T/
+  SIMDIR/trees/treeparams-T-rep0/TP1/.../T/
 
 Final simulated genomes will be at directories of the form:
-  SIMDIR/genomes/treeparams-rep0/TP1/.../genomeparams-rep0/GP1/.../G/
+  SIMDIR/genomes/treeparams-T-rep0/TP1/.../genomeparams-G-rep0/GP1/.../G/
 
 Final simulated sequences will be at directories of the form:
-  SIMDIR/sequences/treeparams-rep0/TP1/.../genomeparams-rep0/GP1/.../sequenceparams-rep0/SP1/.../S/
+  SIMDIR/sequences/treeparams-T-rep0/TP1/.../genomeparams-G-rep0/GP1/.../sequenceparams-S-rep0/SP1/.../S/
 
 - The `TP1`, `GP1`, and `SP1` are the tree, genome, and sequence parameters,
   respectively. `rep0` is the replicate number (because any set of parameters
-  for each of the steps can have many replicates).
+  for each of the steps can have many replicates). The mode of each step
+  is included in the parameter directory name, e.g. `-T-` for trees,
+  `-G-` for genomes, and `-S-` for sequences.
 - The parameter directories (e.g. `TP1`) are named by the zombi parameters from
   the config.yaml file, and have a minus `-` separating each parameter name from
   its value.
@@ -29,11 +31,13 @@ import shutil
 from pathlib import Path
 
 from zombi.snakemake.parameters import modParams, PDirNames
+from zombi.snakemake.parameters import extractTreeMode, extractGenomeMode
+from zombi.snakemake.parameters import extractSequenceMode
 from zombi.snakemake.parameters import getTreeParams, getGenomeParams
-from zombi.snakemake.parameters import getSequenceParams, zombiSeqParamDirs
-from zombi.snakemake.parameters import zombiTreeParamDirs, zombiGenomeParamDirs
+from zombi.snakemake.parameters import getSequenceParams
 from zombi.snakemake.parameters import DEFAULTTREECONFIG, DEFAULTGENOMECONFIG
 from zombi.snakemake.parameters import DEFAULTSEQCONFIG
+from zombi.snakemake.parameters import TreeModes, GenomeModes, SequenceModes
 
 #Config File Globals:
 SIMDIR = str(Path(config.get('SIMDIR', 'simulations')))  #Remove trailing slash
@@ -64,6 +68,32 @@ if not os.path.exists(DEFAULTSEQCONFIG):
   raise FileNotFoundError(f'Installation problem: "{DEFAULTSEQCONFIG}" not found.')
 
 
+#Verify that correct MODE values are in the config file:
+try:
+  TMODE = ZOMBI_P['TMODE']
+  if TMODE not in TreeModes:
+    raise ValueError(f'TMODE "{TMODE}" must be one of: {list(TreeModes)}')
+  
+  GMODE = ZOMBI_P['GMODE']
+  if GMODE not in GenomeModes:
+    raise ValueError(f'GMODE "{GMODE}" must be one of: {list(GenomeModes)}')
+
+  SMODE = ZOMBI_P['SMODE']
+  if SMODE not in SequenceModes:
+    raise ValueError(f'SMODE "{SMODE}" must be one of: {list(SequenceModes)}')
+
+except KeyError as e:
+  raise KeyError(f'Missing the mode specifier {e} in config file.')
+
+#To export:
+
+ZOMBIPARAMDIRS = expandZombiFullParamDirs(ZOMBI_P, DEFAULTTREECONFIG,
+                                          DEFAULTGENOMECONFIG, DEFAULTSEQCONFIG,
+                                          TREPS_L, GREPS_L, SREPS_L)
+
+
+
+
 #### WILDCARD CONSTRAINTS ####
 
 wildcard_constraints:
@@ -78,11 +108,8 @@ def buildAllTargetList(wildcards):
   Build the list of ultimate targets based on the settings.
   """
   files = []
-  files += expand(expand(SIMDIR + '/sequences/{tparams}{gparams}{sparams}S/Genes',
-                         tparams=zombiTreeParamDirs(ZOMBI_TREEP, DEFAULTTREECONFIG),
-                         gparams=zombiGenomeParamDirs(ZOMBI_GENP, DEFAULTGENOMECONFIG),
-                         sparams=zombiSeqParamDirs(ZOMBI_SEQP, DEFAULTSEQCONFIG)),
-                  trep=TREPS_L, grep=GREPS_L, srep=SREPS_L)
+  files += expand(SIMDIR + '/sequences/{zparams}S/Genes',
+                  zparams=ZOMBIPARAMDIRS)
 
   return files
 
@@ -109,9 +136,10 @@ rule zombi_run_T:
     if lockfile.exists():
       raise WorkflowError(f'Simulation protected by lockfile. Use -t, or to '
                            f'rerun remove "{lockfile}"')
-
+     
       #Run the simulation
-    shell('zombi T {input.paramfile} ' + SIMDIR +
+    mode = extractTreeMode(wildcards.tparams)
+    shell('zombi {mode} {input.paramfile} ' + SIMDIR +
           '/trees/{wildcards.tparams} &> {log}')
     lockfile.touch()
 
@@ -137,7 +165,8 @@ rule zombi_run_G:
                            f'rerun remove "{lockfile}"')
 
       #Run the simulation
-    shell('zombi G {input.paramfile} ' + SIMDIR +
+    mode = extractGenomeMode(wildcards.tgparams)
+    shell('zombi {mode} {input.paramfile} ' + SIMDIR +
           '/genomes/{wildcards.tgparams} &> {log}')
     lockfile.touch()
 
@@ -164,7 +193,8 @@ rule zombi_run_S:
                           f'rerun remove "{lockfile}"')
 
       #Run the simulation
-    shell('zombi S -p {threads} {input.paramfile} ' + SIMDIR +
+    mode = extractSequenceMode(wildcards.tgsparams)
+    shell('zombi {mode} -p {threads} {input.paramfile} ' + SIMDIR +
           '/sequences/{wildcards.tgsparams} &> {log}')
     lockfile.touch()
 

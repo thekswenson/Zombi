@@ -7,6 +7,7 @@ import sys
 from itertools import product
 from enum import StrEnum
 from pathlib import Path
+from typing import Any
 
 # The location of zombi.smk and the export.smk files:
 share_zombi = Path(sys.prefix) / 'share/zombi'
@@ -30,22 +31,91 @@ class PDirNames(StrEnum):
   GPARAMS = 'genomeparams'
   SPARAMS = 'sequenceparams'
 
+# Enums for Simulation Modes
+class SimModes(StrEnum):
+  pass
+
+class TreeModes(SimModes):
+  T = 'T'    #Basic birth-death tree
+  Tb = 'Tb'  #Basic birth-death tree with branch rates
+  Tp = 'Tp'  #Tree with lineage profiling
+  Ti = 'Ti'  #Input a fixed species tree
+  Tm = 'Tm'  #Massive extinction events
+  Ts = 'Ts'  #Birth-death shift process
+
+class GenomeModes(SimModes):
+  G = 'G'    #Basic genome evolution
+  Gu = 'Gu'  #User defined rates
+  Gf = 'Gf'  #Full genome evolution, with intergenic regions
+  Gm = 'Gm'  #Gene family-wise rates
+
+class SequenceModes(SimModes):
+  S = 'S'    #Basic sequence evolution
+  Su = 'Su'  #User defined rates
+  Sf = 'Sf'  #Full sequences (goes with Gf)
+  Ss = 'Ss'  #Shifting substitution rates
+
+
+# Extract simulation mode from directory
+#_______________________________________________________________________________
+
+def extractTreeMode(path: str) -> str:
+  """
+  Extract the tree mode from the tree parameter string.
+  """
+  mode = extractMode(path, PDirNames.TPARAMS, TreeModes)
+  
+  if mode == TreeModes.Ti:    #TODO: This should be simple to fix
+    raise NotImplementedError('Tree mode "Ti" (input tree) not yet supported '
+                              'for snakemake workflows.')
+
+  return mode
+
+
+def extractGenomeMode(path: str) -> str:
+  """
+  Extract the genome mode from the genome parameter string.
+  """
+  return extractMode(path, PDirNames.GPARAMS, GenomeModes)
+
+
+def extractSequenceMode(path: str) -> str:
+  """
+  Extract the sequence mode from the sequence parameter string.
+  """
+  return extractMode(path, PDirNames.SPARAMS, SequenceModes)
+
+
+def extractMode(path: str, param: PDirNames, modes: type[SimModes]) -> str:
+  """
+  Extract the mode from the given parameter string.
+  """
+  m = re.search(rf'{param.value}-(\w+)-rep(\d+)', path)
+  if not m:
+    raise ValueError(f'Unexpected project path format: "{path}".')
+
+  mode = m.group(1)
+  if mode not in modes:
+    raise ValueError(f'Unexpected mode "{mode}" for parameter "{param.value}" '
+                     f'in "{path}".')
+
+  return mode
+
 
 # Generate Parameter Path Strings
 #_______________________________________________________________________________
 
 
-def zombiFullParamDirs(treeparams: dict[str, list], treeconfig: str,
-                       genomeparams: dict[str, list], genomeconfig: str,
-                       seqparams: dict[str, list], seqconfig: str) -> list[str]:
+def zombiFullParamDirs(params: dict[str, Any], treeconfig: str,
+                       genomeconfig: str, seqconfig: str) -> list[str]:
   """
   Generate the list of parameter directories.
   The directories will include replicate wildcards for the tree (trep), genome
   (grep), and sequence (srep) parameters. Directories will end with a slash '/'.
   """
-  treedirs = zombiTreeParamDirs(treeparams, treeconfig)
-  genomedirs = zombiGenomeParamDirs(genomeparams, genomeconfig)
-  seqdirs = zombiSeqParamDirs(seqparams, seqconfig)
+  treedirs = zombiTreeParamDirs(params['TMODE'], params['SPECIESTREE'], treeconfig)
+  genomedirs = zombiGenomeParamDirs(params['GMODE'], params['GENOME'], genomeconfig)
+  seqdirs = zombiSeqParamDirs(params['SMODE'], params['SEQUENCE'], seqconfig)
   dirs = []
   for tdir, gdir, sdir in product(treedirs, genomedirs, seqdirs):
     dirs.append(f'{tdir}{gdir}{sdir}')
@@ -53,9 +123,10 @@ def zombiFullParamDirs(treeparams: dict[str, list], treeconfig: str,
   return dirs
 
 
-def expandZombiFullParamDirs(treeparams: dict[str, list], treeconfig: str,
-                             genomeparams: dict[str, list], genomeconfig: str,
-                             seqparams: dict[str, list], seqconfig: str,
+def expandZombiFullParamDirs(params: dict[str, Any],
+                             treeconfig: str,
+                             genomeconfig: str,
+                             seqconfig: str,
                              treps: list[int],
                              greps: list[int],
                              sreps: list[int]) -> list[str]:
@@ -64,17 +135,14 @@ def expandZombiFullParamDirs(treeparams: dict[str, list], treeconfig: str,
   to all possible combinations. The directories returned by this function will
   end with a slash '/'.
   """
-  alldirs = zombiFullParamDirs(treeparams, treeconfig,
-                               genomeparams, genomeconfig,
-                               seqparams, seqconfig)
+  alldirs = zombiFullParamDirs(params, treeconfig, genomeconfig, seqconfig)
   return [d.format(trep=t, grep=g, srep=s)
           for t, g, s in product(treps, greps, sreps)
           for d in alldirs]
 
 
-def zombiFullParamStrs(treeparams: dict[str, list], treeconfig: str,
-                       genomeparams: dict[str, list], genomeconfig: str,
-                       seqparams: dict[str, list], seqconfig: str) -> list[str]:
+def zombiFullParamStrs(params: dict[str, Any], treeconfig: str,
+                       genomeconfig: str, seqconfig: str) -> list[str]:
   """
   Generate the list of parameter strings.  This is the `zombiFullParamDirs()`
   with slashes '/' replaced by underscores '_'.
@@ -82,14 +150,14 @@ def zombiFullParamStrs(treeparams: dict[str, list], treeconfig: str,
   (grep), and sequence (srep) parameters.
   """
   return [d.replace('/', '_').strip('_')
-          for d in zombiFullParamDirs(treeparams, treeconfig,
-                                      genomeparams, genomeconfig,
-                                      seqparams, seqconfig)]
+          for d in zombiFullParamDirs(params, treeconfig, genomeconfig,
+                                      seqconfig)]
 
 
-def expandZombiFullParamStrs(treeparams: dict[str, list], treeconfig: str,
-                             genomeparams: dict[str, list], genomeconfig: str,
-                             seqparams: dict[str, list], seqconfig: str,
+def expandZombiFullParamStrs(params: dict[str, Any],
+                             treeconfig: str,
+                             genomeconfig: str,
+                             seqconfig: str,
                              treps: list[int],
                              greps: list[int],
                              sreps: list[int]) -> list[str]:
@@ -97,38 +165,40 @@ def expandZombiFullParamStrs(treeparams: dict[str, list], treeconfig: str,
   Get the full parameter strings, while expanding the replicate wildcards
   to all possible combinations.
   """
-  alldirs = zombiFullParamStrs(treeparams, treeconfig,
-                               genomeparams, genomeconfig,
-                               seqparams, seqconfig)
+  alldirs = zombiFullParamStrs(params, treeconfig, genomeconfig, seqconfig)
   return [d.format(trep=t, grep=g, srep=s)
           for t, g, s in product(treps, greps, sreps)
           for d in alldirs]
 
 
-def zombiTreeParamDirs(treeparams: dict[str, list], defaultconfig: str) \
-  -> list[str]:
+def zombiTreeParamDirs(tmode: str, treeparams: dict[str, list],
+                       defaultconfig: str) -> list[str]:
   """
   Create the parameter directories for the given parameters.  Each value could
   be a single value or a list of values.
   The directories will include replicate wildcards for the tree (trep).
   """
-  return [f'{PDirNames.TPARAMS}-rep{{trep}}/{d}'
+  if tmode not in TreeModes:
+    raise ValueError(f'Unexpected tree mode "{tmode}".')
+
+  return [f'{PDirNames.TPARAMS}-{tmode}-rep{{trep}}/{d}'
           for d in zombiParamDirs(treeparams, defaultconfig)]
 
 
-def zombiTreeParamStrs(treeparams: dict[str, list], defaultconfig: str) \
-  -> list[str]:
+def zombiTreeParamStrs(tmode: str, treeparams: dict[str, list],
+                       defaultconfig: str) -> list[str]:
   """
   Create the parameter strings for the given parameters.  This is the same as
   `zombiTreeParamDirs()`, but replaces slashes '/' with underscores '_'.
   The names will include replicate wildcards for the tree (trep).
   """
   return [d.replace('/', '_').strip('_')
-          for d in zombiTreeParamDirs(treeparams, defaultconfig)]
+          for d in zombiTreeParamDirs(tmode, treeparams, defaultconfig)]
 
 
-def expandZombiGenomeParamDirs(treeparams: dict[str, list], treeconfig: str,
-                               genomeparams: dict[str, list], genomeconfig: str,
+def expandZombiGenomeParamDirs(params: dict[str, Any],
+                               treeconfig: str,
+                               genomeconfig: str,
                                treps: list[int],
                                greps: list[int]) -> list[str]:
   """
@@ -136,8 +206,8 @@ def expandZombiGenomeParamDirs(treeparams: dict[str, list], treeconfig: str,
   wildcards to all possible combinations. The directories returned by this
   function will end with a slash '/'.
   """
-  treedirs = zombiTreeParamDirs(treeparams, treeconfig)
-  genomedirs = zombiGenomeParamDirs(genomeparams, genomeconfig)
+  treedirs = zombiTreeParamDirs(params['TMODE'], params['SPECIESTREE'], treeconfig)
+  genomedirs = zombiGenomeParamDirs(params['GMODE'], params['GENOME'], genomeconfig)
   alldirs = []
   for tdir, gdir in product(treedirs, genomedirs):
     alldirs.append(f'{tdir}{gdir}')
@@ -146,18 +216,21 @@ def expandZombiGenomeParamDirs(treeparams: dict[str, list], treeconfig: str,
           for d in alldirs]
 
 
-def zombiGenomeParamDirs(genomeparams: dict[str, list], defaultconfig: str) \
-  -> list[str]:
+def zombiGenomeParamDirs(gmode: str, genomeparams: dict[str, list],
+                         defaultconfig: str) -> list[str]:
   """
   Create the parameter directories for the given parameters.  Each value could
   be a single value or a list of values.
   The directories will include replicate wildcards for the genome (grep).
   """
-  return [f'{PDirNames.GPARAMS}-rep{{grep}}/{d}'
+  if gmode not in GenomeModes:
+    raise ValueError(f'Unexpected genome mode "{gmode}".')
+
+  return [f'{PDirNames.GPARAMS}-{gmode}-rep{{grep}}/{d}'
           for d in zombiParamDirs(genomeparams, defaultconfig)]
 
  
-def zombiGenomeParamStrs(genomeparams: dict[str, list], defaultconfig: str) \
+def zombiGenomeParamStrs(gmode: str, genomeparams: dict[str, list], defaultconfig: str) \
   -> list[str]:
   """
   Create the parameter strings for the given parameters.  This is the same as
@@ -165,29 +238,32 @@ def zombiGenomeParamStrs(genomeparams: dict[str, list], defaultconfig: str) \
   The names will include replicate wildcards for the genome (grep).
   """
   return [d.replace('/', '_').strip('_')
-          for d in zombiGenomeParamDirs(genomeparams, defaultconfig)]
+          for d in zombiGenomeParamDirs(gmode, genomeparams, defaultconfig)]
 
 
-def zombiSeqParamDirs(seqparams: dict[str, list], defaultconfig: str) \
-  -> list[str]:
+def zombiSeqParamDirs(smode: str, seqparams: dict[str, list],
+                      defaultconfig: str) -> list[str]:
   """
   Create the parameter directories for the given parameters.  Each value could
   be a single value or a list of values.
   The directories will include replicate wildcards for the sequence (srep).
   """
-  return [f'{PDirNames.SPARAMS}-rep{{srep}}/{d}'
+  if smode not in SequenceModes:
+    raise ValueError(f'Unexpected sequence mode "{smode}".')
+
+  return [f'{PDirNames.SPARAMS}-{smode}-rep{{srep}}/{d}'
           for d in zombiParamDirs(seqparams, defaultconfig)]
 
 
-def zombiSeqParamStrs(seqparams: dict[str, list], defaultconfig: str) \
-  -> list[str]:
+def zombiSeqParamStrs(smode: str, seqparams: dict[str, list],
+                      defaultconfig: str) -> list[str]:
   """
   Create the parameter strings for the given parameters.  This is the same as
   `zombiSeqParamDirs()`, but replaces slashes '/' with underscores '_'.
   The names will include replicate wildcards for the sequence (srep).
   """
   return [d.replace('/', '_').strip('_')
-          for d in zombiSeqParamDirs(seqparams, defaultconfig)]
+          for d in zombiSeqParamDirs(smode, seqparams, defaultconfig)]
 
 
 def zombiParamDirs(params: dict[str, list], defaultconfig: str) -> list[str]:
@@ -298,14 +374,14 @@ def getParamDict(paramspath: str, pdirname: PDirNames) -> dict[str, str]:
     raise ValueError(f'Parameter path "{paramspath}" missing delimiter '
                      f'directory "{pdirname.value}".')
 
-  _, remainder = re.split(fr'{pdirname.value}-rep\d+', paramspath)
+  _, remainder = re.split(fr'{pdirname.value}-\w+-rep\d+', paramspath)
   if remainder and remainder[0] == '/':
     remainder = remainder[1:]
 
   #Remove the other parameters from the remainder:
-  remainder = re.split(fr'{PDirNames.TPARAMS}-rep\d+', remainder)[0]
-  remainder = re.split(fr'{PDirNames.GPARAMS}-rep\d+', remainder)[0]
-  params = re.split(fr'{PDirNames.SPARAMS}-rep\d+', remainder)[0]
+  remainder = re.split(fr'{PDirNames.TPARAMS}-\w+-rep\d+', remainder)[0]
+  remainder = re.split(fr'{PDirNames.GPARAMS}-\w+-rep\d+', remainder)[0]
+  params = re.split(fr'{PDirNames.SPARAMS}-\w+-rep\d+', remainder)[0]
 
   #Organize the parameters by delimiter:
   if not params:

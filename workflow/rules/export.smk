@@ -42,26 +42,26 @@ ZOMBI_EXPORT_FFGC_SNAKEFILE = str(PATH_TO_RULES / 'export_FFGC.smk')
 # ZOMBI_P, ZOMBI_TREEP, ZOMBI_GENP, ZOMBI_SEQP
 #____________________________________________________________________________
 
-ZOMBIPARAMDIRS_NOREPS = zombiFullParamDirs(ZOMBI_TREEP, DEFAULTTREECONFIG,
-                                           ZOMBI_GENP, DEFAULTGENOMECONFIG,
-                                           ZOMBI_SEQP, DEFAULTSEQCONFIG)
-ZOMBIPARAMDIRS = expandZombiFullParamDirs(ZOMBI_TREEP, DEFAULTTREECONFIG,
-                                          ZOMBI_GENP, DEFAULTGENOMECONFIG,
-                                          ZOMBI_SEQP, DEFAULTSEQCONFIG,
+ZOMBIPARAMDIRS_NOREPS = zombiFullParamDirs(ZOMBI_P, DEFAULTTREECONFIG,
+                                           DEFAULTGENOMECONFIG, DEFAULTSEQCONFIG)
+#ZOMBIPARAMDIRS included from zombi.smk
+ZOMBIPARAMSTRS_NOREPS = zombiFullParamStrs(ZOMBI_P, DEFAULTTREECONFIG,
+                                           DEFAULTGENOMECONFIG, DEFAULTSEQCONFIG)
+ZOMBIPARAMSTRS = expandZombiFullParamStrs(ZOMBI_P, DEFAULTTREECONFIG,
+                                          DEFAULTGENOMECONFIG, DEFAULTSEQCONFIG,
                                           TREPS_L, GREPS_L, SREPS_L)
-ZOMBIPARAMSTRS_NOREPS = zombiFullParamStrs(ZOMBI_TREEP, DEFAULTTREECONFIG,
-                                           ZOMBI_GENP, DEFAULTGENOMECONFIG,
-                                           ZOMBI_SEQP, DEFAULTSEQCONFIG)
-ZOMBIPARAMSTRS = expandZombiFullParamStrs(ZOMBI_TREEP, DEFAULTTREECONFIG,
-                                          ZOMBI_GENP, DEFAULTGENOMECONFIG,
-                                          ZOMBI_SEQP, DEFAULTSEQCONFIG,
-                                          TREPS_L, GREPS_L, SREPS_L)
-ZOMBITREEPARAMDIRS = zombiTreeParamDirs(ZOMBI_TREEP, DEFAULTTREECONFIG)
-ZOMBITREEPARAMSTRS = zombiTreeParamStrs(ZOMBI_TREEP, DEFAULTTREECONFIG)
-ZOMBIGENOMEPARAMDIRS = zombiGenomeParamDirs(ZOMBI_GENP, DEFAULTGENOMECONFIG)
-ZOMBIGENOMEPARAMSTRS = zombiGenomeParamStrs(ZOMBI_GENP, DEFAULTGENOMECONFIG)
-ZOMBISEQPARAMDIRS = zombiSeqParamDirs(ZOMBI_SEQP, DEFAULTSEQCONFIG)
-ZOMBISEQPARAMSTRS = zombiSeqParamStrs(ZOMBI_SEQP, DEFAULTSEQCONFIG)
+ZOMBITREEPARAMDIRS = zombiTreeParamDirs(ZOMBI_P['TMODE'], ZOMBI_TREEP,
+                                        DEFAULTTREECONFIG)
+ZOMBITREEPARAMSTRS = zombiTreeParamStrs(ZOMBI_P['TMODE'], ZOMBI_TREEP,
+                                        DEFAULTTREECONFIG)
+ZOMBIGENOMEPARAMDIRS = zombiGenomeParamDirs(ZOMBI_P['GMODE'], ZOMBI_GENP,
+                                            DEFAULTGENOMECONFIG)
+ZOMBIGENOMEPARAMSTRS = zombiGenomeParamStrs(ZOMBI_P['GMODE'], ZOMBI_GENP,
+                                            DEFAULTGENOMECONFIG)
+ZOMBISEQPARAMDIRS = zombiSeqParamDirs(ZOMBI_P['SMODE'], ZOMBI_SEQP,
+                                      DEFAULTSEQCONFIG)
+ZOMBISEQPARAMSTRS = zombiSeqParamStrs(ZOMBI_P['SMODE'], ZOMBI_SEQP,
+                                      DEFAULTSEQCONFIG)
 
 
 # Process Zombi Output

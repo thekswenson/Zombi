@@ -16,9 +16,11 @@ SIMDIR: 'simulations'  #The base output directory.
 #When these are lists. All combinations from all lists will be generated.
 #
 ZOMBI:
+  TMODE: 'T'  #Overall tree mode from {T, Tu, Tf, Tm}
   SPECIESTREE:
     #TOTAL_LINEAGES: 5
 
+  GMODE: 'G'  #Genome mode from {G, Gu, Gf, Gm}
   GENOME:
     #INITIAL_GENOME_SIZE: 100
     #MIN_GENOME_SIZE: 10
@@ -37,6 +39,7 @@ ZOMBI:
     #TRANSPOSITION_EXTENSION: 'g:0.5'
     #ORIGINATION_EXTENSION: 'g:0.5'
 
+  SMODE: 'S'  #Sequence mode from {S, Su, Sf, Ss}
   SEQUENCE:
     #SEQUENCE_SIZE: [1000]
     #SEQUENCE: ['nucleotide']    #{nucleotide, amino-acid, codon}
