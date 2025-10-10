@@ -78,7 +78,7 @@ def read_parameters(parameters_file):
     return parameters
 
 
-def read_seed(parameters_file):
+def read_seed(parameters_file: Path):
 
     myseed = 0
 
@@ -100,7 +100,7 @@ def read_seed(parameters_file):
 
     return myseed
 
-def read_empirical_rates(rates_file, scale_rates = 1.0):
+def read_empirical_rates(rates_file: Path, scale_rates = 1.0):
 
     empirical_rates = list()
 
@@ -146,19 +146,20 @@ def obtain_value(value):
 
     return value
 
-def discretize(alpha, ncat, dist="lognorm"):
+def discretize(alpha, ncat, disttype="lognorm"):
 
     # adapted from Kevin Gori
     # Taken from https://gist.github.com/kgori/95f604131ce92ec15f4338635a86dfb9
-    
-    if dist == "gamma":
+
+    if disttype == "gamma":
         dist = ss.gamma(alpha, scale=1 / alpha)
-    elif dist == "lognorm":
+    elif disttype == "lognorm":
         dist = ss.lognorm(s=alpha, scale=numpy.exp(0.5 * alpha**2))
    
     quantiles = dist.ppf(numpy.arange(0, ncat) / ncat)    
     rates = numpy.zeros(ncat, dtype=numpy.double)
-    
+
+    assert isinstance(dist, ss.rv_continuous)
     for i in range(ncat-1):
         rates[i] = ncat * scipy.integrate.quad(lambda x: x * dist.pdf(x), 
                                                quantiles[i], quantiles[i+1])[0]
@@ -214,7 +215,7 @@ def get_complementary_sequence(sequence):
     return new_sequence
 
 
-def fasta_reader(fasta_file):
+def fasta_reader(fasta_file: Path):
 
     with open(fasta_file) as f:
 
@@ -233,7 +234,7 @@ def fasta_reader(fasta_file):
 
         yield header, seq
 
-def fasta_writer(outfile, entries):
+def fasta_writer(outfile: Path, entries):
 
     x = 80
     with open(outfile, "w") as f:
@@ -269,7 +270,7 @@ def prepare_genome_parameters(parameters):
 
     return parameters
 
-def generate_events(tree_file):
+def generate_events(tree_file: Path):
 
     events = []
 
@@ -277,7 +278,7 @@ def generate_events(tree_file):
         treeline = f.readline().strip()
         tree = ete3.Tree(treeline, format=1)
 
-    root = tree.get_tree_root()
+    root: ete3.TreeNode = tree.get_tree_root()
     root.name = "Root"
 
     ## There is probably a better way to write this
@@ -290,6 +291,7 @@ def generate_events(tree_file):
         pass
 
     total_time = root.get_farthest_leaf()[1]
+    assert isinstance(total_time, float)
 
     # There might be slighlty variations in the branch length that we have to account for. So all nodes
     # that are at 0.1% distance of the fathes leaf will be considered to be alive
@@ -298,7 +300,7 @@ def generate_events(tree_file):
 
     nodes = list()
 
-    for node in tree.traverse():
+    for node in tree.traverse():   #type: ignore    
 
         node_dist = node.get_distance(root)
 
@@ -335,7 +337,7 @@ def return_vector_of_distances(self, tree_file):
         self.mytree = ete3.Tree(f.readline().strip(), format=1)
         root = self.mytree.get_tree_root()
         root.name = "Root"
-        for node in self.mytree.traverse():
+        for node in self.mytree.traverse():     #type: ignore
             if node.is_root():
                 continue
 
@@ -694,7 +696,7 @@ def generate_gene_tree(events):
     return completetree, extanttree
 
 
-def write_pruned_sequences(tree_file: str, fasta_folder: str, scaled=False):
+def write_pruned_sequences(tree_file: str, fasta_folder: Path, scaled=False):
     with open(tree_file) as f:
         line = f.readline().strip()
         if "(" not in line or line == ";":
@@ -706,19 +708,19 @@ def write_pruned_sequences(tree_file: str, fasta_folder: str, scaled=False):
     file_name = tree_file.split("/")[-1].split("_")[0]
 
     if not scaled:
-        entries = fasta_reader(fasta_folder + "/" + file_name + "_complete.fasta")
+        entries = fasta_reader(fasta_folder / f"{file_name}_complete.fasta")
     else:
-        entries = fasta_reader(fasta_folder + "/" + file_name + "_substitution_scaled.fasta")
+        entries = fasta_reader(fasta_folder / f"{file_name}_substitution_scaled.fasta")
 
     clean_entries = list()
     for h, seq in entries:
         if h[1:] in surviving_nodes:
             clean_entries.append((h, seq))
 
-    fasta_writer(fasta_folder + "/" + file_name + "_pruned.fasta", clean_entries)
+    fasta_writer(fasta_folder / f"{file_name}_pruned.fasta", clean_entries)
 
 
-def write_sampled_sequences(tree_file, infasta_folder, outfasta_folder):
+def write_sampled_sequences(tree_file: str, infasta_folder: Path, outfasta_folder: Path):
 
     with open(tree_file) as f:
         line = f.readline().strip()
@@ -728,14 +730,14 @@ def write_sampled_sequences(tree_file, infasta_folder, outfasta_folder):
             my_tree = ete3.Tree(line, format=1)
     surviving_nodes = {x.name for x in my_tree.get_leaves()}
     file_name = tree_file.split("/")[-1].split("_")[0]
-    entries = fasta_reader(infasta_folder + "/" + file_name + "_complete.fasta")
+    entries = fasta_reader(infasta_folder / f"{file_name}_complete.fasta")
 
     clean_entries = list()
     for h, seq in entries:
         if h[1:] in surviving_nodes:
             clean_entries.append((h, seq))
 
-    fasta_writer(outfasta_folder + "/" + file_name + "_sampled.fasta", clean_entries)
+    fasta_writer(outfasta_folder / f"{file_name}_sampled.fasta", clean_entries)
 
 
 def parse_GFF(gff_file: str, sort=True) -> Tuple[int, List[SeqFeature]]:
@@ -779,7 +781,7 @@ def parse_GFF(gff_file: str, sort=True) -> Tuple[int, List[SeqFeature]]:
 
         #Assure that the genes are within the sequence length:
     for gene in genes:
-        if gene.location.end > genome_len:
+        if gene.location.end > genome_len:                  #type: ignore
             sys.exit(f'There is a problem in the GFF file!  Either\n'
                      f'  1. the sequence length {genome_len} is incorrect, or\n'
                      f'  2. the feature {gene.id} is larger than the length.\n'
@@ -788,7 +790,7 @@ def parse_GFF(gff_file: str, sort=True) -> Tuple[int, List[SeqFeature]]:
                      f'genome length (e.g. "##sequence-region L_1 1 4412837").')
 
     if sort:                    #sort by start index
-        genes.sort(key=lambda f: f.location.start)
+        genes.sort(key=lambda f: f.location.start)          #type: ignore   
 
     if not genome_len:
         sys.exit(f'No sequence-region directive found in "{gff_file}". '
@@ -815,7 +817,7 @@ class MissingInfoFileError(Exception):
     pass
 
 
-def read_nucleotide_sequences(fasta: str, genome_folder: str,
+def read_nucleotide_sequences(fasta: Path, genome_folder: str,
                               #gene_family_info = 'GeneFamily_info.tsv',
                               initial_genome_info = 'InitialGenome_info.tsv') \
     -> Tuple[Dict[str, SeqRecord], Dict[str, SeqRecord]]:
@@ -829,7 +831,7 @@ def read_nucleotide_sequences(fasta: str, genome_folder: str,
 
     Parameters
     ----------
-    fasta : str
+    fasta : Path
         the file with the sequence
     genome_folder : str
         the folder containing the `gene_family_info` file

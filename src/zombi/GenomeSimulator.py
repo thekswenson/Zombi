@@ -1,4 +1,6 @@
 from __future__ import annotations
+from pathlib import Path
+import sys
 
 import ete3
 from ete3.coretype.tree import TreeNode
@@ -30,7 +32,7 @@ class GenomeSimulator():
         map lineage name to Genome (gene order)
     """
 
-    def __init__(self, parameters, events_file, root_genome: str=''):
+    def __init__(self, parameters, events_file, root_genome: Path|None):
 
         self.parameters = parameters
 
@@ -59,7 +61,7 @@ class GenomeSimulator():
                 self.empirical_rates = af.read_empirical_rates(rates_file=self.parameters["RATE_FILE"])
 
         self.root_genome_file = root_genome     #Get root genome from GFF file.
-        if root_genome and not os.path.exists(root_genome):
+        if root_genome and not root_genome.exists():
             raise(Exception(f"Root genome file {root_genome} not found."))
 
         # A list to keep track of all the event coordinates
@@ -513,11 +515,15 @@ class GenomeSimulator():
     def _read_events_file(self, events_file):
 
         events = list()
-        with open(events_file) as f:
-            f.readline()
-            for line in f:
-                handle = line.strip().split("\t")
-                events.append(handle)
+        try:
+            with open(events_file) as f:
+                f.readline()
+                for line in f:
+                    handle = line.strip().split("\t")
+                    events.append(handle)
+        except FileNotFoundError:
+            sys.exit(f'File "{events_file}" not found. Did you run T mode?')
+
         return events
     
     def read_genome_events_file(self, events_file):
