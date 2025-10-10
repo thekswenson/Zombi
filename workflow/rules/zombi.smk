@@ -32,13 +32,19 @@ from zombi.snakemake.parameters import modParams, PDirNames
 from zombi.snakemake.parameters import getTreeParams, getGenomeParams
 from zombi.snakemake.parameters import getSequenceParams, zombiSeqParamDirs
 from zombi.snakemake.parameters import zombiTreeParamDirs, zombiGenomeParamDirs
+from zombi.snakemake.parameters import DEFAULTTREECONFIG, DEFAULTGENOMECONFIG
+from zombi.snakemake.parameters import DEFAULTSEQCONFIG
 
 #Config File Globals:
 SIMDIR = str(Path(config.get('SIMDIR', 'simulations')))  #Remove trailing slash
 MAX_THREADS = config.get('MAX_THREADS', 1)
 TREPS = int(config.get('TREPS', 1))
+TREPS_L = list(range(TREPS))
 GREPS = int(config.get('GREPS', 1))
+GREPS_L = list(range(GREPS))
 SREPS = int(config.get('SREPS', 1))
+SREPS_L = list(range(SREPS))
+
 
 #Access to config values
 ZOMBI_P = config['ZOMBI']
@@ -50,15 +56,12 @@ TPARAMS = PDirNames.TPARAMS.value
 GPARAMS = PDirNames.GPARAMS.value
 SPARAMS = PDirNames.SPARAMS.value
 
-TREECONFIG = f'Parameters/SpeciesTreeParameters.tsv'
-GENOMECONFIG = f'Parameters/GenomeParameters.tsv'
-SEQCONFIG = f'Parameters/SequenceParameters.tsv'
-if not os.path.exists(TREECONFIG):
-  raise FileNotFoundError(f'Installation problem: "{TREECONFIG}" not found.')
-if not os.path.exists(GENOMECONFIG):
-  raise FileNotFoundError(f'Installation problem: "{GENOMECONFIG}" not found.')
-if not os.path.exists(SEQCONFIG):
-  raise FileNotFoundError(f'Installation problem: "{SEQCONFIG}" not found.')
+if not os.path.exists(DEFAULTTREECONFIG):
+  raise FileNotFoundError(f'Installation problem: "{DEFAULTTREECONFIG}" not found.')
+if not os.path.exists(DEFAULTGENOMECONFIG):
+  raise FileNotFoundError(f'Installation problem: "{DEFAULTGENOMECONFIG}" not found.')
+if not os.path.exists(DEFAULTSEQCONFIG):
+  raise FileNotFoundError(f'Installation problem: "{DEFAULTSEQCONFIG}" not found.')
 
 
 #### WILDCARD CONSTRAINTS ####
@@ -76,10 +79,10 @@ def buildAllTargetList(wildcards):
   """
   files = []
   files += expand(expand(SIMDIR + '/sequences/{tparams}{gparams}{sparams}S/Genes',
-                         tparams=zombiTreeParamDirs(ZOMBI_TREEP, TREECONFIG),
-                         gparams=zombiGenomeParamDirs(ZOMBI_GENP, GENOMECONFIG),
-                         sparams=zombiSeqParamDirs(ZOMBI_SEQP, SEQCONFIG)),
-                  trep=range(TREPS), grep=range(GREPS), srep=range(SREPS))
+                         tparams=zombiTreeParamDirs(ZOMBI_TREEP, DEFAULTTREECONFIG),
+                         gparams=zombiGenomeParamDirs(ZOMBI_GENP, DEFAULTGENOMECONFIG),
+                         sparams=zombiSeqParamDirs(ZOMBI_SEQP, DEFAULTSEQCONFIG)),
+                  trep=TREPS_L, grep=GREPS_L, srep=SREPS_L)
 
   return files
 
@@ -87,29 +90,6 @@ def buildAllTargetList(wildcards):
 
 # Run Zombi 
 #_______________________________________________________________________________
-
-#rule zombi_run_T:
-#  """ Simulate trees. Remove the lock file to rerun! """
-#  input:
-#    paramfile = SIMDIR + '/trees/' + TPARAMS + '-rep{trep}/parameters/SpeciesTreeParameters.tsv',
-#
-#  output:
-#    directory(SIMDIR + '/trees/' + TPARAMS + '-rep{trep}/T'),
-#    SIMDIR + '/trees/' + TPARAMS + '-rep{trep}/{tparams}/T/ExtantTree.nwk',
-#
-#  log:
-#    SIMDIR + '/trees/' + TPARAMS + '-rep{trep}/logs/T.log'
-#
-#  run:
-#    lockfile = Path(SIMDIR + f'/trees/{TPARAMS}-rep{wildcards.trep}/{wildcards.tparams}/lock_T.flag')
-#    if lockfile.exists():
-#      raise WorkflowError(f'Simulation protected by lockfile. Use -t, or to '
-#                           f'rerun remove "{lockfile}"')
-#
-#      #Run the simulation
-#    shell('zombi T {input.paramfile} ' + SIMDIR +
-#          '/trees/{TPARAMS}-rep{wildcards.trep}/{wildcards.tparams} &> {log}')
-#    lockfile.touch()
 
 
 rule zombi_run_T:

@@ -1,22 +1,68 @@
 """
 These are rules built for exporting Zombi simulations to intput formats
-compatible with various downstream analyses.  Currently supported are:
+compatible with various downstream analyses.  See the other exports for
+details on exporting for:
  - MCGP
  - FFGC
 
-The external user of this rules library needs to ensure that OUTDIR is set in
-the config file.
+!!The external user of this rules library needs to ensure that OUTDIR is set in
+the config file!!
 """
 import shutil
 
 from pathlib import Path
 
-from scripts.parameters import makeMCGPDataConfig
-from scripts.fileconversion import exonBEDsFromBEDs
+from zombi.snakemake.parameters import zombiFullParamDirs
+from zombi.snakemake.parameters import expandZombiFullParamDirs
+from zombi.snakemake.parameters import zombiFullParamStrs
+from zombi.snakemake.parameters import expandZombiFullParamStrs
+from zombi.snakemake.parameters import zombiTreeParamDirs
+from zombi.snakemake.parameters import zombiTreeParamStrs
+from zombi.snakemake.parameters import zombiGenomeParamDirs
+from zombi.snakemake.parameters import zombiGenomeParamStrs
+from zombi.snakemake.parameters import zombiSeqParamDirs
+from zombi.snakemake.parameters import zombiSeqParamStrs
+from zombi.snakemake.parameters import DEFAULTTREECONFIG, DEFAULTGENOMECONFIG
+from zombi.snakemake.parameters import DEFAULTSEQCONFIG, PATH_TO_RULES
 
 include: 'zombi.smk'
 
 OUTDIR = config['OUTDIR']
+
+
+# List of application specific export files:
+
+ZOMBI_EXPORT_MCGP_SNAKEFILE = str(PATH_TO_RULES / 'export_MCGP.smk')
+ZOMBI_EXPORT_FFGC_SNAKEFILE = str(PATH_TO_RULES / 'export_FFGC.smk')
+
+
+# Helpful constants for Snakefiles to import when specifying paths
+# See also these in zombi.smk:
+# TREPS, GREPS, SREPS, TREPS_L, GREPS_L, SREPS_L,
+# ZOMBI_P, ZOMBI_TREEP, ZOMBI_GENP, ZOMBI_SEQP
+#____________________________________________________________________________
+
+ZOMBIPARAMDIRS_NOREPS = zombiFullParamDirs(ZOMBI_TREEP, DEFAULTTREECONFIG,
+                                           ZOMBI_GENP, DEFAULTGENOMECONFIG,
+                                           ZOMBI_SEQP, DEFAULTSEQCONFIG)
+ZOMBIPARAMDIRS = expandZombiFullParamDirs(ZOMBI_TREEP, DEFAULTTREECONFIG,
+                                          ZOMBI_GENP, DEFAULTGENOMECONFIG,
+                                          ZOMBI_SEQP, DEFAULTSEQCONFIG,
+                                          TREPS_L, GREPS_L, SREPS_L)
+ZOMBIPARAMSTRS_NOREPS = zombiFullParamStrs(ZOMBI_TREEP, DEFAULTTREECONFIG,
+                                           ZOMBI_GENP, DEFAULTGENOMECONFIG,
+                                           ZOMBI_SEQP, DEFAULTSEQCONFIG)
+ZOMBIPARAMSTRS = expandZombiFullParamStrs(ZOMBI_TREEP, DEFAULTTREECONFIG,
+                                          ZOMBI_GENP, DEFAULTGENOMECONFIG,
+                                          ZOMBI_SEQP, DEFAULTSEQCONFIG,
+                                          TREPS_L, GREPS_L, SREPS_L)
+ZOMBITREEPARAMDIRS = zombiTreeParamDirs(ZOMBI_TREEP, DEFAULTTREECONFIG)
+ZOMBITREEPARAMSTRS = zombiTreeParamStrs(ZOMBI_TREEP, DEFAULTTREECONFIG)
+ZOMBIGENOMEPARAMDIRS = zombiGenomeParamDirs(ZOMBI_GENP, DEFAULTGENOMECONFIG)
+ZOMBIGENOMEPARAMSTRS = zombiGenomeParamStrs(ZOMBI_GENP, DEFAULTGENOMECONFIG)
+ZOMBISEQPARAMDIRS = zombiSeqParamDirs(ZOMBI_SEQP, DEFAULTSEQCONFIG)
+ZOMBISEQPARAMSTRS = zombiSeqParamStrs(ZOMBI_SEQP, DEFAULTSEQCONFIG)
+
 
 # Process Zombi Output
 #____________________________________________________________________________
@@ -54,54 +100,3 @@ rule Zombi_positional_orthologs_toproject:
     #Convert the relative path to a fully qualified path:
     inpath = Path(input[0]).resolve()
     shell("ln -s '{inpath}' '{output}'")
-
-
-rule export_Zombi_to_MCGP:
-  """
-  Create MCGP input files in `mcgp_input/` in the simulation directory.
-  """
-  input:
-    SIMDIR + '/sequences/{zparams}/S/Genes',
-    SIMDIR + '/sequences/{zparams}/G', #/Genomes',
-    treefile = SIMDIR + '/trees/{zparams}/T/ExtantTree.nwk',
-
-  output:
-    exonsdir = directory(SIMDIR + '/sequences/{zparams}/mcgp_input/exons'),
-    dataconfig = SIMDIR + '/sequences/{zparams}/mcgp_input/input_config.yaml',
-    families = SIMDIR + '/sequences/{zparams}/mcgp_input/all_gene_families.yaml',
-    treefile = SIMDIR + '/sequences/{zparams}/mcgp_input/ExtantTree.nwk',
-
-  run:
-    datadir = Path(SIMDIR) / 'sequences' / wildcards.zparams / 'mcgp_input'
-    #Create the BED files with families as names
-    shell('zombiExporter bed ' + SIMDIR +
-          '/sequences/{wildcards.zparams} {datadir}')
-
-    #Copy the tree file to the output directory
-    shutil.copy(input.treefile, output.treefile)
-
-    #Modify the BEDs to make the exon files
-    families = exonBEDsFromBEDs(datadir, Path(output.exonsdir))
-
-    #Write the families file in JSON format
-    with open(Path(output.families), 'w') as f:
-      json.dump(list(families), f)
-
-    #Make the data config file
-    makeMCGPDataConfig(Path(output.dataconfig), 'ExtantTree.nwk',
-                       datadir, Path(output.exonsdir))
-
-
-rule export_Zombi_to_FFGC:
-  """
-  Create FFGC input files in `ffgc_input/` in the simulation directory.
-  """
-  input:
-    SIMDIR + '/sequences/{zparams}/S/Genes',
-    SIMDIR + '/sequences/{zparams}/G',  #/Genomes',
-
-  output:
-    directory(SIMDIR + '/sequences/{zparams}/ffgc_input')
-
-  shell:
-    'zombiExporter ffgc ' + SIMDIR + '/sequences/{wildcards.zparams} {output}'

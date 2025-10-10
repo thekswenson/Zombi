@@ -10,13 +10,12 @@ from pathlib import Path
 
 # The location of zombi.smk and the export.smk files:
 share_zombi = Path(sys.prefix) / 'share/zombi'
-rules = share_zombi / 'workflow/rules'
-zombi_snakefile = rules / 'zombi.smk'
+PATH_TO_RULES = share_zombi / 'workflow/rules'
+zombi_snakefile = PATH_TO_RULES / 'zombi.smk'
 if not zombi_snakefile.exists():
   raise FileNotFoundError(f'Installation problem: "{zombi_snakefile}" not found.')
 ZOMBI_SNAKEFILE = str(zombi_snakefile)
-zombi_export_snakefile = rules / 'export.smk'
-ZOMBI_EXPORT_SNAKEFILE = str(zombi_export_snakefile)
+ZOMBI_EXPORT_SNAKEFILE = str(PATH_TO_RULES / 'export.smk')
 
 parameters_dir = share_zombi / 'Parameters'
 if not parameters_dir.exists():
@@ -25,6 +24,7 @@ DEFAULTTREECONFIG = str(parameters_dir / 'SpeciesTreeParameters.tsv')
 DEFAULTGENOMECONFIG = str(parameters_dir / 'GenomeParameters.tsv')
 DEFAULTSEQCONFIG = str(parameters_dir / 'SequenceParameters.tsv')
 
+# Enum for Parameter Directory Names
 class PDirNames(StrEnum):
   TPARAMS = 'treeparams'
   GPARAMS = 'genomeparams'
@@ -85,6 +85,24 @@ def zombiFullParamStrs(treeparams: dict[str, list], treeconfig: str,
           for d in zombiFullParamDirs(treeparams, treeconfig,
                                       genomeparams, genomeconfig,
                                       seqparams, seqconfig)]
+
+
+def expandZombiFullParamStrs(treeparams: dict[str, list], treeconfig: str,
+                             genomeparams: dict[str, list], genomeconfig: str,
+                             seqparams: dict[str, list], seqconfig: str,
+                             treps: list[int],
+                             greps: list[int],
+                             sreps: list[int]) -> list[str]:
+  """
+  Get the full parameter strings, while expanding the replicate wildcards
+  to all possible combinations.
+  """
+  alldirs = zombiFullParamStrs(treeparams, treeconfig,
+                               genomeparams, genomeconfig,
+                               seqparams, seqconfig)
+  return [d.format(trep=t, grep=g, srep=s)
+          for t, g, s in product(treps, greps, sreps)
+          for d in alldirs]
 
 
 def zombiTreeParamDirs(treeparams: dict[str, list], defaultconfig: str) \
