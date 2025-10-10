@@ -38,6 +38,7 @@ from zombi.snakemake.parameters import getSequenceParams
 from zombi.snakemake.parameters import DEFAULTTREECONFIG, DEFAULTGENOMECONFIG
 from zombi.snakemake.parameters import DEFAULTSEQCONFIG
 from zombi.snakemake.parameters import TreeModes, GenomeModes, SequenceModes
+from zombi.snakemake.parameters import expandZombiFullParamDirs
 
 #Config File Globals:
 SIMDIR = str(Path(config.get('SIMDIR', 'simulations')))  #Remove trailing slash
