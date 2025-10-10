@@ -531,104 +531,148 @@ def simulate_sequences_on_tree(tree_file: str, gene_trees_folder: Path,
                               str(outfolder))
 
 
+#__    ___    ___    ___    ___    ___    ___    ___    ___    ___    ___    __
+#  \__/   \__/   \__/   \__/   \__/   \__/   \__/   \__/   \__/   \__/   \__/
+
 
 def main():
     parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(title='subcommands', dest='subparser')
+    parent = argparse.ArgumentParser(add_help=False)
+    parent.add_argument('PARAMS', type=Path, help='Parameters TSV file')
+    parent.add_argument('PROJECT_DIR', type=Path, help='Name of the experiment directory')
 
-    parser.add_argument("mode", type=str, choices=["T", "Ti", "Tb", "Tp", "Tm", "Ts", "F", "G", "Gu", "Gf", "Gm", "S", "Su", "Sf", "Ss"],
-                                            help="Mode")
-    parser.add_argument("params", type=str, help="Parameters file")
-    parser.add_argument("output", type=str, help="Name of the experiment folder")
-    parser.add_argument("-g", "--genome-root", metavar="GFF_FILE",
-                        help="Seed Gf mode with these ancestral gene intervals")
-    parser.add_argument("-s", "--sequence-root", metavar="FASTA_FILE",
-                        help="Seed Sf mode with this ancestral sequence (use after -g in Gf mode)")
-    parser.add_argument("-p", "--parallel", metavar="NUM_THREADS", type=int, default=0,
-                        help="Use this many threads to simulated sequences (in Sf mode)")
+    parent.add_argument('-f', '--force',
+                        help='Overwrite existing files in PROJECT_DIR')
+
+    p_T = subparsers.add_parser('T', parents=[parent],
+                                help='Species Tree simulation')
+    p_Ti = subparsers.add_parser('Ti', parents=[parent],
+                                 help='Species Tree simulation from input tree '
+                                      '(PARAMS is a newick tree file rather than a parameters file)')
+    p_Tb = subparsers.add_parser('Tb', parents=[parent],
+                                 help='Species Tree simulation with branch-wise rates')
+    p_Tp = subparsers.add_parser('Tp', parents=[parent],
+                                 help='Species Tree simulation with lineage profiling')
+    p_Tm = subparsers.add_parser('Tm', parents=[parent],
+                                 help='Species Tree simulation with mass extinctions')
+    p_Ts = subparsers.add_parser('Ts', parents=[parent],
+                                 help='Species Tree simulation with a birth-death-shift process')
+    
+    p_G = subparsers.add_parser('G', parents=[parent],
+                                help='Genome simulation')
+    p_Gu = subparsers.add_parser('Gu', parents=[parent],
+                                 help='Genome simulation with user-defined rates')
+    p_Gf = subparsers.add_parser('Gf', parents=[parent],
+                                 help='Genome simulation with intergenic sequences')
+    p_Gm = subparsers.add_parser('Gm', parents=[parent],
+                                 help='Genome simulation with gene family-wise rates')
+    
+    p_S = subparsers.add_parser('S', parents=[parent],
+                                help='Sequence simulation')
+    p_Su = subparsers.add_parser('Su', parents=[parent],
+                                 help='Sequence simulation with user-defined rates')
+    p_Sf = subparsers.add_parser('Sf', parents=[parent],
+                                 help='Sequence simulation with intergenic sequence mutation')
+    p_Ss = subparsers.add_parser('Ss', parents=[parent],
+                                 help='Sequence simulation with shifting substitution rates')
+
+
+    p_Gf.add_argument('-g', '--genome-root', metavar='GFF_FILE', type=Path,
+                      help='Make the root genome have these gene intervals')
+
+    p_Sf.add_argument('-p', '--parallel', metavar='NUM_THREADS', type=int, default=0,
+                      help='Use this many threads to simulated sequences')
+    p_Sf.add_argument('-s', '--sequence-root', metavar='FASTA_FILE', type=Path,
+                      help='Seed the root genome with these ancestral sequences '
+                           '(use after -g in Gf mode)')
+
+    p_T.set_defaults(func=T_mode)
+    p_Ti.set_defaults(func=T_mode)
+    p_Tb.set_defaults(func=T_mode)
+    p_Tp.set_defaults(func=T_mode)
+    p_Tm.set_defaults(func=T_mode)
+    p_Ts.set_defaults(func=T_mode)
+    p_G.set_defaults(func=G_mode)
+    p_Gu.set_defaults(func=G_mode)
+    p_Gf.set_defaults(func=G_mode)
+    p_Gm.set_defaults(func=G_mode)
+    p_S.set_defaults(func=S_mode)
+    p_Su.set_defaults(func=S_mode)
+    p_Sf.set_defaults(func=S_mode)
+    p_Ss.set_defaults(func=S_mode)
 
     args = parser.parse_args()
+    if 'func' not in vars(args):
+        parser.print_help()
+        sys.exit() 
 
-    mode, parameters_file, experiment_folder = args.mode, args.params, args.output
+    args.func(args)
+
+
+def T_mode(args):
+    parameters_file = args.PARAMS
+    experiment_folder = args.PROJECT_DIR
+    force_overwrite = args.force
+    advanced_mode = setAdvancedMode(args)
+    Z = Zombi()
+    
+    t_folder = experiment_folder / "T"
+    clear_directory(t_folder, force_overwrite)
+    Z.T(parameters_file, experiment_folder, advanced_mode)
+
+
+def G_mode(args):
+    parameters_file = args.PARAMS
+    experiment_folder = args.PROJECT_DIR
+    force_overwrite = args.force
     root_gff = args.genome_root
-    root_fasta = args.sequence_root
-    num_threads = args.parallel
-
-    if len(mode) == 1:
-        main_mode = mode[0]
-        advanced_mode = "0"
-
-    elif len(mode) == 2:
-        main_mode = mode[0]
-        advanced_mode = mode[1]
-
-    else:
-        raise(Exception("Incorrect value for mode"))
-
-        #NOTE: following could potentially be used in normal G and S modes...
-    if root_gff and not mode == 'Gf':
-        sys.exit(f'-g can only be used with the Gf mode.')
-    if root_fasta and not mode == 'Sf':
-        sys.exit(f'-s can only be used with the Sf mode.')
-
-
+    advanced_mode = setAdvancedMode(args)
     Z = Zombi()
 
-    if main_mode == "T":
-
-        if not os.path.isdir(experiment_folder):
-            os.mkdir(experiment_folder)
-
-        if not os.path.isdir(os.path.join(experiment_folder, "T")):
-            os.mkdir(os.path.join(experiment_folder, "T"))
-            Z.T(parameters_file, experiment_folder, advanced_mode)
-
-        else:
-
-            # print("T folder already present in experiment folder. Please, remove previous existing data to proceed.")
-            # print("For instance: rm -r ./" + (os.path.join(experiment_folder, "T")))
-
-            for myfile in os.listdir(os.path.join(experiment_folder, "T")):
-                file_path = os.path.join(os.path.join(experiment_folder, "T"), myfile)
-                if os.path.isfile(file_path):
-                    os.unlink(file_path)
-
-            Z.T(parameters_file, experiment_folder, advanced_mode)
+    genome_folder = experiment_folder / "G"
+    clear_directory(genome_folder, force_overwrite)
+    Z.G(parameters_file, experiment_folder, advanced_mode, root_gff)
 
 
-    elif main_mode == "G":
+def S_mode(args):
+    parameters_file = args.PARAMS
+    experiment_folder = args.PROJECT_DIR
+    force_overwrite = args.force
+    num_threads = args.parallel
+    root_fasta = args.sequence_root
+    advanced_mode = setAdvancedMode(args)
+    Z = Zombi()
 
-        genome_folder = os.path.join(experiment_folder, "G")
-
-        if not os.path.isdir(genome_folder):
-            os.mkdir(genome_folder)
-            Z.G(parameters_file, experiment_folder, advanced_mode, root_gff)
-
-        else:
-            os.system("rm -r " + genome_folder)
-            os.mkdir(genome_folder)
-            Z.G(parameters_file, experiment_folder, advanced_mode, root_gff)
+    sequences_folder = experiment_folder / "S"
+    clear_directory(sequences_folder, force_overwrite)
+    Z.S(parameters_file, experiment_folder, advanced_mode, num_threads,
+        root_fasta)
 
 
-    elif main_mode == "S":
+def setAdvancedMode(args):
+    """
+    Return the second letter of the mode, if there is one, otherwise return '0'.
+    """
+    mode = args.subparser
+    if len(mode) == 1:
+        return '0'
 
-        sequences_folder = os.path.join(experiment_folder, "S")
-      
-        
-        if not os.path.isdir(sequences_folder):
-
-            os.mkdir(sequences_folder)
-            Z.S(parameters_file, experiment_folder, advanced_mode, num_threads, root_fasta)
-        
-        else:
-
-            os.system("rm -r " + sequences_folder)
-            os.mkdir(sequences_folder)
-            
-            Z.S(parameters_file, experiment_folder, advanced_mode, num_threads, root_fasta)
-
+    elif len(mode) == 2:
+        return mode[1]
 
     else:
-        print("Incorrect usage. Please select a mode: T, G or S")
+        raise(ValueError('Unrecognized mode format for: "{mode}"'))
+    
+
+def clear_directory(t_folder: Path, force_overwrite: bool) -> None:
+    if t_folder.exists() and not force_overwrite:
+        sys.exit(f'Folder {t_folder} already exists. Please remove it or '
+                 f'choose another PROJECT_DIR')
+
+    shutil.rmtree(t_folder, ignore_errors=True)
+    t_folder.mkdir(parents=True, exist_ok=True)
+
 
 if __name__ == "__main__":
     main()
