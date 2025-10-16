@@ -1,10 +1,10 @@
 import copy
 import abc
-from typing import List, Tuple
-
-from zombi.Genomes import Intergene
+from typing import List, Tuple, TYPE_CHECKING
 
 from .Interval import Interval
+if TYPE_CHECKING:                   #Avoid circular imports
+    from .Genomes import Intergene
 
 # Types:
 T_EVENT = str
@@ -474,8 +474,10 @@ class Loss(EventTwoCuts):
     """
     def __init__(self, int1: Interval, int2: Interval, sbp1: int, sbp2: int,
                  swraplen: int, twraplen: int, lineage: str, time: float,
-                 pseudogenize=False, pseudo_intergene_list: List[Intergene]=None,
-                 pseudo_gene_list: List[Intergene]=None, adjustment_factor=None):
+                 pseudogenize: bool,
+                 pseudo_intergene_list: List['Intergene'],
+                 pseudo_gene_list: List['Intergene'],
+                 adjustment_factor: int):
         """
         Create a Loss event. Either cut out everything between `sbp1` and
         `sbp2`, or turn everything in that region into a big intergene,

@@ -1,16 +1,14 @@
-from collections import defaultdict
-from pathlib import Path
 import sys
 import pyvolve
 import os
 import ete3
-import numpy
-import random
 import re
-from typing import Dict, List, Optional, Set
-from . import AuxiliarFunctions as af
 
+from pathlib import Path
 from Bio.SeqRecord import SeqRecord
+
+from . import AuxiliarFunctions as af
+from .Random import S_RNG, S_NPRNG
 
 
 class SequenceSimulator():
@@ -18,10 +16,6 @@ class SequenceSimulator():
     def __init__(self, parameters, force_nuc_model=False):
 
         self.parameters = parameters
-
-        if self.parameters["SEED"] != 0:
-            random.seed(parameters["SEED"])
-            numpy.random.seed(parameters["SEED"])
 
         self.size = self.parameters["SEQUENCE_SIZE"]
         if force_nuc_model:
@@ -92,7 +86,7 @@ class SequenceSimulator():
         self.correct_names(os.path.join(sequences_folder, fasta_file), name_mapping)
 
     def run_f(self, tree_file, gene_length: int, sequences_folder: Path,
-              sequence: Optional[SeqRecord] = None):
+              sequence: SeqRecord|None = None):
         """
         Simulate full genome sequence evolution for the gene tree.
 
@@ -319,7 +313,7 @@ class SequenceSimulator():
 
     def generate_intergenic_sequences(self, l):
 
-        return("".join(numpy.random.choice(["A", "T", "C", "G"], l)))
+        return("".join(S_NPRNG.choice(["A", "T", "C", "G"], l)))
 
     def get_mapping_internal_names(self, pytree, ettree):
 
@@ -389,8 +383,7 @@ class SequenceSimulator():
         if total == 0:
             return 1000000000000000 # We sent an arbitrarily big number. Probably not the most elegant thing to do
         else:
-            time = numpy.random.exponential(1/total)
-            return time
+            return S_NPRNG.exponential(1/total)
     
     def simulate_shifts(self, events_file: Path):
         
@@ -476,19 +469,19 @@ class SequenceSimulator():
                 current_time += time_to_next_genome_event
                 # A shift event occurs in a randomly selected lineage
                 # First we select that lineage
-                
-                lineage = random.choice(list(self.active_genomes))
-                
-                # The substitution rate changes                
-                    
-                cat = self.category_position[lineage]                  
+
+                lineage = S_RNG.choice(sorted(self.active_genomes))
+
+                # The substitution rate changes
+
+                cat = self.category_position[lineage]
                 oldcat = cat
                 if cat == cats-1:         # Meaning that we are in the border
-                    direction = numpy.random.choice([-1,0])
+                    direction = S_NPRNG.choice([-1,0])
                 elif cat == 0:
-                    direction = numpy.random.choice([0,1])            
+                    direction = S_NPRNG.choice([0,1])            
                 else:
-                    direction = numpy.random.choice([-1,1], p = [0.5,0.5])
+                    direction = S_NPRNG.choice([-1,1], p = [0.5,0.5])
 
                 p = self.category_position[lineage]                    
                 self.category_position[lineage] = p + direction
@@ -745,7 +738,7 @@ class NodeMissingError(Exception):
 node_piecesre = re.compile(r'.*/(\w+)_PIECES.tsv')
 def write_whole_genome(pieces_file: Path, seq_sim: SequenceSimulator,
                        sequences_folder: Path, out_folder: Path,
-                       leaves: Set[str]):
+                       leaves: set[str]):
     """
     Output the genomes specified by the order of the genes and divisions in
     the `pieces_file`.
@@ -760,7 +753,7 @@ def write_whole_genome(pieces_file: Path, seq_sim: SequenceSimulator,
         the sequences are specified here
     out_folder : Path
         put the genomes here
-    leaves : Set[str]
+    leaves : set[str]
         the leaf names
     """
 

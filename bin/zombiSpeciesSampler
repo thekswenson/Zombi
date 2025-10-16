@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-import zombi.AuxiliarFunctions as af
 import argparse
 import os
-import random
-import numpy
+
+from pathlib import Path
+
+import zombi.AuxiliarFunctions as af
+from zombi.Random import RNG, NPRNG
+
 
 class SpeciesSampler():
 

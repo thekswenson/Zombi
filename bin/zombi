@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
-from Bio.SeqRecord import SeqRecord
-from zombi.SpeciesTreeSimulator import SpeciesTreeGenerator
-from zombi.GenomeSimulator import GenomeSimulator
-from zombi.SequenceSimulator import SequenceSimulator, write_whole_genome
-from zombi.Export import whole_genome_to_GFF
-from typing import Dict, Optional
-from pathlib import Path
-from collections import defaultdict
-import zombi.AuxiliarFunctions as af
 import argparse
 import os
 import sys
 import multiprocessing
 import shutil
+
+from concurrent.futures import Future, ProcessPoolExecutor
+from Bio.SeqRecord import SeqRecord
+from typing import Dict, Optional
+from pathlib import Path
+from collections import defaultdict
+
+import zombi.AuxiliarFunctions as af
+from zombi.SpeciesTreeSimulator import SpeciesTreeGenerator
+from zombi.GenomeSimulator import GenomeSimulator
+from zombi.SequenceSimulator import SequenceSimulator, write_whole_genome
+from zombi.Export import whole_genome_to_GFF
+from zombi.Random import seed_G_generators, seed_S_generators, seed_T_generators
+from zombi.Random import T_NPRNG
 
 
 class Zombi():
@@ -37,7 +42,9 @@ class Zombi():
         lengths_file = os.path.join(tree_folder, "Lengths.tsv")
         leaves_file = Path(tree_folder, "Leaves.tsv")
 
-
+        paramdict = af.read_parameters(parameters_file)
+        seed_T_generators(paramdict.get("SEED", 0))
+        parameters = af.prepare_species_tree_parameters(paramdict, T_NPRNG)
 
         if advanced_mode == "i":
 
@@ -52,7 +59,6 @@ class Zombi():
 
         else:
 
-            parameters = af.prepare_species_tree_parameters(af.read_parameters(parameters_file))
             stg = SpeciesTreeGenerator(parameters)
 
             shutil.copy(parameters_file, tree_folder)
@@ -130,13 +136,14 @@ class Zombi():
         parameters = af.prepare_genome_parameters(af.read_parameters(parameters_file))
         events_file = os.path.join(experiment_folder, "T/Events.tsv")
         scaled_file = os.path.join(experiment_folder, "T/ScaledEvents.tsv")
-        genome_folder = os.path.join(experiment_folder, "G")
+        genome_folder = experiment_folder / "G"
         #os.system(f"cp {parameters_file} {genome_folder}")
         shutil.copy(parameters_file, genome_folder)
 
         genomes_folder = os.path.join(genome_folder, "Genomes")
-        gene_families_folder = os.path.join(genome_folder, "Gene_families")
+        gene_families_folder = genome_folder / "Gene_families"
 
+        seed_G_generators(parameters["SEED"])
         gss = GenomeSimulator(parameters, events_file, root_genome)
 
         if advanced_mode == "0":
@@ -244,6 +251,7 @@ class Zombi():
             os.mkdir(genesequences_folder)
 
         parameters = af.prepare_sequence_parameters(af.read_parameters(parameters_file))
+        seed_S_generators(parameters["SEED"])
 
         print("Preparing simulator of sequences")
 

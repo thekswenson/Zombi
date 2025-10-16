@@ -1,13 +1,12 @@
 import ete3
 import numpy
-import copy
 import sys
-import os
 import scipy
 import scipy.stats as ss
 from itertools import tee, zip_longest
 from typing import Dict, List, Set, Tuple, Optional
 from pathlib import Path
+from numpy.random import Generator as npGenerator
 
 from BCBio import GFF
 from Bio.SeqFeature import SeqFeature
@@ -113,7 +112,7 @@ def read_empirical_rates(rates_file: Path, scale_rates = 1.0):
 
     return empirical_rates
 
-def obtain_value(value):
+def obtain_value(value, nprngen: npGenerator) -> float:
 
     handle = value.split(":")
 
@@ -124,25 +123,25 @@ def obtain_value(value):
     elif handle[0] == "n":
         # normal distribution
         params = handle[1].split(";")
-        value = abs(numpy.random.normal(float(params[0]), float(params[1])))
+        value = abs(nprngen.normal(float(params[0]), float(params[1])))
 
     elif handle[0] == "l":
         # lognormal distribution
         params = handle[1].split(";")
-        value = abs(numpy.random.lognormal(float(params[0]), float(params[1])))
+        value = abs(nprngen.lognormal(float(params[0]), float(params[1])))
 
     elif handle[0] == "u":
         # uniform distribution
         params = handle[1].split(";")
-        value = abs(numpy.random.uniform(float(params[0]), float(params[1])))
+        value = abs(nprngen.uniform(float(params[0]), float(params[1])))
 
     elif handle[0] == "g":
         # geometric distribution
-        value = numpy.random.geometric(float(handle[1]))
+        value = float(nprngen.geometric(float(handle[1])))
 
     elif handle[0] == "e":
         # exponential distribution
-        value = numpy.random.exponential(float(handle[1]))
+        value = nprngen.exponential(float(handle[1]))
 
     return value
 
@@ -167,8 +166,8 @@ def discretize(alpha, ncat, disttype="lognorm"):
                                                 quantiles[ncat-1], numpy.inf)[0]
     return rates
 
-def sample_from_dirichlet(n):
-    return numpy.random.dirichlet([1] * n)
+def sample_from_dirichlet(n, nprngen: npGenerator):
+    return nprngen.dirichlet([1] * n)
 
 def prepare_sequence_parameters(parameters):
 
@@ -182,12 +181,12 @@ def prepare_sequence_parameters(parameters):
 
     return parameters
 
-def prepare_species_tree_parameters(parameters):
+def prepare_species_tree_parameters(parameters, nprngen: npGenerator):
 
     for parameter, value in parameters.items():
 
         if parameter == "TURNOVER":
-            parameters[parameter] = obtain_value(value)
+            parameters[parameter] = obtain_value(value, nprngen)
 
         if parameter == "TOTAL_TIME":
             parameters[parameter] = float(value)
@@ -343,7 +342,8 @@ def return_vector_of_distances(self, tree_file):
 
             self.distances_to_root[node.name] = (node, node.get_distance(root))
 
-def choose_advanced_recipient(self, time, alive_lineages, donor):
+def choose_advanced_recipient(self, time, alive_lineages, donor,
+                              nprngen: npGenerator):
 
     # Chooses and advanced recipient according to the logarithm of the phylogenetic distance
 
@@ -365,7 +365,8 @@ def choose_advanced_recipient(self, time, alive_lineages, donor):
         possible_recipients.append(recipient)
         weights.append(td)
 
-    draw = numpy.random.choice(possible_recipients, 1, p= normalize(weights))
+    draw = nprngen.choice(possible_recipients, 1, p= normalize(weights))
+    raise NotImplementedError("This appears to be unfinished")
 
 
 def generate_newick_trees(events):
