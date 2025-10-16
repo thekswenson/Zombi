@@ -35,7 +35,11 @@ class SequenceSimulator():
 
         self.intergenemodel = self.get_intergene_model()
 
-    def run(self, tree_file, sequences_folder):
+
+    def run(self, tree_file: Path, sequences_folder: Path, be_verbose=False):
+
+        if be_verbose:
+            print(f"Simulating sequence for gene family {tree_file.name.split('_')[0]}")
 
         with open(tree_file) as f:
 
@@ -49,11 +53,13 @@ class SequenceSimulator():
         name_mapping = self.get_mapping_internal_names(tree, my_tree)
         partition = pyvolve.Partition(models=self.model, size=self.size)
         evolver = pyvolve.Evolver(tree=tree, partitions=partition)
-        fasta_file = tree_file.split("/")[-1].replace("_completetree.nwk", "_complete").replace(".nwk","") + ".fasta"
-        evolver(seqfile=os.path.join(sequences_folder, fasta_file), ratefile=None, infofile=None, write_anc=True)
+        fasta_file = tree_file.name.replace("_completetree.nwk", "_complete").replace(".nwk","") + ".fasta"
+        fasta_path = sequences_folder / fasta_file
+        evolver(seqfile=fasta_path, ratefile=None, infofile=None, write_anc=True)
 
         # Correct the names
-        self.correct_names(os.path.join(sequences_folder, fasta_file), name_mapping)
+        self.correct_names(fasta_path, name_mapping)
+
 
     def run_u(self, tree_file, sequences_folder):
 
@@ -117,10 +123,11 @@ class SequenceSimulator():
 
                 evolver = pyvolve.Evolver(tree=tree, partitions=partition)
                 fasta_file = tree_file.split("/")[-1].replace("_completetree.nwk", "_complete") + ".fasta"
-                evolver(seqfile=os.path.join(sequences_folder, fasta_file), ratefile=None, infofile=None, write_anc=True)
-                self.correct_names(os.path.join(sequences_folder, fasta_file), name_mapping)
-                
-                
+                fasta_path = sequences_folder / fasta_file
+                evolver(seqfile=fasta_path, ratefile=None, infofile=None, write_anc=True)
+                self.correct_names(fasta_path, name_mapping)
+
+
     def run_s(self, tree_file, gene_length, sequences_folder):
 
         # 
@@ -348,7 +355,8 @@ class SequenceSimulator():
 
         return good_mapping
 
-    def correct_names(self, fasta_file, good_mapping):
+
+    def correct_names(self, fasta_file: Path, good_mapping):
 
         entries = list()
 
@@ -362,6 +370,7 @@ class SequenceSimulator():
 
         af.fasta_writer(fasta_file, entries)
         
+
     def _read_events_file(self, events_file):
 
         events = list()

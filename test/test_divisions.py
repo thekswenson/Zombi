@@ -4,15 +4,17 @@ Unittests for testing the GenomeEvents and how they map coordinates.
 
 import os
 import unittest
+from pathlib import Path
+
 from zombi.GenomeSimulator import GenomeSimulator
 from zombi.Genomes import LEFT, RIGHT
 import zombi.AuxiliarFunctions as af
 
 
-GENOME_PARAMS = 'test/GenomeParametersDivisions.tsv'
-TEST_FOLDER1 = 'test/TestDivisions1/'
-TEST_FOLDER2 = 'test/TestDivisions2/'
-TEST_GENOME_30_6 = 'test/30_6.gff'  #30 bases, 5 * length-3 genomic/intergenomic pairs
+GENOME_PARAMS = Path('test/GenomeParametersDivisions.tsv')
+TEST_FOLDER1 = Path('test/TestDivisions1/')
+TEST_FOLDER2 = Path('test/TestDivisions2/')
+TEST_GENOME_30_6 = Path('test/30_6.gff')  #30 bases, 5 * length-3 genomic/intergenomic pairs
 
 
 class TestDivisions1(unittest.TestCase):

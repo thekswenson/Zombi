@@ -45,12 +45,11 @@ class GeneFamily():
     Attributes
     ----------
     events: list[tuple[str, str, str]]
-        list of events (time, type, location) where time is a string
-        representing a float, type is the single capital character representing
-        the event type (e.g. 'O', 'I', etc.), and location is a ';' delimited
-        list of node names with gene ids (e.g. n16;2;n8;35)
+        list of events (time, type, location) where time is a float , type is
+        the single capital letter representing the event type (e.g. 'O', 'I',
+        etc.), and location is a ';' delimited list of node names with gene ids
+        (e.g. n16;2;n8;35).  See the Zombi wiki for details on the location.
     """
-
     def __init__(self, identifier, time):
 
         self.identifier = identifier    #unique integer
@@ -59,7 +58,7 @@ class GeneFamily():
         self.gff_id = ''                #unique ID from the gff file
 
         self.genes = list()
-        self.events: list[tuple[str, str, str]] = list()
+        self.events: list[tuple[float, str, str]] = list()
         self.event_counter = 0  # Each time that the family is modified in any form, we have to update the event counter
         self.gene_ids_counter = 0
 
@@ -69,12 +68,12 @@ class GeneFamily():
         self.initial_orientation = "" # The initial orientation of the family
 
 
-    def register_event(self, time, event, genes):
+    def append_event(self, time: float, event: str, genes: str):
 
         self.events.append((time, event, genes))
 
 
-    def generate_tree(self):
+    def generate_tree(self) -> tuple[str, str, str]:
 
         def find_descendant(surviving_nodes, node):
 
@@ -101,7 +100,7 @@ class GeneFamily():
 
         family_size = 0
 
-        for current_time, event, nodes in events[::-1]:
+        for current_time, event, nodes in reversed(events):
 
             if event == "F":
 
@@ -255,31 +254,27 @@ class GeneFamily():
                     equick_nodes[c2name] = myc2
 
         if family_size == 0:
-
-            extanttree = ";"
+            extanttreestr = ";"
 
         elif family_size == 1:
-
-
-            extanttree = [k for k, v in surviving_nodes.items() if v["state"] == 1 and v["descendant"] == "None"][
+            extanttreestr = [k for k, v in surviving_nodes.items() if v["state"] == 1 and v["descendant"] == "None"][
                              0] + ";"
-
         else:
-
-            extanttree = extanttree.write(format=1, format_root_node=True)
+            extanttreestr = extanttree.write(format=1, format_root_node=True)
 
 
         rec = completetree.getTreeRecPhyloXML()
 
         if len(completetree) == 0:
-            completetree = ";"
+            completetreestr = ";"
         elif len(completetree) == 1:
-            completetree = completetree.get_leaves()[0].name + ";"
+            completetreestr = completetree.get_leaves()[0].name + ";"
         else:
-            completetree = completetree.write(format=1, format_root_node=True)
+            completetreestr = completetree.write(format=1, format_root_node=True)
 
-
-        return completetree, extanttree, rec
+        assert isinstance(completetreestr, str)
+        assert isinstance(extanttreestr, str)
+        return completetreestr, extanttreestr, rec
 
 
     def generate_oldtree(self):
@@ -308,7 +303,7 @@ class GeneFamily():
 
                 myname = sp + "_" + gp
                 mynode = tree & myname
-                mynode.is_active = False
+                mynode.is_active = False        #type: ignore
 
                 gc1 = mynode.add_child(dist=0)
                 gc1.name = c1 + "_" + g1
@@ -322,13 +317,13 @@ class GeneFamily():
                 sp, gp = nodes.split(";")
                 myname = sp + "_" + gp
                 mynode = tree & myname
-                mynode.is_active = False
+                mynode.is_active = False        #type: ignore
 
             elif event == "L":
                 sp, gp = nodes.split(";")
                 myname = sp + "_" + gp
                 mynode = tree & myname
-                mynode.is_active = False
+                mynode.is_active = False        #type: ignore
 
             elif event == "D" or event == "U":
 
@@ -336,7 +331,7 @@ class GeneFamily():
                 myname = sp + "_" + gp
                 mynode = tree & myname
 
-                mynode.is_active = False
+                mynode.is_active = False        #type: ignore
 
                 gc1 = mynode.add_child(dist=0)
                 gc1.name = c1 + "_" + g1
@@ -352,7 +347,7 @@ class GeneFamily():
                 myname = sp + "_" + gp
 
                 mynode = tree & myname
-                mynode.is_active = False
+                mynode.is_active = False        #type: ignore
 
                 gc1 = mynode.add_child(dist=0)
                 gc1.name = c1 + "_" + g1
@@ -402,7 +397,7 @@ class Gene():
     """
     Attributes
     ----------
-    gene_family: str
+    family: str
         the name of the gene family
     gene_id: int
         the unique identifier of the gene within the family
@@ -433,8 +428,8 @@ class Gene():
                               # or replaced (warning even events like transfer,
                               # duplication, speciation will deactivate a gene)
         self.orientation = ""
-        self.gene_family = "" # FIX this variable should have the same name that the division one
-        self.gene_id = -1  # FIX this variable should have the same name that the division one
+        self.family = ""      # FIX this variable should have the same name that the division one
+        self.gene_id = -1     # FIX this variable should have the same name that the division one
         self.sequence = ""
         self.species = ""
         self.importance = 0
@@ -464,14 +459,14 @@ class Gene():
 
     def __str__(self):
 
-        myname = "_".join(map(str, (self.gene_family, self.length)))
+        myname = "_".join(map(str, (self.family, self.length)))
         #myname = "_".join(map(str, (self.gene_family, self.orientation)))
         #myname = str(self.gene_family) + "_" + str(self.gene_id)
         #myname = "_".join(map(str, (self.gene_family, self.length)))
         return myname
 
     def __repr__(self):
-        return f'{self.gene_family}_{self.gene_id}'
+        return f'{self.family}_{self.gene_id}'
 
     def __len__(self):
         return self.length
@@ -486,21 +481,21 @@ class Division():
     events: list
         a list with all the events affecting this division
     """
-    def __init__(self, identity: int, division_family: str, specific_flanking: T_PAIR = None):
+    def __init__(self, identity: int, division_family: int, specific_flanking: T_PAIR|None=None):
         
         self.orientation = "+"
         self.identity = identity # Specific identifier of this division
-        self.division_family = division_family # The name of the division family
+        self.family = division_family # The name of the division family
         self.specific_flanking: T_PAIR
         self.length = 0
         if specific_flanking:
             self.specific_flanking = specific_flanking   #: not pythonic (both inclusive)
             self.set_length()
-        #self.total_flanking: T_PAIR
         self.ptype = "Divi" # Piece type, for debugging purposes
         self.species = ""
+        self.total_flanking: T_PAIR
 
-        self.initial_sequence = None # The initial sequence if the gene comes from a pseudogenization
+        self.initial_sequence = "" # The initial sequence if the gene comes from a pseudogenization
 
     def change_sense(self):
 
@@ -513,7 +508,7 @@ class Division():
         self.length = int(abs(self.specific_flanking[1] - self.specific_flanking[0]))
         
     def __str__(self):
-        return  str(self.division_family) + "_" + str(self.length) + "_" + str(self.specific_flanking)
+        return  str(self.family) + "_" + str(self.length) + "_" + str(self.specific_flanking)
 
     def __len__(self) -> int:
         return self.length
@@ -569,8 +564,8 @@ class Intergene():
 
     def inSpecific(self, sc:int) -> bool:
         return self.specific_flanking[0] <= sc <= self.specific_flanking[1]
-    
-    def create_division(self, identity, division_family, specific_flanking):
+
+    def create_division(self, identity: int, division_family, specific_flanking):
         """
         """
         division = Division(identity, division_family, specific_flanking)
@@ -582,9 +577,12 @@ class Intergene():
         #return "(" + str(self.length) + ")"
         #return "I_" + str(self.length)
         #return "I_" + str(self.id) + "_" + str(self.length)
-        if not self.specific_flanking:
-            raise(Exception("Specific flanking indices not innitilized yet!"))
-        return "I_" + str(self.specific_flanking) 
+        #if not self.specific_flanking:
+        #    raise(Exception("Specific flanking indices not innitilized yet!"))
+        #return "I_" + str(self.specific_flanking) 
+        if not self.total_flanking:
+            raise(Exception("Total flanking indices not innitilized yet!"))
+        return "I_" + str(self.total_flanking) 
     
     def __iter__(self):
 
@@ -594,42 +592,48 @@ class Intergene():
     def __len__(self):
        return self.length
 
+
 class DivisionFamily():
     """
     A division family is akin to a GeneFamily. It stores all the events in an
-    ensemble of homologous divisions
+    ensemble of homologous divisions.
 
     Attributes
     ----------
-
+    events: list[tuple[str, str, str]]
+        list of events (time, type, location) where time is a float , type is
+        the single capital letter representing the event type (e.g. 'O', 'E',
+        'L', 'F', 'L', 'D', 'U', 'T', 'S'), and location is a ';' delimited list
+        of node names with division ids (e.g. n16;2;n8;35).  See the Zombi wiki
+        for details on the location.
     """
-    def __init__(self, id = str, initial_specific_flanking  = T_PAIR):
+    def __init__(self, id: int, initial_specific_flanking: T_PAIR):
 
         self.id = id
-        self.events = list()
+        self.events: list[tuple[float, str, str]] = list()
         self.gene_ids_counter = 1
         self.initial_flanking  = initial_specific_flanking
-        self.initial_orientation = None
+        self.initial_orientation = ""
 
-    def register_event(self, time, event, divisions):
+    def append_event(self, time: float, event: str, divisions: str):
         self.events.append((time, event, divisions))
     
-    def obtain_new_identifier(self):
+    def obtain_new_identifier(self) -> int:
         self.gene_ids_counter += 1
         return self.gene_ids_counter
 
-    def generate_tree(self):
 
+    def generate_tree(self) -> tuple[str, str, str]:
 
         def find_descendant(surviving_nodes, node):
 
-            found = 0
+            found = False
             mynode = surviving_nodes[node]["descendant"]
 
-            while found == 0:
+            while not found:
 
                 if surviving_nodes[mynode]["state"] == 1:
-                    found = 1
+                    found = True
                 else:
                     mynode = surviving_nodes[mynode]["descendant"]
 
@@ -646,7 +650,7 @@ class DivisionFamily():
 
         family_size = 0
 
-        for current_time, event, nodes in events[::-1]:
+        for current_time, event, nodes in reversed(events):
 
             if event == "F":
 
@@ -716,6 +720,12 @@ class DivisionFamily():
                     mynode = find_descendant(surviving_nodes, c2nodename)
                     surviving_nodes[pnodename] = {"state": -1, "descendant": mynode}
 
+            elif event == "O":
+                pass
+
+            else:
+                raise(Exception(f"Unknown event type {event}!"))
+
         extanttree = RT.ReconciledTree()
         completetree = RT.ReconciledTree()
 
@@ -725,7 +735,7 @@ class DivisionFamily():
         wquick_nodes = dict()
         equick_nodes = dict()
 
-        for i, values in enumerate(events):
+        for values in events:
 
             current_time, event, nodes = values
 
@@ -799,29 +809,26 @@ class DivisionFamily():
                     equick_nodes[c2name] = myc2
 
         if family_size == 0:
-
-            extanttree = ";"
+            extanttreestr = ";"
 
         elif family_size == 1:
-
-
-            extanttree = [k for k, v in surviving_nodes.items() if v["state"] == 1 and v["descendant"] == "None"][
-                             0] + ";"
-
+            extanttreestr = [k for k, v in surviving_nodes.items()
+                             if v["state"] == 1 and v["descendant"] == "None"][0] + ";"
         else:
-
-            extanttree = extanttree.write(format=1, format_root_node=True)
+            extanttreestr = extanttree.write(format=1, format_root_node=True)
 
         rec = completetree.getTreeRecPhyloXML()
 
         if len(completetree) == 0:
-            completetree = ";"
+            completetreestr = ";"
         elif len(completetree) == 1:
-            completetree = completetree.get_leaves()[0].name + ";"
+            completetreestr = completetree.get_leaves()[0].name + ";"
         else:
-            completetree = completetree.write(format=1, format_root_node=True)
+            completetreestr = completetree.write(format=1, format_root_node=True)
 
-        return completetree, extanttree, rec
+        assert isinstance(completetreestr, str)
+        assert isinstance(extanttreestr, str)
+        return completetreestr, extanttreestr, rec
         
 
     def __repr__(self):
@@ -837,13 +844,13 @@ class Chromosome():
     """
     A chromosome that knows its genes and intergenes, as well as its
     `map_of_locations`, which is the representation of the chromosome as a
-    list of Intervals representing, in alternations, the Genes and Intergenes.
+    list of Intervals representing the (interleaved) Genes and Intergenes.
 
     Attributes
     ----------
     map_of_locations: List[Location]
         list of Locations, which represent gene or intergene regions
-    num_nucleotides: int
+    _num_nucleotides: int
         the length of the chromosome (in nucleotides)
     shape: str
         one of "L" or "C" for linear or circular
@@ -851,23 +858,22 @@ class Chromosome():
         list of genome events (e.g. INV, TDUP, etc.) that have happened to this
         chromosome
     """
-
-    def __init__(self, num_nucleotides = 0):
+    def __init__(self, num_nucleotides=0):
 
         self.has_intergenes = False
         self.intergenes: list[Intergene] = list()
         self.genes: list[Gene] = list()
         self.shape = ""
-        self.length = 0                         # length in genes?
-        self.num_nucleotides = num_nucleotides  # length in nucleotides
+        self.length = 0                          # length in genes? (see __len__())
+        self._num_nucleotides = num_nucleotides  # length in nucleotides
 
         self.map_of_locations: list[Interval] = []
 
         self.total_rates = 0
 
-        self.event_history = []
+        self.event_history: list[GenomeEvent] = []
 
-        self.pieces = list() # In the F mode, keeps a list of genes and divisions
+        self.pieces: list[Gene|Division] = []  # In the F mode, keeps a list of genes and divisions
 
     def obtain_total_itergenic_length(self):
 
@@ -907,13 +913,13 @@ class Chromosome():
                 right_bp =  right_bp + len(division)
                 self.pieces.append(division) 
 
-    def get_index_gene(self,search_gene):
+    def get_index_gene(self, search_gene):
         """
         Obtain the index of the gene in the pieces
         The index refers only at the genes, so
         intergenic divisions are ignored
         """
-        genes = [piece for piece in self.pieces if piece.ptype == "Gene"]
+        genes = [piece for piece in self.pieces if isinstance(piece, Gene)]
         return (genes.index(search_gene))
 
     def print_pieces(self):       
@@ -921,17 +927,17 @@ class Chromosome():
         For debugging purposes. Print all pieces in the genome
         """
         for piece in self.pieces:
-            if piece.ptype == "Gene":
-                print(piece.ptype, piece.total_flanking, piece.length, piece.orientation, piece.gene_family) # I should change the name to only Family
+            if isinstance(piece, Gene):
+                print(piece.ptype, piece.total_flanking, piece.length, piece.orientation, piece.family)
             else:
-                print(piece.ptype, piece.total_flanking, piece.length, piece.orientation, piece.division_family, piece.specific_flanking, piece.initial_sequence) 
+                assert isinstance(piece, Division)
+                print(piece.ptype, piece.total_flanking, piece.length, piece.orientation, piece.family, piece.specific_flanking, piece.initial_sequence) 
 
     def update_coordinates(self):
 
         """
         Update the coordinates of the genes and the divisions
         """
-
         right_bp = len(self.pieces[0])
         self.pieces[0].total_flanking = (0, right_bp)
         for piece in self.pieces[1:]:
@@ -939,11 +945,9 @@ class Chromosome():
             right_bp =  right_bp + len(piece)
 
     def update_specific_coordinates(self):
-
         """
         Get the specific coordinates of the intergenes
         """
-        
         first_intergene = True
         adjacent_gene = False
         adjacent_division = False
@@ -954,14 +958,14 @@ class Chromosome():
         right_bp = 0    #for pylance
         for piece in self.pieces:
     
-            if piece.ptype == "Gene":
+            if isinstance(piece, Gene):
                 adjacent_division = False
                 if adjacent_gene == True:
                     coordinate_adjustment += 1
                 adjacent_gene = True
                 continue
 
-            elif piece.ptype == "Divi":
+            elif isinstance(piece, Division):
                 adjacent_gene = False
 
                 if first_intergene == True:
@@ -981,6 +985,7 @@ class Chromosome():
                     right_bp = right_bp + coordinate_adjustment + len(piece)
                     coordinate_adjustment = 0
 
+                assert isinstance(piece.total_flanking, tuple), "Total flanking not set yet!"
                 self.specific2total[piece.specific_flanking[0]] = piece.total_flanking[0]
                 self.specific2total[piece.specific_flanking[1]] = piece.total_flanking[1]
         
@@ -1073,7 +1078,7 @@ class Chromosome():
 
                 
     def select_random_coordinate_in_intergenic_regions(self,
-                                                       exclude: list[int] = None
+                                                       exclude: list[int]=[]
                                                       ) -> int:
         """
         Return a random intergene specific breakpoint coordinate.
@@ -1354,9 +1359,9 @@ class Chromosome():
         self.total_rates = 0.0
 
         for gene in self.genes:
-            d = gene.gene_family.rates["DUPLICATION"] ## GENE.GENE_FAMILY SHOULD POINT TO A GENE FAMILY OBJECT, NOT A STR
-            t = gene.gene_family.rates["TRANSFER"]
-            l = gene.gene_family.rates["LOSS"]
+            d = gene.family.rates["DUPLICATION"] ## GENE.GENE_FAMILY SHOULD POINT TO A GENE FAMILY OBJECT, NOT A STR
+            t = gene.family.rates["TRANSFER"]
+            l = gene.family.rates["LOSS"]
 
             self.total_rates += d + t +l
 
@@ -1371,9 +1376,10 @@ class Chromosome():
         int
             number of nucleotides
         """
-        if self.num_nucleotides:
-            return self.num_nucleotides
+        if self._num_nucleotides:
+            return self._num_nucleotides
         else:
+            assert self.map_of_locations, "map_of_locations not set yet!"
             return self.map_of_locations[-1].tc2
 
     def __len__(self):
@@ -1400,36 +1406,46 @@ class Chromosome():
         for x in self.genes:
             yield x
 
-    def obtain_segment(self, gpositions):
+    @abc.abstractmethod
+    def obtain_segment(self, gpositions) -> list[Gene]:
         raise(NotImplementedError)
 
+    @abc.abstractmethod
     def invert_segment(self, gpositions):
         raise(NotImplementedError)
 
+    @abc.abstractmethod
     def insert_segment(self, position, segment):
         raise(NotImplementedError)
 
+    @abc.abstractmethod
     def obtain_intergenic_segment(self, affected_intergenes):
         raise(NotImplementedError)
 
+    @abc.abstractmethod
     def remove_segment(self, segment):
         raise(NotImplementedError)
 
+    @abc.abstractmethod
     def obtain_affected_indices(self, p_extension) -> list[int]:
         raise(NotImplementedError)
 
+    @abc.abstractmethod
     def obtain_affected_genes_accounting_for_family_rates(self, p_extension,
                                                           gene_families, mrate):
         raise(NotImplementedError)
 
+    @abc.abstractmethod
     def cut_and_paste(self, affected_genes):
         raise(NotImplementedError)
 
+    @abc.abstractmethod
     def obtain_affected_genes_accounting_for_connectedness(self, p_extension,
                                                            interactome):
         raise(NotImplementedError)
 
-    def get_homologous_position(self, segment):
+    @abc.abstractmethod
+    def get_homologous_position(self, segment) -> list[tuple[str, tuple]]:
         raise(NotImplementedError)
 
 
@@ -1487,14 +1503,12 @@ class CircularChromosome(Chromosome):
             the indices of intergenes to be inverted
         """
 
-        segment = [self.genes[x] for x in affected_genes]
-
-        reversed_segment = segment[::-1]
+        reversed_segment = [self.genes[x] for x in reversed(affected_genes)]
 
         for gene in reversed_segment:
             gene.change_sense()
 
-        for i,x in enumerate(affected_genes):
+        for i, x in enumerate(affected_genes):
             self.genes[x] = reversed_segment[i]
 
         if affected_intergenes:         #Now reverse the intergenes:
@@ -1719,7 +1733,7 @@ class CircularChromosome(Chromosome):
         # Returns N genes accounting for the family rates
 
 
-        gene2rate = {gene: gene_families[gene.gene_family].rates[mrate] for gene in self.genes}
+        gene2rate = {gene: gene_families[gene.family].rates[mrate] for gene in self.genes}
 
         if p_extension == 1:
 
@@ -1825,15 +1839,15 @@ class CircularChromosome(Chromosome):
         return affected_genes
 
 
-    def get_homologous_position(self, segment):
+    def get_homologous_position(self, segment) -> list[tuple[str, tuple]]:
 
         homologous = list()
 
         segment_length = len(segment)
         genes_length = len(self.genes)
 
-        genes = [x.gene_family + "_" + x.orientation for x in self.genes]
-        mysegment = [x.gene_family + "_" + x.orientation for x in segment]
+        genes = [x.family + "_" + x.orientation for x in self.genes]
+        mysegment = [x.family + "_" + x.orientation for x in segment]
 
 
         # First we traverse the genome forwards
@@ -1872,7 +1886,7 @@ class CircularChromosome(Chromosome):
 
         inverted_segment = list()
 
-        for gene in mysegment[::-1]:
+        for gene in reversed(mysegment):
 
             inverted_segment.append(gene.replace("+","A").replace("-", "+").replace("A", "-"))
 
@@ -1957,28 +1971,25 @@ class Genome():
     def __init__(self):
 
         self.species = ""
-        self.chromosomes: list[Chromosome] = list()
+        self.chromosomes: list[Chromosome] = []
 
     def start_genome(self, input):
 
         for size, shape in input:
-
             if shape == "L":
                 self.chromosomes.append(LinearChromosome(size))
             elif shape == "C":
                 self.chromosomes.append(CircularChromosome(size))
 
-    def select_random_chromosome(self) -> CircularChromosome:
+    def select_random_chromosome(self) -> Chromosome:
         """
         At the moment, this just return the one and only chromosome.
         """
-
         # I have to weight by the length of each chromosome
 
-        #chromosome = numpy.random.choice(self.chromosomes, 1, p=af.normalize([len(x) for x in self.chromosomes]))[0]
+        #chromosome = G_NPPRNG.choice(self.chromosomes, 1, p=af.normalize([len(x) for x in self.chromosomes]))[0]
 
         # So far, only one chromosome per genome, I can safely return the first chromosome
-
         return self.chromosomes[0]
 
     def update_genome_species(self, species):
@@ -1991,9 +2002,7 @@ class Genome():
 
     def create_interactome(self, network_model = "BA"):
 
-        import networkx as nx
-        import random
-
+        self.interactome: nx.Graph
         if network_model == "BA":
             self.interactome  = nx.barabasi_albert_graph(len(self.chromosomes[0]), 1)
         else:
@@ -2013,6 +2022,9 @@ class Genome():
     def __iter__(self):
         for chromosome in self.chromosomes:
             yield chromosome
+
+    def __len__(self):
+        return len(self.chromosomes)
 
 
 class CoordinateChoiceError(Exception):

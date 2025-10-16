@@ -135,12 +135,14 @@ class Zombi():
         """
         parameters = af.prepare_genome_parameters(af.read_parameters(parameters_file))
         events_file = os.path.join(experiment_folder, "T/Events.tsv")
-        scaled_file = os.path.join(experiment_folder, "T/ScaledEvents.tsv")
+        scaled_file = experiment_folder / "T/ScaledEvents.tsv"
         genome_folder = experiment_folder / "G"
-        #os.system(f"cp {parameters_file} {genome_folder}")
         shutil.copy(parameters_file, genome_folder)
 
-        genomes_folder = os.path.join(genome_folder, "Genomes")
+        if not os.path.exists(events_file):
+            sys.exit(f'File "{events_file}" not found. Did you run T mode?')
+
+        genomes_folder = genome_folder / "Genomes"
         gene_families_folder = genome_folder / "Gene_families"
 
         seed_G_generators(parameters["SEED"])
@@ -151,7 +153,7 @@ class Zombi():
 
         elif advanced_mode == "u":
 
-            rates_folder = os.path.join(experiment_folder, "CustomRates")
+            rates_folder = experiment_folder / "CustomRates"
             gss.read_rates(rates_folder)
             gss.run_u()
 
@@ -200,30 +202,30 @@ class Zombi():
         if parameters["EVENTS_PER_BRANCH"] == 1:
             scale = parameters["SCALE_TREE"]
             print("Writing Events Per Branch")
-            events_per_branch_folder = os.path.join(genome_folder, "Events_per_branch")            
+            events_per_branch_folder = genome_folder / "Events_per_branch"
             gss.write_events_per_branch(events_per_branch_folder, scale, scaled_file, events_file)
             
         if parameters["GENE_TREES"] == 1 and parameters["RECONCILED_TREES"] == 1:
             print("Writing Gene Trees")
-            gene_trees_folder = os.path.join(genome_folder, "Gene_trees")
+            gene_trees_folder = genome_folder / "Gene_trees"
             gss.write_gene_trees(gene_trees_folder, reconciliations=True)
 
         elif parameters["GENE_TREES"] == 1 and parameters["RECONCILED_TREES"] == 0:
             print("Writing Gene Trees")
-            gene_trees_folder = os.path.join(genome_folder, "Gene_trees")
+            gene_trees_folder = genome_folder / "Gene_trees"
             gss.write_gene_trees(gene_trees_folder, reconciliations=False)
 
         elif parameters["GENE_TREES"] == 0 and parameters["RECONCILED_TREES"] == 1:
             print("Writing Gene Trees")
-            gene_trees_folder = os.path.join(genome_folder, "Gene_trees")
+            gene_trees_folder = genome_folder / "Gene_trees"
             gss.write_gene_trees(gene_trees_folder, reconciliations=True, gene_trees=False)
 
         print("Writing Divisions")
 
         if advanced_mode == "f":    
-            gss.obtain_divisions() # This obtain the divisions at the root,
-            gss.obtain_events_for_divisions() # This runs again the simulation forward
-            division_trees_folder = os.path.join(genome_folder, "Division_trees")
+            gss.obtain_divisions()            # This obtain the divisions at the root,
+            gss.obtain_events_for_divisions() # This reruns the simulation forward
+            division_trees_folder = genome_folder / "Division_trees"
             gss.write_division_trees(division_trees_folder)
             gss.write_pieces_coordinates(genomes_folder)
 
@@ -239,16 +241,19 @@ class Zombi():
         """
         Simulate Sequences
         """
-        genome_folder = os.path.join(experiment_folder, "G")
-        
-        gene_trees_folder = Path(experiment_folder, "G/Gene_trees")
-        sequences_folder = Path(experiment_folder, "S")
-        genesequences_folder = Path(sequences_folder, "Genes")
+        genome_folder = experiment_folder / "G"
+        if not genome_folder.is_dir():
+            sys.exit(f'Directory "{genome_folder}" does not exist. '
+                     f'Did you run G mode?')
+
+        gene_trees_folder = genome_folder / "Gene_trees"
+        sequences_folder = experiment_folder / "S"
+        genesequences_folder = sequences_folder / "Genes"
         #os.system("cp " + parameters_file + " " + sequences_folder)
         shutil.copy(parameters_file, sequences_folder)
 
-        if not os.path.isdir(genesequences_folder):
-            os.mkdir(genesequences_folder)
+        if not genesequences_folder.is_dir():
+            genesequences_folder.mkdir()
 
         parameters = af.prepare_sequence_parameters(af.read_parameters(parameters_file))
         seed_S_generators(parameters["SEED"])
@@ -259,21 +264,22 @@ class Zombi():
 
         if advanced_mode == "0":
 
-            try:
-                complete_trees = [x.replace("_pruned", "_complete")
-                                  for x in os.listdir(gene_trees_folder) if "pruned" in x]
-            except FileNotFoundError:
-                sys.exit(f'Directory "{gene_trees_folder}" does not exist. '
-                         f'Did you run G mode?')
+            complete_trees = [x.replace("_pruned", "_complete")
+                              for x in os.listdir(gene_trees_folder)
+                              if "pruned" in x]
                 
+            with ProcessPoolExecutor(max_workers=num_threads) as executor:
+                futures: dict[str, Future[None]] = {}
+                for tree_file in complete_trees:
+                    tree_path = os.path.join(gene_trees_folder, tree_file)
+                    futures[tree_path] = executor.submit(ss.run, Path(tree_path),
+                                                         genesequences_folder,
+                                                         parameters["VERBOSE"] == 1)
 
-            for tree_file in complete_trees:
-                tree_path = os.path.join(gene_trees_folder, tree_file)
-                if parameters["VERBOSE"] == 1:
-                    print("Simulating sequence for gene family %s" % tree_file.split("_")[0])
-                ss.run(tree_path, genesequences_folder)
-                af.write_pruned_sequences(tree_path.replace("complete", "pruned"),
-                                          genesequences_folder)
+                for tree_path, future in futures.items():
+                    future.result()
+                    af.write_pruned_sequences(tree_path.replace("complete", "pruned"),
+                                              genesequences_folder)
 
         elif advanced_mode == "u":
 
@@ -342,11 +348,10 @@ class Zombi():
                 scaled_fastas_folder = sequences_folder / "Fastas"
                 scaled_fastas_folder.mkdir()
                 for tree_file in complete_trees:
-                    tree_path = scaled_trees_folder / tree_file
                     if parameters["VERBOSE"] == 1:
                         print(f"Simulating sequence for gene family {str(tree_file).split('_')[0]}")
                     
-                    ss.run(tree_path, scaled_fastas_folder)                 
+                    ss.run(scaled_trees_folder / tree_file, scaled_fastas_folder)                 
                     tree_path = os.path.join(gene_trees_folder, tree_file)               
                     af.write_pruned_sequences(tree_path.replace("_substitution_scaled.nwk", "_prunedtree.nwk"),
                                               scaled_fastas_folder, True)
@@ -355,12 +360,12 @@ class Zombi():
         elif advanced_mode == "f":
 
             complete_trees = [x for x in os.listdir(gene_trees_folder) if "complete" in x]
-            divisionsequences_folder = Path(sequences_folder, "Divisions")
+            divisionsequences_folder = sequences_folder / "Divisions"
             divisionsequences_folder.mkdir()
 
             gf_lengths: Dict[str, int] = dict()
 
-            with open(os.path.join(genome_folder, "GeneFamily_lengths.tsv")) as f:
+            with open(genome_folder / "GeneFamily_lengths.tsv") as f:
                 f.readline()
                 for line in f:
                     gf, l = line.strip().split("\t")
@@ -600,6 +605,8 @@ def main():
     p_Gf.add_argument('-g', '--genome-root', metavar='GFF_FILE', type=Path,
                       help='Make the root genome have these gene intervals')
 
+    p_S.add_argument('-p', '--parallel', metavar='NUM_THREADS', type=int, default=0,
+                     help='Use this many threads to simulated sequences')
     p_Sf.add_argument('-p', '--parallel', metavar='NUM_THREADS', type=int, default=0,
                       help='Use this many threads to simulated sequences')
     p_Sf.add_argument('-s', '--sequence-root', metavar='FASTA_FILE', type=Path,

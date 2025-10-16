@@ -2,8 +2,9 @@
 Unittests for testing the GenomeEvents and how they map coordinates.
 """
 
-import os
 import unittest
+from pathlib import Path
+
 from zombi.Events import Inversion, Loss, Origination, TandemDup, Transposition
 from zombi.Events import MapOriginError, MapPseudogeneError, Transfer
 from zombi.GenomeSimulator import GenomeSimulator
@@ -12,19 +13,19 @@ import zombi.AuxiliarFunctions as af
 
 
 GENOME_PARAMS = 'Parameters/GenomeParameters.tsv'
-TEST_FOLDER = 'test/test_output/'
-TEST_GENOME_30_10 = 'test/30_10.gff'  #30 bases, 3 * length-5 genomic/intergenomic pairs
-TEST_GENOME_30_6 = 'test/30_6.gff'  #30 bases, 5 * length-3 genomic/intergenomic pairs
-TEST_GENOME_30_6_MOD = 'test/30_6_mod.gff'  #A modified version of 30_6
-TEST_GENOME_18_6 = 'test/18_6.gff'  #18 bases, 3 * length-3 genomic/intergenomic pairs
+TEST_FOLDER = Path('test/test_output/')
+TEST_GENOME_30_10 = Path('test/30_10.gff')  #30 bases, 3 * length-5 genomic/intergenomic pairs
+TEST_GENOME_30_6 = Path('test/30_6.gff')  #30 bases, 5 * length-3 genomic/intergenomic pairs
+TEST_GENOME_30_6_MOD = Path('test/30_6_mod.gff')  #A modified version of 30_6
+TEST_GENOME_18_6 = Path('test/18_6.gff')  #18 bases, 3 * length-3 genomic/intergenomic pairs
 
 class TestEvent(unittest.TestCase):
 
   def setUp(self, genome_file=TEST_GENOME_30_6):
     params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
-    events_file = os.path.join(TEST_FOLDER, 'T/Events.tsv')
+    events_file = TEST_FOLDER / 'T/Events.tsv'
 
-    self.gss = GenomeSimulator(params, events_file, genome_file)
+    self.gss = GenomeSimulator(params, str(events_file), genome_file)
     self.genome = self.gss.read_genome(genome_file, intergenic_sequences=True)
 
     self.gss.active_genomes.add(self.genome.species)
@@ -37,7 +38,8 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_inversion_intergenic(ch, 0, 6, RIGHT, lineage, 0.0)
-    inversion: Inversion = ch.event_history[0]
+    inversion = ch.event_history[0]
+    assert isinstance(inversion, Inversion)
 
     self.assertEqual(ch.intergenes[0].length, 0,
                      'first intergene length mismatch after inversion')
@@ -85,7 +87,8 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_inversion_intergenic(ch, 3, 10, RIGHT, lineage, 0.0)
-    inversion: Inversion = ch.event_history[0]
+    inversion = ch.event_history[0]
+    assert isinstance(inversion, Inversion)
 
     self.assertEqual(ch.intergenes[0].length, 7,
                      'first intergene length mismatch after inversion')
@@ -130,7 +133,8 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_inversion_intergenic(ch, 3, 10, LEFT, lineage, 0.0)
-    inversion: Inversion = ch.event_history[0]
+    inversion = ch.event_history[0]
+    assert isinstance(inversion, Inversion)
 
     self.assertEqual(ch.intergenes[0].length, 3,
                      'first intergene length mismatch after inversion')
@@ -183,7 +187,8 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_inversion_intergenic(ch, 9, 5, RIGHT, lineage, 0.0)
-    inversion: Inversion = ch.event_history[0]
+    inversion = ch.event_history[0]
+    assert isinstance(inversion, Inversion)
 
     self.assertEqual(ch.intergenes[1].length, 4,
                      'first intergene length mismatch after inversion')
@@ -236,7 +241,8 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_inversion_intergenic(ch, 13, 8, RIGHT, lineage, 0.0)
-    inversion: Inversion = ch.event_history[0]
+    inversion = ch.event_history[0]
+    assert isinstance(inversion, Inversion)
 
     self.assertEqual(ch.intergenes[2].length, 5,
                      'first intergene length mismatch after inversion')
@@ -291,7 +297,8 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_inversion_intergenic(ch, 16, 10, RIGHT, lineage, 0.0)
-    inversion: Inversion = ch.event_history[0]
+    inversion = ch.event_history[0]
+    assert isinstance(inversion, Inversion)
 
     self.assertEqual(ch.intergenes[2].length, 4,
                      'first intergene length mismatch after inversion')
@@ -337,7 +344,8 @@ class TestEvent(unittest.TestCase):
 
       #Do first inversion:
     self.gss.make_inversion_intergenic(ch, 8, 0, RIGHT, lineage, 0.0)
-    inversion1: Inversion = ch.event_history[0]
+    inversion1 = ch.event_history[0]
+    assert isinstance(inversion1, Inversion)
 
     self.assertEqual(ch.intergenes[0].length, 6,
                      'first intergene length mismatch after inversion')
@@ -387,7 +395,8 @@ class TestEvent(unittest.TestCase):
       #Do second inversion:
     ch.obtain_locations()
     self.gss.make_inversion_intergenic(ch, 1, 11, RIGHT, lineage, 0.0)
-    inversion2: Inversion = ch.event_history[1]
+    inversion2 = ch.event_history[1]
+    assert isinstance(inversion2, Inversion)
 
     self.assertEqual(ch.intergenes[0].length, 1,
                      'first intergene length mismatch after inversion')
@@ -430,7 +439,8 @@ class TestEvent(unittest.TestCase):
 
       #Do first inversion:
     self.gss.make_inversion_intergenic(ch, 19, 6, RIGHT, lineage, 0.0)
-    inversion1: Inversion = ch.event_history[0]
+    inversion1 = ch.event_history[0]
+    assert isinstance(inversion1, Inversion)
 
     self.assertEqual(ch.intergenes[0].length, 3,
                      'first intergene length mismatch after inversion')
@@ -476,7 +486,8 @@ class TestEvent(unittest.TestCase):
       #Do second inversion:
     ch.obtain_locations()
     self.gss.make_inversion_intergenic(ch, 10, 3, RIGHT, lineage, 0.0)
-    inversion2: Inversion = ch.event_history[1]
+    inversion2 = ch.event_history[1]
+    assert isinstance(inversion2, Inversion)
 
     self.assertEqual(ch.intergenes[0].length, 3,
                      'first intergene length mismatch after inversion')
@@ -522,7 +533,8 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_inversion_intergenic(ch, 11, 1, RIGHT, lineage, 0.0)
-    inv1: Inversion = ch.event_history[0]
+    inv1 = ch.event_history[0]
+    assert isinstance(inv1, Inversion)
 
     self.assertEqual(ch.intergenes[0].length, 7,
                      'first intergene length mismatch after inversion')
@@ -551,7 +563,8 @@ class TestEvent(unittest.TestCase):
 
       #Do first inversion:
     self.gss.make_inversion_intergenic(ch, 1, 9, RIGHT, lineage, 0.0)
-    inv1: Inversion = ch.event_history[0]
+    inv1 = ch.event_history[0]
+    assert isinstance(inv1, Inversion)
 
     self.assertEqual(ch.intergenes[0].length, 2,
                      'first intergene length mismatch after inversion')
@@ -567,7 +580,8 @@ class TestEvent(unittest.TestCase):
       #Do second inversion:
     ch.obtain_locations()
     self.gss.make_inversion_intergenic(ch, 15, 6, RIGHT, lineage, 0.0)
-    inv2: Inversion = ch.event_history[1]
+    inv2 = ch.event_history[1]
+    assert isinstance(inv2, Inversion)
 
     self.assertEqual(ch.intergenes[0].length, 3,
                      'first intergene length mismatch after inversion')
@@ -609,7 +623,8 @@ class TestEvent(unittest.TestCase):
       #Do third inversion:
     ch.obtain_locations()
     self.gss.make_inversion_intergenic(ch, 11, 1, RIGHT, lineage, 0.0)
-    inv3: Inversion = ch.event_history[2]
+    inv3 = ch.event_history[2]
+    assert isinstance(inv3, Inversion)
 
     self.assertEqual(ch.intergenes[0].length, 7,
                      'first intergene length mismatch after inversion')
@@ -637,7 +652,8 @@ class TestEvent(unittest.TestCase):
 
       #Do first inversion:
     self.gss.make_inversion_intergenic(ch, 17, 8, RIGHT, lineage, 0.0)
-    inversion1: Inversion = ch.event_history[0]
+    inversion1 = ch.event_history[0]
+    assert isinstance(inversion1, Inversion)
 
     self.assertEqual(ch.intergenes[1].length, 3,
                      'second intergene length mismatch after inversion')
@@ -687,7 +703,8 @@ class TestEvent(unittest.TestCase):
       #Do second inversion:
     ch.obtain_locations()
     self.gss.make_inversion_intergenic(ch, 19, 5, RIGHT, lineage, 0.0)
-    inversion2: Inversion = ch.event_history[1]
+    inversion2 = ch.event_history[1]
+    assert isinstance(inversion2, Inversion)
 
     self.assertEqual([ig.length for ig in ch.intergenes], [3, 2, 5, 3, 2],
                      'intergene length mismatch after second inversion')
@@ -730,7 +747,8 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_duplication_within_intergene(ch, 3, 9, RIGHT, lineage, 0.0)
-    tdup: TandemDup = ch.event_history[0]
+    tdup = ch.event_history[0]
+    assert isinstance(tdup, TandemDup)
 
     self.assertEqual(ch.intergenes[0].length, 3,
                      'first intergene length mismatch after tandemdup')
@@ -762,7 +780,8 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_duplication_within_intergene(ch, 9, 2, RIGHT, lineage, 0.0)
-    tdup: TandemDup = ch.event_history[0]
+    tdup = ch.event_history[0]
+    assert isinstance(tdup, TandemDup)
 
     self.assertEqual(ch.intergenes[0].length, 4,
                      'first intergene length mismatch after tandemdup')
@@ -814,7 +833,8 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_duplication_within_intergene(ch, 2, 9, LEFT, lineage, 0.0)
-    tdup: TandemDup = ch.event_history[0]
+    tdup = ch.event_history[0]
+    assert isinstance(tdup, TandemDup)
 
 
     self.assertEqual(ch.intergenes[0].length, 4,
@@ -849,7 +869,8 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_duplication_within_intergene(ch, 13, 8, RIGHT, lineage, 0.0)
-    tdup: TandemDup = ch.event_history[0]
+    tdup = ch.event_history[0]
+    assert isinstance(tdup, TandemDup)
 
 
     self.assertEqual(ch.intergenes[2].length, 2,
@@ -906,7 +927,8 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_loss_intergenic(ch, 3, 10, RIGHT, lineage, 0.0)
-    loss: Loss = ch.event_history[0]
+    loss = ch.event_history[0]
+    assert isinstance(loss, Loss)
 
 
     self.assertEqual(ch.intergenes[0].length, 4,
@@ -935,7 +957,8 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_loss_intergenic(ch, 3, 10, RIGHT, lineage, 0.0, True)
-    loss: Loss = ch.event_history[0]
+    loss = ch.event_history[0]
+    assert isinstance(loss, Loss)
 
 
     self.assertEqual(ch.intergenes[0].length, 15,
@@ -982,7 +1005,8 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_loss_intergenic(ch, 14, 6, RIGHT, lineage, 0.0)
-    loss: Loss = ch.event_history[0]
+    loss = ch.event_history[0]
+    assert isinstance(loss, Loss)
 
 
     self.assertEqual(ch.intergenes[1].length, 3,
@@ -1009,7 +1033,8 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_loss_intergenic(ch, 14, 6, RIGHT, lineage, 0.0, True)
-    loss: Loss = ch.event_history[0]
+    loss = ch.event_history[0]
+    assert isinstance(loss, Loss)
 
 
     self.assertEqual(ch.intergenes[1].length, 21,
@@ -1062,7 +1087,8 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_transposition_intergenic(ch, 2, 9, RIGHT, 17, lineage, 0.0)
-    trans: Transposition = ch.event_history[0]
+    trans = ch.event_history[0]
+    assert isinstance(trans, Transposition)
 
 
     self.assertEqual(ch.intergenes[0].length, 4,
@@ -1107,7 +1133,8 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_transposition_intergenic(ch, 6, 11, RIGHT, 0, lineage, 0.0)
-    trans: Transposition = ch.event_history[0]
+    trans = ch.event_history[0]
+    assert isinstance(trans, Transposition)
 
 
     self.assertEqual(ch.intergenes[0].length, 1,
@@ -1156,7 +1183,8 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     self.gss.make_transposition_intergenic(ch, 14, 1, RIGHT, 10, lineage, 0.0)
-    trans: Origination = ch.event_history[0]
+    trans = ch.event_history[0]
+    assert isinstance(trans, Origination)
 
 
     self.assertEqual(ch.intergenes[0].length, 3,
@@ -1235,7 +1263,8 @@ class TestEvent(unittest.TestCase):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
     gene = self.gss.make_origination_intergenic(ch, 2, lineage, 0.0)
-    orig: Origination = ch.event_history[0]
+    orig = ch.event_history[0]
+    assert isinstance(orig, Origination)
 
 
     self.assertEqual(ch.intergenes[0].length, 2,
@@ -1284,7 +1313,8 @@ class TestEvent(unittest.TestCase):
 
     self.gss.make_transfer_intergenic(donor, 2, 10, RIGHT, donorlineage,
                                       receptor, 1, receptorlineage, 1.5)
-    trans: Transfer = receptor.event_history[0]
+    trans = receptor.event_history[0]
+    assert isinstance(trans, Transfer)
 
     self.assertEqual(trans.afterToBeforeS_lineage(1), (receptorlineage, 1),
                      'intergene breakpoint mismap')
@@ -1319,7 +1349,8 @@ class TestEvent(unittest.TestCase):
 
     self.gss.make_transfer_intergenic(donor, 3, 10, LEFT, donorlineage,
                                       receptor, 7, receptorlineage, 1.5)
-    trans: Transfer = receptor.event_history[0]
+    trans = receptor.event_history[0]
+    assert isinstance(trans, Transfer)
 
     self.assertEqual(trans.afterToBeforeS_lineage(7), (receptorlineage, 7),
                      'intergene breakpoint mismap')

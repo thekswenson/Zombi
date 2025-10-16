@@ -28,7 +28,7 @@ class SpeciesTreeGenerator():
         self.whole_tree = ete3.Tree()
 
         self.lineages_counter = 0
-        self.events = list()
+        self.events: list[tuple[float, str, str]] = list()
 
         self.active_lineages = set()
         self.inactive_lineages = set()
@@ -646,7 +646,7 @@ class SpeciesTreeGenerator():
         surviving_nodes = dict()
         times = dict()
 
-        for current_time, event, nodes in events[::-1]:
+        for current_time, event, nodes in reversed(events):
 
             if event == "F":
 
@@ -854,7 +854,7 @@ class SpeciesTreeGenerator():
 
         mfactor = scaling / float(crown_length)
 
-        for n in mextant_tree.traverse():
+        for n in mextant_tree.traverse():  #type: ignore
             n.dist *= mfactor
 
         scaled_events = list()
@@ -948,7 +948,7 @@ class SpeciesTreeGenerator():
 
         stree = ete3.Tree(scaled_tree, format=1)
         with open(scaled_extant_tree_file, "w") as f:
-            f.write(stree.write(format=1, format_root_node = True))
+            f.write(stree.write(format=1, format_root_node = True))  # type: ignore
         with open(scaled_events_file, "w") as f:
 
             header = ["SCALED_TIME","EVENT","NODES"]

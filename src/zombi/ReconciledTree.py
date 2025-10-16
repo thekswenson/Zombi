@@ -21,7 +21,6 @@
 
 
 import ete3
-import xml.etree.ElementTree as ET
 
 
 RECPHYLOTAG = "recPhylo"
@@ -374,23 +373,21 @@ class ReconciledTree(ete3.TreeNode):
         return EventsSummary
 
 
+    #def sameSpeciesAsParent(self , parent = None):
+    #    """ returns True if the first event of the node has the same species as the last event of its parent , False otherwise (and if self is the root)
+    #        if the parent is given, is it used, otherwise we look for it in the structure
+    #    """
 
+    #    if parent is None:
+    #        if self.is_root():
+    #            return False
+    #        parent = self.up
 
-    def sameSpeciesAsParent(self , parent = None):
-        """ returns True if the first event of the node has the same species as the last event of its parent , False otherwise (and if self is the root)
-            if the parent is given, is it used, otherwise we look for it in the structure
-        """
+    #    lastParentSp = parent.getEvents()[-1].species
 
-        if parent is None:
-            if self.is_root():
-                return False
-            parent = self.up
+    #    firstSp = self.getEvents()[0].species
 
-        lastParentSp = parent.getEvents()[-1].species
-
-        firstSp = self.getEvents()[0].species
-
-        return firstSp == lastParentSp
+    #    return firstSp == lastParentSp
 
 
     def getLostSpecies( self, evtIndex , speciesTree, speciesIdFeature = "name"):
@@ -445,7 +442,7 @@ class ReconciledTreeList:
         - self.spTree   : the species tree these trees are reconciled with (or None if no species tree is specified)
         - self.recTrees : the reconciled trees
     """
-    def __init__(self, spTree = None , recTrees = []):
+    def __init__(self, spTree = None|ete3.Tree, recTrees = []):
         """
         Takes:
             spTree (ete3.Tree) [ default = None ] : facultative species tree
@@ -456,7 +453,7 @@ class ReconciledTreeList:
         self.recTrees = recTrees[:]
 
 
-    def setSpTree(self, ST):
+    def setSpTree(self, ST: ete3.Tree):
         """
         Simply sets a trees as the object species tree.
         Takes:
@@ -586,7 +583,7 @@ class ReconciledTreeList:
 
             tmp = {}
 
-            for n in self.spTree.traverse():
+            for n in self.spTree.traverse():    #type: ignore
 
                 tmp[ getattr(n,speciesIdFeature) ] = {}
 

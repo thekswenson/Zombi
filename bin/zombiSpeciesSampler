@@ -10,7 +10,7 @@ from zombi.Random import RNG, NPRNG
 
 class SpeciesSampler():
 
-    def __init__(self, experiment_folder):
+    def __init__(self, experiment_folder: Path):
 
         self.experiment_folder = experiment_folder
         self.computed_datasets = [True, True, True]  # T, G, S
@@ -21,16 +21,14 @@ class SpeciesSampler():
         else:
             last_number = sorted(preexisting_samples)[-1] + 1
 
-        self.output_folder = os.path.join(experiment_folder, "SAMPLE_" + str(last_number))
+        self.output_folder = experiment_folder / ("SAMPLE_" + str(last_number))
+        self.output_folder.mkdir(parents=True, exist_ok=True)
 
-        if not os.path.isdir(self.output_folder):
-            os.mkdir(self.output_folder)
+        self.existing_folders = list(experiment_folder.iterdir())
 
-        self.existing_folders = os.listdir(experiment_folder)
-
-        self.species_folder = os.path.join(experiment_folder, "T")
-        self.gene_family_folder = os.path.join(experiment_folder, "G/Gene_families")
-        self.seq_folder = os.path.join(experiment_folder, "S/Sequences")
+        self.species_folder = experiment_folder / "T"
+        self.gene_family_folder = experiment_folder / "G/Gene_families"
+        self.seq_folder = experiment_folder / "S/Sequences"
 
         if not os.path.isdir(self.species_folder):
             self.computed_datasets = [False] * 3
@@ -138,7 +136,7 @@ class SpeciesSampler():
             gtrees = self.cut_gt(species_to_sample)
             self.write_sampled_trees(gtrees)
         if self.computed_datasets[2] == True:
-            for tree in trees[1:]:
+            for tree in trees[1:]:              #BUG: trees is not defined!!!!
                 sampled_tree = os.path.join(self.output_folder, tree[0].replace("_events.tsv", "_sampledtree.nwk"))
                 af.write_sampled_sequences(sampled_tree, self.seq_folder, self.output_folder)
 
@@ -155,7 +153,7 @@ class SpeciesSampler():
             if value < 0 or value > 1:
                 return 0
             total_species_sampled = int(value * len(species_alive))
-            species_to_sample = random.sample(species_alive, total_species_sampled)
+            species_to_sample = RNG.sample(species_alive, total_species_sampled)
             strees = self.cut_st(species_to_sample)
             self.write_sampled_trees(strees)
 
@@ -168,8 +166,8 @@ class SpeciesSampler():
 
             # We cut the sequences too
 
-            for tree in trees[1:]:
-                sampled_tree = os.path.join(self.output_folder, tree[0].replace("_events.tsv", "_sampledtree.nwk"))
+            for tree in trees[1:]:           #BUG: trees is not defined!!!!
+                sampled_tree = self.output_folder / (tree[0].replace("_events.tsv", "_sampledtree.nwk"))
                 af.write_sampled_sequences(sampled_tree, self.seq_folder, self.output_folder)
 
 
@@ -177,7 +175,7 @@ class SpeciesSampler():
 
         species_alive = [x[2] for x in self.species_tree_events if x[1] == "F"]
         # Then we sample
-        species_to_sample = random.sample(species_alive, value)
+        species_to_sample = RNG.sample(species_alive, value)
 
         if self.computed_datasets[0] == True:
             stree = self.cut_st(species_to_sample)
@@ -189,8 +187,8 @@ class SpeciesSampler():
 
         if self.computed_datasets[2] == True:
 
-            for tree in trees[1:]:
-                sampled_tree = os.path.join(self.output_folder, tree[0].replace("_events.tsv", "_sampledtree.nwk"))
+            for tree in trees[1:]:         #BUG: trees is not defined!!!!
+                sampled_tree = self.output_folder / tree[0].replace("_events.tsv", "_sampledtree.nwk")
                 af.write_sampled_sequences(sampled_tree, self.seq_folder, self.output_folder)
 
     def mode_w(self, input):
@@ -206,7 +204,7 @@ class SpeciesSampler():
                 species.append(sp)
                 weights.append(wt)
 
-        species_to_sample = numpy.random.choice(species, n, p=af.normalize(weights))
+        species_to_sample = NPRNG.choice(sorted(species), n, p=af.normalize(weights))
 
         if self.computed_datasets[0] == True:
             stree = self.cut_st(species_to_sample)
@@ -215,8 +213,8 @@ class SpeciesSampler():
             gtrees = self.cut_gt(species_to_sample)
             self.write_sampled_trees(gtrees)
         if self.computed_datasets[2] == True:
-            for tree in trees[1:]:
-                sampled_tree = os.path.join(self.output_folder, tree[0].replace("_events.tsv", "_sampledtree.nwk"))
+            for tree in trees[1:]:         #BUG: trees is not defined!!!!
+                sampled_tree = self.output_folder / (tree[0].replace("_events.tsv", "_sampledtree.nwk"))
                 af.write_sampled_sequences(sampled_tree, self.seq_folder, self.output_folder)
 
 

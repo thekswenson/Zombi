@@ -25,10 +25,10 @@ class RateCustomizer():
 
         self.branch_substitution_rates = dict()
 
-        for node in mytree.traverse():
+        for node in mytree.traverse():      #type: ignore
             self.branch_substitution_rates[node.name] = af.obtain_value(self.parameters["ST_RATE_MULTIPLIERS"])
 
-        with open(os.path.join(experiment_folder,"CustomRates/ST_Substitution_rates.tsv"),"w") as f:
+        with open(os.path.join(self.experiment_folder,"CustomRates/ST_Substitution_rates.tsv"),"w") as f:
 
             line = "\t".join(["lineage", "SUBSTITUTION_RATE_MULTIPLIER"]) + "\n"
             f.write(line)
@@ -43,7 +43,7 @@ class RateCustomizer():
 
         gene_trees = [x.split("_")[0] for x in os.listdir(os.path.join(self.experiment_folder, "G/Gene_trees")) if "complete" in x]
 
-        with open(os.path.join(experiment_folder,"CustomRates/GT_Substitution_rates.tsv"),"w") as f:
+        with open(os.path.join(self.experiment_folder,"CustomRates/GT_Substitution_rates.tsv"),"w") as f:
 
             line = "\t".join(["gene_family", "SUBSTITUTION_RATE_MULTIPLIER"]) + "\n"
             f.write(line)
@@ -57,7 +57,7 @@ class RateCustomizer():
         rates = dict()
         alive_lineages = {"Root"}
 
-        with open(os.path.join(experiment_folder,"T/Events.tsv")) as f:
+        with open(os.path.join(self.experiment_folder,"T/Events.tsv")) as f:
 
             f.readline()
             for line in f:
@@ -95,7 +95,7 @@ class RateCustomizer():
                     alive_lineages.remove(nodes)
 
 
-        with open(os.path.join(experiment_folder,"CustomRates/Transfer_rates.tsv"),"w") as f:
+        with open(os.path.join(self.experiment_folder,"CustomRates/Transfer_rates.tsv"),"w") as f:
             header = "\t".join(["DONOR","RECIPIENT","WEIGHT"]) +"\n"
             f.write(header)
             for k1,v1 in rates.items():
@@ -114,7 +114,7 @@ class RateCustomizer():
 
         branch_rates = dict()
 
-        for node in mytree.traverse():
+        for node in mytree.traverse():   #type: ignore
 
             d = af.obtain_value(self.parameters["DUPLICATION"])
             t = af.obtain_value(self.parameters["TRANSFER"])
@@ -125,7 +125,7 @@ class RateCustomizer():
 
             branch_rates[node.name] = (d,t,l,i,p,o)
 
-        with open(os.path.join(experiment_folder,"CustomRates/Event_rates.tsv"),"w") as f:
+        with open(os.path.join(self.experiment_folder,"CustomRates/Event_rates.tsv"),"w") as f:
 
             line = "\t".join(["lineage","D","T","L","I","C","O"]) + "\n"
             f.write(line)
@@ -148,7 +148,7 @@ class RateCustomizer():
 
         branch_rates = dict()
 
-        for node in mytree.traverse():
+        for node in mytree.traverse():   #type: ignore
 
             d = self.parameters["DUPLICATION_EXTENSION"]
             t = self.parameters["TRANSFER_EXTENSION"]
@@ -158,7 +158,7 @@ class RateCustomizer():
 
             branch_rates[node.name] = (d,t,l,i,p)
 
-        with open(os.path.join(experiment_folder,"CustomRates/Extension_rates.tsv"),"w") as f:
+        with open(os.path.join(self.experiment_folder,"CustomRates/Extension_rates.tsv"),"w") as f:
 
             line = "\t".join(["lineage","D_E","T_E","L_E","I_E","P_E"]) + "\n"
             f.write(line)
@@ -173,7 +173,7 @@ class RateCustomizer():
 
         nfamilies = int(self.parameters["INITIAL_GENOME_SIZE"])
 
-        with open(os.path.join(experiment_folder,"CustomRates/GeneFamiliy_rates.tsv"),"w") as f:
+        with open(os.path.join(self.experiment_folder,"CustomRates/GeneFamiliy_rates.tsv"),"w") as f:
 
             line = "\t".join(["GeneFamily","DUPLICATION","TRANSFER","LOSS"]) + "\n"
             f.write(line)

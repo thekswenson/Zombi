@@ -197,16 +197,16 @@ def prepare_species_tree_parameters(parameters, nprngen: npGenerator):
         if parameter == "MASSIVE_EXTINCTION":
             parameters[parameter] = [tuple([float(j) for j in x.split("-")]) for x in value.split(";")]
             
-        if parameter == "SPECIES_EVOLUTION_MODE" or parameter == "N_LINEAGES" or parameter == "MIN_LINEAGES" \
-                or parameter == "TOTAL_LINEAGES" or parameter == "STOPPING_RULE" or parameter == "MAX_LINEAGES"\
-                or parameter == "VERBOSE" or parameter == "SEED" or parameter == "SCALE_TREE" \
-                or parameter == "NUM_SPECIATION_RATE_CATEGORIES" or parameter == "NUM_EXTINCTION_RATE_CATEGORIES"\
-                or parameter == "SIMULATE_SEQUENCES" or parameter == "SCALE_GENE_TREES":
+        if(parameter == "SPECIES_EVOLUTION_MODE" or parameter == "N_LINEAGES" or parameter == "MIN_LINEAGES"
+           or parameter == "TOTAL_LINEAGES" or parameter == "STOPPING_RULE" or parameter == "MAX_LINEAGES"
+           or parameter == "VERBOSE" or parameter == "SEED" or parameter == "SCALE_TREE"
+           or parameter == "NUM_SPECIATION_RATE_CATEGORIES" or parameter == "NUM_EXTINCTION_RATE_CATEGORIES"
+           or parameter == "SIMULATE_SEQUENCES" or parameter == "SCALE_GENE_TREES"):
             parameters[parameter] = int(value)
 
     return parameters
 
-def get_complementary_sequence(sequence):
+def get_complementary_sequence(sequence: str) -> str:
 
     new_sequence = sequence.replace("A","x").replace("T","y").replace("C","v").replace("G","w")
     new_sequence = new_sequence.replace("x","T").replace("y","A").replace("v","G").replace("w","C")
@@ -392,8 +392,7 @@ def generate_newick_trees(events):
     surviving_nodes = dict()
     times = dict()
 
-    for current_time, event, nodes in events[::-1]:
-
+    for current_time, event, nodes in reversed(events):
 
         if event == "F":
 
@@ -542,7 +541,7 @@ def generate_gene_tree(events):
     surviving_nodes = dict()
     times = dict()
 
-    for current_time, event, nodes in events[::-1]:
+    for current_time, event, nodes in reversed(events):
 
         if event == "F":
 
@@ -706,19 +705,19 @@ def write_pruned_sequences(tree_file: str, fasta_folder: Path, scaled=False):
             my_tree = ete3.Tree(line, format=1)
 
     surviving_nodes = {x.name for x in my_tree.get_leaves()}
-    file_name = tree_file.split("/")[-1].split("_")[0]
+    tree_num = tree_file.split("/")[-1].split("_")[0]
 
     if not scaled:
-        entries = fasta_reader(fasta_folder / f"{file_name}_complete.fasta")
+        entries = fasta_reader(fasta_folder / f"{tree_num}_complete.fasta")
     else:
-        entries = fasta_reader(fasta_folder / f"{file_name}_substitution_scaled.fasta")
+        entries = fasta_reader(fasta_folder / f"{tree_num}_substitution_scaled.fasta")
 
     clean_entries = list()
     for h, seq in entries:
         if h[1:] in surviving_nodes:
             clean_entries.append((h, seq))
 
-    fasta_writer(fasta_folder / f"{file_name}_pruned.fasta", clean_entries)
+    fasta_writer(fasta_folder / f"{tree_num}_pruned.fasta", clean_entries)
 
 
 def write_sampled_sequences(tree_file: str, infasta_folder: Path, outfasta_folder: Path):
@@ -741,7 +740,7 @@ def write_sampled_sequences(tree_file: str, infasta_folder: Path, outfasta_folde
     fasta_writer(outfasta_folder / f"{file_name}_sampled.fasta", clean_entries)
 
 
-def parse_GFF(gff_file: str, sort=True) -> Tuple[int, List[SeqFeature]]:
+def parse_GFF(gff_file: Path, sort=True) -> Tuple[int, List[SeqFeature]]:
     """
     Extract the chromosome length and the genes from the given GFF file.
     Genes are in Biopython SeqFeature format:
@@ -750,7 +749,7 @@ def parse_GFF(gff_file: str, sort=True) -> Tuple[int, List[SeqFeature]]:
 
     Parameters
     ----------
-    gff_file : str
+    gff_file : Path
         the GFF file to parse
     sort : bool, default true
         return the genes sorted by start index
@@ -818,7 +817,7 @@ class MissingInfoFileError(Exception):
     pass
 
 
-def read_nucleotide_sequences(fasta: Path, genome_folder: str,
+def read_nucleotide_sequences(fasta: Path, genome_folder: Path,
                               #gene_family_info = 'GeneFamily_info.tsv',
                               initial_genome_info = 'InitialGenome_info.tsv') \
     -> Tuple[Dict[str, SeqRecord], Dict[str, SeqRecord]]:
@@ -870,7 +869,7 @@ def read_nucleotide_sequences(fasta: Path, genome_folder: str,
     #        gid, _, start, end = line.strip().split("\t")
     #        gidTOseq[gid] = sequence[int(start)-1: int(end)]
 
-    init_genome_p = Path(genome_folder, initial_genome_info)
+    init_genome_p = genome_folder / initial_genome_info
     if not init_genome_p.exists():
         raise MissingInfoFileError(init_genome_p)
 
@@ -898,7 +897,7 @@ def read_nucleotide_sequences(fasta: Path, genome_folder: str,
     return gidTOseq, didTOseq
 
 
-def read_protein_sequences(gff_file: str, genome_folder: str,
+def read_protein_sequences(gff_file: str, genome_folder: Path,
                            gene_family_info = 'GeneFamily_info.tsv') -> Dict[str, str]:
     """
     Return a dictionary mapping the gene id to its sequence.
@@ -935,7 +934,7 @@ def read_protein_sequences(gff_file: str, genome_folder: str,
         sys.exit(f'Problem opening GFF file (remove ##FASTA lines?):\n{e}')
 
     gidTOseq: Dict[str, str] = {}
-    with open(os.path.join(genome_folder, gene_family_info)) as f:
+    with open(genome_folder / gene_family_info) as f:
         f.readline()
         for line in f:
             gid, gffid, _, _ = line.strip().split("\t")

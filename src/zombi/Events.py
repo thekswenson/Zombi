@@ -40,9 +40,9 @@ class GenomeEvent:
     def afterToBeforeS(self, sc: int) -> int:
         """
         Given a specific breakpoint coordinate after this event, return the
-        same one before.
+        same coordinate before the event.
         """
-        pass
+        raise NotImplementedError
 
     @abc.abstractmethod
     def afterToBeforeT(self, sc: int) -> int:
@@ -50,7 +50,15 @@ class GenomeEvent:
         Given a specific breakpoint coordinate after this event, return the
         same one before.
         """
-        pass
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def return_info(self):
+        """
+        Return all the important info to register the event.
+        """
+        raise NotImplementedError
+
 
 class EventOneCut(GenomeEvent):
     """
@@ -71,8 +79,11 @@ class EventOneCut(GenomeEvent):
         """
         Return all the important info to register the event
         """
-        return (self.etype, self.time, str(self.interval.tc1 + self.sbp))
+        return (self.etype, self.time, str(self.before.tc1 + self.sbp))
            
+    def __str__(self) -> str:
+        return f"{self.etype} on {self.lineage}:{self.before.tc1}..{self.before.tc2}"#:{self.sbp}"
+
 
 class EventTwoCuts(GenomeEvent):
     """
@@ -122,6 +133,7 @@ class EventTwoCuts(GenomeEvent):
     def wraps(self) -> bool:
         """
         Does this event wrap around to the right (`before1` occurs after
+                print(f"Event: {event} at time {time} of type {etype}")
         `before2`)?
 
         NOTES
@@ -129,7 +141,6 @@ class EventTwoCuts(GenomeEvent):
             Assumes that no intergenes wrap from the end to beginning
             (the genome starts with a gene).
         """
-       
         return self.beforeL.tc1 > self.beforeR.tc1
 
     def assertS(self, sc: int) -> int:
@@ -154,6 +165,10 @@ class EventTwoCuts(GenomeEvent):
         return (self.etype, self.time, str(self.tbpL) + "," + str(self.tbpR))
     
   
+    def __str__(self):
+        return (f"{self.etype} between intervals {self.lineage}:"
+                f"{self.beforeL.tc1}..{self.beforeL.tc2}"#:{self.sbpL}"
+                f",{self.beforeR.tc1}..{self.beforeR.tc2}")#:{self.sbpR}")
 
 #-- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - --
 class Origination(EventOneCut):
@@ -167,8 +182,8 @@ class Origination(EventOneCut):
     afterR: Interval
         the right intergenic interval after the cut
     """
-    def __init__(self, interval: Interval, sbp: int, genelen:int, gene_family:int, orientation:str, 
-                 lineage: str, time: float):
+    def __init__(self, interval: Interval, sbp: int, genelen: int,
+                 gene_family: str, orientation: str, lineage: str, time: float):
         """
         Create an Origination event.
 
@@ -518,7 +533,7 @@ class Loss(EventTwoCuts):
         self.after: Interval
 
         self.pseudogenize = pseudogenize
-        self.adjustment_factor = adjustment_factor
+        self.adjustment_factor = adjustment_factor  #TODO: can this be None? If so, check returnPieceAndCut()
         
         self.pseudo_intergene_list = copy.deepcopy(pseudo_intergene_list)
         self.pseudo_gene_list = copy.deepcopy(pseudo_gene_list)
@@ -773,20 +788,21 @@ class Loss(EventTwoCuts):
         
         return self.after_tbpL + sc - self.after_sbpL
 
-    def returnPieceAndCut(self, sc: int):
+    def returnPieceAndCut(self, tc: int):
         """
         Given a total coordinate, returns the gene or
         intergene in that total coordinate and the breakpoint within the gene
         or intergene. A function to use in combination with the function
         returnTotalWithinEvent. To be used with psuedogenized events
         """
+        #raise NotImplementedError('This function is not ready yet: it has sc in'
+        #                          ' the prototype instead of tc, which '
+        #                          'probably indicates an issue')
         assert self.pseudo_gene_list
 
         for gene in self.pseudo_gene_list:
             if self.after_tbpL < tc and self.after_tbpR > tc:
                 return gene, tc - gene.total_flanking[0]
-
-        piece, cut = None, sc     
 
         if self.wraps():
 
@@ -841,7 +857,7 @@ class Loss(EventTwoCuts):
                     return intergene, tc - lf
 
         
-        return None, sc
+        return None, tc
 
 
 class MapPseudogeneError(Exception):

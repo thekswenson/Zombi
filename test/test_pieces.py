@@ -4,14 +4,17 @@ Unittests for testing the GenomeEvents and how they map coordinates.
 
 import os
 import unittest
+from pathlib import Path
+
+from zombi.Events import Origination, Transfer, Transposition, EventTwoCuts
 from zombi.GenomeSimulator import GenomeSimulator
 from zombi.Genomes import LEFT, RIGHT
 import zombi.AuxiliarFunctions as af
 
 
-GENOME_PARAMS = 'test/GenomeParametersDivisions.tsv'
-TEST_FOLDER1 = 'test/TestDivisions1/'
-TEST_GENOME = 'test/30_6.gff'
+GENOME_PARAMS = Path('test/GenomeParametersDivisions.tsv')
+TEST_FOLDER1 = Path('test/TestDivisions1/')
+TEST_GENOME = Path('test/30_6.gff')
 
 
 class TestDivisions(unittest.TestCase):
@@ -127,7 +130,7 @@ class TestDuplications(unittest.TestCase):
       events_file = os.path.join(TEST_FOLDER1, 'T/Events.tsv')
       
 
-      self.gss = GenomeSimulator(params, events_file, "test/30_6.gff")
+      self.gss = GenomeSimulator(params, events_file, Path("test/30_6.gff"))
       #self.gss.run_f_debug([event1, event2, event3, event4, event5, event6, event7]) 
       #self.gss.run_f_debug([event1, event2, event3, event4, event5, event6, event7]) 
       #self.gss.run_f_debug([event1, event2, event3, event4, event5, event6, event7]) 
@@ -136,9 +139,9 @@ class TestDuplications(unittest.TestCase):
       self.gss.obtain_divisions() 
       self.gss.obtain_events_for_divisions()
      
-      for i in range(10000):
+      for _ in range(10000):
 
-        self.gss = GenomeSimulator(params, events_file, "test/30_6.gff")
+        self.gss = GenomeSimulator(params, events_file, Path("test/30_6.gff"))
         self.gss.run_f() 
          
         events = self.gss.return_all_events()
@@ -156,15 +159,19 @@ class TestDuplications(unittest.TestCase):
               line = ["G", str(event.time), event.etype, event.lineage]
                       
               if event.etype == "P":
+                  assert isinstance(event, Transposition)
                   c1, c2, c3 = event.sbpL, event.sbpR, event.sbpH
                   line.append(str((c1, c2, c3)))
               elif event.etype == "O":
+                  assert isinstance(event, Origination)
                   c1 = event.sbp
               elif event.etype == "T":
-                c1, c2, c3, recipient, donor = event.sbpL, event.sbpR, event.receptorsbp, event.receptorlineage, event.donorlineage
-                line.append(str((c1,c2,c3,recipient, donor)))
+                  assert isinstance(event, Transfer)
+                  c1, c2, c3, recipient, donor = event.sbpL, event.sbpR, event.receptorsbp, event.receptorlineage, event.donorlineage
+                  line.append(str((c1,c2,c3,recipient, donor)))
 
               else:
+                  assert isinstance(event, EventTwoCuts)
                   c1, c2 = event.sbpL, event.sbpR
                   line.append(str((c1, c2)))
 
