@@ -7,10 +7,11 @@ from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 
 from .SequenceSimulator import node_piecesre
+from .Filenames import EXTANTTREE, PRUNEDsuffix
 
 
 def get_genes(genesdir: Path,
-              suffix='_pruned.fasta') \
+              suffix=PRUNEDsuffix) \
     -> dict[str, dict[str, dict[str, SeqRecord]]]:
     """
     Read the gene fasta records from the given directory.
@@ -63,7 +64,7 @@ def get_leaf_names(projdir: Path) -> list[str]:
     """
     Get the leaf names from the tree file.
     """
-    treefile = projdir / 'T/ExtantTree.nwk'
+    treefile = projdir / 'T' / EXTANTTREE
 
     tree = Phylo.read(treefile, 'newick')   #type: ignore
     return [l.name for l in tree.get_terminals()]

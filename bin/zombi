@@ -18,6 +18,17 @@ from zombi.SequenceSimulator import SequenceSimulator, write_whole_genome
 from zombi.Export import whole_genome_to_GFF
 from zombi.Random import seed_G_generators, seed_S_generators, seed_T_generators
 from zombi.Random import T_NPRNG
+from zombi.Filenames import BRANCHWISERATES, CATEGORIES, GENEFAMILYLENGTHS, COMPLETETREEsuffix, PRUNEDTREEsuffix
+from zombi.Filenames import GTSUBSTITUTIONRATES, RATES, RATESTREE
+from zombi.Filenames import REDSCALEDEVENTS, REDSCALEDTREE, SCALEDEVENTS
+from zombi.Filenames import SHIFTEVENTS, SHIFTSCATEGORIES, STSUBSTITUTIONRATES
+from zombi.Filenames import SUBSTITUTIONSCALEDCOMPLETETREE
+from zombi.Filenames import SUBSTITUTIONSCALEDEXTANTTREE, GENEFAMEVENTSsuffix
+from zombi.Filenames import TREEEVENTS, PIECESsuffix
+from zombi.Filenames import SUBSTITUTIONSCALEDTREEsuffix
+from zombi.Filenames import DIVISIONLENGTHS, COMPLETETREE, EXTANTTREE
+from zombi.Filenames import COLLAPSEDNODES, TREELENGTHS, LEAVES, GENOMES
+from zombi.Filenames import LEAFGENOMES, COMPLETEsuffix, PRUNEDsuffix
 
 
 class Zombi():
@@ -33,18 +44,14 @@ class Zombi():
         """
         Simulate the Species Tree
         """
-        tree_folder = os.path.join(experiment_folder, "T")
+        tree_folder = Path(experiment_folder) / "T"
 
-        events_file = os.path.join(tree_folder, "Events.tsv")
-        complete_tree_file = os.path.join(tree_folder, "CompleteTree.nwk")
-        extant_tree_file = os.path.join(tree_folder, "ExtantTree.nwk")
-        collapsed_nodes_file = os.path.join(tree_folder, "CollapsedNodes.tsv")
-        lengths_file = os.path.join(tree_folder, "Lengths.tsv")
-        leaves_file = Path(tree_folder, "Leaves.tsv")
-
-        paramdict = af.read_parameters(parameters_file)
-        seed_T_generators(paramdict.get("SEED", 0))
-        parameters = af.prepare_species_tree_parameters(paramdict, T_NPRNG)
+        events_file = tree_folder / TREEEVENTS
+        complete_tree_file = tree_folder / COMPLETETREE
+        extant_tree_file = tree_folder / EXTANTTREE
+        collapsed_nodes_file = tree_folder / COLLAPSEDNODES
+        lengths_file = tree_folder / TREELENGTHS
+        leaves_file = tree_folder / LEAVES
 
         if advanced_mode == "i":
 
@@ -58,6 +65,9 @@ class Zombi():
             stg.events = af.generate_events(tree_file)
 
         else:
+            paramdict = af.read_parameters(parameters_file)
+            seed_T_generators(paramdict.get("SEED", 0))
+            parameters = af.prepare_species_tree_parameters(paramdict, T_NPRNG)
 
             stg = SpeciesTreeGenerator(parameters)
 
@@ -108,20 +118,20 @@ class Zombi():
 
         
         if advanced_mode != "i" and parameters["SCALE_TREE"] != 0:
-            scaled_extant_tree_file = os.path.join(tree_folder, "REDScaledExtantTree.tsv")
-            scaled_events_file = os.path.join(tree_folder, "REDScaledEvents.tsv")
+            scaled_extant_tree_file = os.path.join(tree_folder, REDSCALEDTREE)
+            scaled_events_file = os.path.join(tree_folder, REDSCALEDEVENTS)
             scaled_tree, scaled_events = stg.scale_trees(extant_tree, parameters["SCALE_TREE"])
             stg.write_scaled_files(scaled_tree, scaled_extant_tree_file,
                                    scaled_events, scaled_events_file)
         
         if advanced_mode == "b" or advanced_mode == "a":
-            rates_file = os.path.join(tree_folder, "Rates.tsv")
+            rates_file = os.path.join(tree_folder, RATES)
             stg.write_rates(rates_file)
             
         if advanced_mode == "s":
             #shift_s_file = os.path.join(tree_folder, "ShiftsSpeciations.tsv")
             #shift_e_file = os.path.join(tree_folder, "ShiftsExtinctions.tsv")
-            cat_file = os.path.join(tree_folder, "ShiftsCategories.tsv")
+            cat_file = os.path.join(tree_folder, SHIFTSCATEGORIES)
             
             #stg.write_shifts(shift_s_file)
             #stg.write_shifts(shift_e_file)            
@@ -134,8 +144,9 @@ class Zombi():
         Simulate Genomes
         """
         parameters = af.prepare_genome_parameters(af.read_parameters(parameters_file))
-        events_file = os.path.join(experiment_folder, "T/Events.tsv")
-        scaled_file = experiment_folder / "T/ScaledEvents.tsv"
+
+        events_file = os.path.join(experiment_folder, "T", TREEEVENTS)
+        scaled_file = experiment_folder / "T" / SCALEDEVENTS
         genome_folder = experiment_folder / "G"
         shutil.copy(parameters_file, genome_folder)
 
@@ -246,17 +257,16 @@ class Zombi():
             sys.exit(f'Directory "{genome_folder}" does not exist. '
                      f'Did you run G mode?')
 
+        parameters = af.prepare_sequence_parameters(af.read_parameters(parameters_file))
+        seed_S_generators(parameters["SEED"])
+
+        #Create the directories
         gene_trees_folder = genome_folder / "Gene_trees"
         sequences_folder = experiment_folder / "S"
         genesequences_folder = sequences_folder / "Genes"
-        #os.system("cp " + parameters_file + " " + sequences_folder)
+
+        genesequences_folder.mkdir(parents=True, exist_ok=True)
         shutil.copy(parameters_file, sequences_folder)
-
-        if not genesequences_folder.is_dir():
-            genesequences_folder.mkdir()
-
-        parameters = af.prepare_sequence_parameters(af.read_parameters(parameters_file))
-        seed_S_generators(parameters["SEED"])
 
         print("Preparing simulator of sequences")
 
@@ -264,9 +274,13 @@ class Zombi():
 
         if advanced_mode == "0":
 
-            complete_trees = [x.replace("_pruned", "_complete")
-                              for x in os.listdir(gene_trees_folder)
-                              if "pruned" in x]
+            try:
+                complete_trees = [x.replace(PRUNEDTREEsuffix, COMPLETETREEsuffix)
+                                  for x in os.listdir(gene_trees_folder)
+                                  if PRUNEDTREEsuffix in x]
+            except FileNotFoundError:
+                sys.exit(f'Directory "{gene_trees_folder}" does not exist. '
+                         f'Did you run G mode?')
                 
             with ProcessPoolExecutor(max_workers=num_threads) as executor:
                 futures: dict[str, Future[None]] = {}
@@ -278,53 +292,55 @@ class Zombi():
 
                 for tree_path, future in futures.items():
                     future.result()
-                    af.write_pruned_sequences(tree_path.replace("complete", "pruned"),
+                    af.write_pruned_sequences(tree_path.replace(COMPLETETREEsuffix, PRUNEDTREEsuffix),
                                               genesequences_folder)
 
         elif advanced_mode == "u":
 
             # First we obtain the rates-multiplier
 
-            ss.obtain_rates_multipliers(experiment_folder / "CustomRates/GT_Substitution_rates.tsv",
-                                        experiment_folder / "CustomRates/ST_Substitution_rates.tsv")
+            ss.obtain_rates_multipliers(experiment_folder / "CustomRates" / GTSUBSTITUTIONRATES,
+                                        experiment_folder / "CustomRates" / STSUBSTITUTIONRATES)
 
             # And we save it
 
-            ss.write_rates_sttree(experiment_folder / "T/CompleteTree.nwk",
-                                  experiment_folder / "T/RatesTree.nwk")
+            ss.write_rates_sttree(experiment_folder / "T" / COMPLETETREE,
+                                  experiment_folder / "T" / RATESTREE)
 
-            complete_trees = [x for x in os.listdir(gene_trees_folder) if "complete" in x]
+            complete_trees = [x for x in os.listdir(gene_trees_folder)
+                              if COMPLETETREEsuffix in x]
 
             for tree_file in complete_trees:
                 tree_path = os.path.join(gene_trees_folder, tree_file)
                 if parameters["VERBOSE"] == 1:
                     print("Simulating sequence for gene family %s" % tree_file.split("_")[0])
                 ss.run_u(tree_path, genesequences_folder)
-                af.write_pruned_sequences(tree_path.replace("complete", "pruned"),
+                af.write_pruned_sequences(tree_path.replace(COMPLETETREEsuffix, PRUNEDTREEsuffix),
                                           genesequences_folder)
                 
         elif advanced_mode == "s":
 
             # First we simulate the sequence shifts in the Complete Tree
             
-            ss.simulate_shifts(experiment_folder / "T/Events.tsv")
-            ss.write_shift_events(experiment_folder / "S/ShiftEvents.tsv")                                                           
-            ss.write_categories(experiment_folder / "S/Categories.tsv")
+            ss.simulate_shifts(experiment_folder / "T" / TREEEVENTS)
+            ss.write_shift_events(experiment_folder / "S" / SHIFTEVENTS)
+            ss.write_categories(experiment_folder / "S" / CATEGORIES)
             # We create a new Species Tree with the branch modified to reflect these changes
             
-            ss.write_substitution_scaled_stree(experiment_folder / "T/CompleteTree.nwk", 
-                                               experiment_folder / "T/ExtantTree.nwk",       
-                                               experiment_folder / "S/SubstitutionScaledCompleteTree.nwk",
-                                               experiment_folder / "S/SubstitutionScaledExtantTree.nwk",
-                                               experiment_folder / "S/Branchwise_rates.tsv")
-            
+            ss.write_substitution_scaled_stree(experiment_folder / COMPLETETREE,
+                                               experiment_folder / EXTANTTREE,
+                                               experiment_folder / SUBSTITUTIONSCALEDCOMPLETETREE,
+                                               experiment_folder / SUBSTITUTIONSCALEDEXTANTTREE,
+                                               experiment_folder / BRANCHWISERATES)
+
             
             # We modify the length of the complete gene trees according to the previous table
             
             if int(parameters["SCALE_GENE_TREES"]) == 1:
 
                 
-                complete_trees = [x for x in os.listdir(gene_trees_folder) if "complete" in x]            
+                complete_trees = [x for x in os.listdir(gene_trees_folder)
+                                  if COMPLETETREEsuffix in x]            
                 scaled_trees_folder = experiment_folder / "S/SubstitutionScaledTrees/"
                 scaled_trees_folder.mkdir()
 
@@ -332,11 +348,11 @@ class Zombi():
                     if parameters["VERBOSE"] == 1:
                         print("Scaling trees for gene family %s" % tree.split("_")[0])
                     ntree = ss.write_effective_gtree(experiment_folder / "G/Gene_trees" / tree, 
-                                                     experiment_folder / "G/Gene_families" / (tree.split("_")[0] + "_events.tsv"))
+                                                     experiment_folder / "G/Gene_families" / (tree.split("_")[0] + GENEFAMEVENTSsuffix))
 
                     # We write the trees
                     if ntree != None:
-                        with open(scaled_trees_folder / (tree.split("_")[0] + "_substitution_scaled.nwk"), "w") as f:
+                        with open(scaled_trees_folder / (tree.split("_")[0] + SUBSTITUTIONSCALEDTREEsuffix), "w") as f:
                             f.write(ntree)
 
             # Now we simulate the sequences    
@@ -350,22 +366,23 @@ class Zombi():
                 for tree_file in complete_trees:
                     if parameters["VERBOSE"] == 1:
                         print(f"Simulating sequence for gene family {str(tree_file).split('_')[0]}")
-                    
-                    ss.run(scaled_trees_folder / tree_file, scaled_fastas_folder)                 
-                    tree_path = os.path.join(gene_trees_folder, tree_file)               
-                    af.write_pruned_sequences(tree_path.replace("_substitution_scaled.nwk", "_prunedtree.nwk"),
+
+                    ss.run(scaled_trees_folder / tree_file, scaled_fastas_folder)
+                    tree_path = os.path.join(gene_trees_folder, tree_file)
+                    af.write_pruned_sequences(tree_path.replace(SUBSTITUTIONSCALEDTREEsuffix, PRUNEDTREEsuffix),
                                               scaled_fastas_folder, True)
             
 
         elif advanced_mode == "f":
 
-            complete_trees = [x for x in os.listdir(gene_trees_folder) if "complete" in x]
+            complete_trees = [x for x in os.listdir(gene_trees_folder)
+                              if COMPLETETREEsuffix in x]
             divisionsequences_folder = sequences_folder / "Divisions"
             divisionsequences_folder.mkdir()
 
             gf_lengths: Dict[str, int] = dict()
 
-            with open(genome_folder / "GeneFamily_lengths.tsv") as f:
+            with open(genome_folder / GENEFAMILYLENGTHS) as f:
                 f.readline()
                 for line in f:
                     gf, l = line.strip().split("\t")
@@ -406,11 +423,11 @@ class Zombi():
                     #Generate the sequences for the intergene division trees:
             division_trees_folder = Path(genome_folder, "Division_trees")
             division_trees = [x.name for x in division_trees_folder.iterdir()
-                              if "complete" in x.name]
+                              if COMPLETETREEsuffix in x.name]
 
             division_lengths: Dict[str, int] = dict()
 
-            with open(Path(genome_folder, "Division_lengths.tsv")) as f:
+            with open(genome_folder / DIVISIONLENGTHS) as f:
                 f.readline()
                 for line in f:
                     did, length = line.strip().split("\t")
@@ -421,7 +438,7 @@ class Zombi():
                 with multiprocessing.Pool(processes=num_threads) as pool:
                     pool.starmap(simulate_sequences_on_tree,
                                  zip(division_trees,
-                                     [str(division_trees_folder)]*n,
+                                     [division_trees_folder]*n,
                                      [divisionsequences_folder]*n, [ss]*n,
                                      [division_lengths]*n, [did_to_seq]*n,
                                      [parameters["VERBOSE"]]*n))
@@ -439,7 +456,8 @@ class Zombi():
             node2genef2seq: Dict[str, Dict[str, str]] = defaultdict(dict) # To keep the genes
             node2divf2seq: Dict[str, Dict[str, str]] = defaultdict(dict)  # To keep the divisions
             
-            gene_fastas = [x for x in os.listdir(genesequences_folder) if "complete" in x]
+            gene_fastas = [x for x in os.listdir(genesequences_folder)
+                           if COMPLETEsuffix in x]
 
             for gene_fasta in gene_fastas:
                 gf = gene_fasta.split("_")[0]
@@ -447,7 +465,8 @@ class Zombi():
                     node2genef2seq[name[1:]][gf] = seq
 
 
-            division_fastas = [x for x in os.listdir(divisionsequences_folder) if "complete" in x]
+            division_fastas = [x for x in os.listdir(divisionsequences_folder)
+                               if COMPLETEsuffix in x]
 
             for division_fasta in division_fastas:
                 df = division_fasta.split("_")[0]
@@ -465,9 +484,9 @@ class Zombi():
             os.mkdir(genomeseq_folder)
 
             pieces_files = [d for d in genomes_folder.iterdir()
-                            if str(d).endswith("PIECES.tsv")] # could be renamed to COORDINATES.tsv
+                            if str(d).endswith(PIECESsuffix)] # could be renamed to COORDINATES.tsv
             
-            leaves_file = Path(experiment_folder, "T", "Leaves.tsv")
+            leaves_file = Path(experiment_folder, "T", LEAVES)
             leaves = af.get_leaves_from_file(leaves_file)
     
             for pieces_file in pieces_files:
@@ -475,9 +494,9 @@ class Zombi():
                                    genomeseq_folder, leaves)
 
             whole_genome_to_GFF(pieces_files,
-                                Path(sequences_folder, 'Genomes.gff'))
+                                Path(sequences_folder, GENOMES))
             whole_genome_to_GFF(pieces_files,
-                                Path(sequences_folder, 'LeafGenomes.gff'),
+                                Path(sequences_folder, LEAFGENOMES),
                                 leaves)
 
 
@@ -509,7 +528,7 @@ class Zombi():
 #                whole_genome += seq_sim.generate_intergenic_sequences(int(l))
 #
 #    entry = [(">" + species, whole_genome)]
-#    af.fasta_writer(os.path.join(sequences_folder, species + "_Wholegenome.fasta"), entry)
+#    af.fasta_writer(os.path.join(sequences_folder, species + WHOLEGENOMEsuffix), entry)
 
 
 def simulate_sequences_on_tree(tree_file: str, gene_trees_folder: Path,
@@ -539,7 +558,7 @@ def simulate_sequences_on_tree(tree_file: str, gene_trees_folder: Path,
     """
     family = tree_file.split("_")[0]
 
-    tree_path = os.path.join(gene_trees_folder, tree_file)
+    tree_path = gene_trees_folder / tree_file
     if verbose:
         print("Simulating sequence for family %s" % family)
                           #use fasta sequence
@@ -550,7 +569,8 @@ def simulate_sequences_on_tree(tree_file: str, gene_trees_folder: Path,
     else:                 #make random gene
         seq_sim.run_f(tree_path, family_lens[family], outfolder)
 
-    af.write_pruned_sequences(tree_path.replace("complete", "pruned"), outfolder)
+    af.write_pruned_sequences(str(tree_path).replace(COMPLETETREEsuffix, PRUNEDTREEsuffix),
+                              outfolder)
 
 
 #__    ___    ___    ___    ___    ___    ___    ___    ___    ___    ___    __
@@ -605,9 +625,9 @@ def main():
     p_Gf.add_argument('-g', '--genome-root', metavar='GFF_FILE', type=Path,
                       help='Make the root genome have these gene intervals')
 
-    p_S.add_argument('-p', '--parallel', metavar='NUM_THREADS', type=int, default=0,
+    p_S.add_argument('-p', '--parallel', metavar='NUM_THREADS', type=int, default=1,
                      help='Use this many threads to simulated sequences')
-    p_Sf.add_argument('-p', '--parallel', metavar='NUM_THREADS', type=int, default=0,
+    p_Sf.add_argument('-p', '--parallel', metavar='NUM_THREADS', type=int, default=1,
                       help='Use this many threads to simulated sequences')
     p_Sf.add_argument('-s', '--sequence-root', metavar='FASTA_FILE', type=Path,
                       help='Seed the root genome with these ancestral sequences '
@@ -699,7 +719,7 @@ def clear_directory(directory: Path, force_overwrite: bool) -> None:
                  f'choose another PROJECT_DIR')
 
     shutil.rmtree(directory, ignore_errors=True)
-    directory.mkdir(parents=True, exist_ok=True)
+    directory.mkdir(parents=True)
 
 
 if __name__ == "__main__":

@@ -3,15 +3,19 @@ import numpy
 import sys
 import scipy
 import scipy.stats as ss
+
 from itertools import tee, zip_longest
-from typing import Dict, List, Set, Tuple, Optional
+from typing import Any, Dict, List, Set, Tuple, Optional
 from pathlib import Path
 from numpy.random import Generator as npGenerator
-
 from BCBio import GFF
 from Bio.SeqFeature import SeqFeature
 from Bio.SeqRecord import SeqRecord
 from Bio import SeqIO
+
+from zombi.Filenames import COMPLETEsuffix, SUBSTITUTIONSCALEDsuffix
+from zombi.Filenames import PRUNEDsuffix, SAMPLEDsuffix, INITIALGENOMEINFO
+from zombi.Filenames import GENEFAMILYINFO
 
 
 def normalize(array):
@@ -56,7 +60,7 @@ def divide_by_time_increase(array):
     transformed_array = numpy.log(array)
     return (transformed_array)
 
-def read_parameters(parameters_file):
+def read_parameters(parameters_file) -> dict[str, str]:
 
     parameters = dict()
 
@@ -67,7 +71,11 @@ def read_parameters(parameters_file):
             if line[0] == "#" or line == "\n":
                 continue
 
-            if "\t" in line:
+            if "\t" in line and " " in line:
+                sys.exit(f'ERROR: parameter file "{parameters_file}" has a '
+                         f'line\n"{line.strip()}" containing a mix of tabs '
+                         f'and spaces!')
+            elif "\t" in line:
                 parameter, value = line.strip().split("\t")
                 parameters[parameter] = value
             elif " " in line:
@@ -169,8 +177,10 @@ def discretize(alpha, ncat, disttype="lognorm"):
 def sample_from_dirichlet(n, nprngen: npGenerator):
     return nprngen.dirichlet([1] * n)
 
-def prepare_sequence_parameters(parameters):
-
+def prepare_sequence_parameters(parameters) -> dict[str, Any]:
+    """
+    Convert some of the S parameters to the correct type.
+    """
     for parameter, value in parameters.items():
 
         if parameter == "SEQUENCE_SIZE" or parameter == "VERBOSE" or parameter == "SEED":
@@ -181,30 +191,48 @@ def prepare_sequence_parameters(parameters):
 
     return parameters
 
-def prepare_species_tree_parameters(parameters, nprngen: npGenerator):
 
+def prepare_species_tree_parameters(parameters: dict[str, Any],
+                                    nprngen: npGenerator) -> dict[str, Any]:
+    """
+    Convert some of the T parameters to the correct type.
+    """
     for parameter, value in parameters.items():
 
         if parameter == "TURNOVER":
             parameters[parameter] = obtain_value(value, nprngen)
 
-        if parameter == "TOTAL_TIME":
+        elif parameter == "TOTAL_TIME":
             parameters[parameter] = float(value)
 
-        if parameter == "LINEAGE_PROFILE":
+        elif parameter == "LINEAGE_PROFILE":
             parameters[parameter] = [tuple([int(j) for j in x.split("-")]) for x in value.split(";")]
             
-        if parameter == "MASSIVE_EXTINCTION":
+        elif parameter == "MASSIVE_EXTINCTION":
             parameters[parameter] = [tuple([float(j) for j in x.split("-")]) for x in value.split(";")]
             
-        if(parameter == "SPECIES_EVOLUTION_MODE" or parameter == "N_LINEAGES" or parameter == "MIN_LINEAGES"
-           or parameter == "TOTAL_LINEAGES" or parameter == "STOPPING_RULE" or parameter == "MAX_LINEAGES"
-           or parameter == "VERBOSE" or parameter == "SEED" or parameter == "SCALE_TREE"
-           or parameter == "NUM_SPECIATION_RATE_CATEGORIES" or parameter == "NUM_EXTINCTION_RATE_CATEGORIES"
-           or parameter == "SIMULATE_SEQUENCES" or parameter == "SCALE_GENE_TREES"):
+        elif(parameter == "SPECIES_EVOLUTION_MODE" or parameter == "N_LINEAGES" or parameter == "MIN_LINEAGES" or
+             parameter == "TOTAL_LINEAGES" or parameter == "STOPPING_RULE" or parameter == "MAX_LINEAGES" or
+             parameter == "VERBOSE" or parameter == "SEED" or parameter == "SCALE_TREE" or
+             parameter == "NUM_SPECIATION_RATE_CATEGORIES" or parameter == "NUM_EXTINCTION_RATE_CATEGORIES" or
+             parameter == "SIMULATE_SEQUENCES" or parameter == "SCALE_GENE_TREES"):
             parameters[parameter] = int(value)
 
+        elif(parameter == "SPECIATION" or
+             parameter == "EXTINCTION" or
+             parameter == "MASS_EXTINCTION" or
+             parameter == "SHIFT_SPECIATION_RATE_FREQUENCY" or
+             parameter == "SHIFT_EXTINCTION_RATE_FREQUENCY" or
+             parameter == "BASE_EXTINCTION" or
+             parameter == "BASE_SPECIATION"):
+            pass
+
+        else:
+            sys.exit(f'ERROR: unknown parameter "{parameter}" given to tree '
+                     f'simulator.\n       Did you give the correct file?')
+
     return parameters
+
 
 def get_complementary_sequence(sequence: str) -> str:
 
@@ -708,16 +736,16 @@ def write_pruned_sequences(tree_file: str, fasta_folder: Path, scaled=False):
     tree_num = tree_file.split("/")[-1].split("_")[0]
 
     if not scaled:
-        entries = fasta_reader(fasta_folder / f"{tree_num}_complete.fasta")
+        entries = fasta_reader(fasta_folder / f"{tree_num}{COMPLETEsuffix}")
     else:
-        entries = fasta_reader(fasta_folder / f"{tree_num}_substitution_scaled.fasta")
+        entries = fasta_reader(fasta_folder / f"{tree_num}{SUBSTITUTIONSCALEDsuffix}")
 
     clean_entries = list()
     for h, seq in entries:
         if h[1:] in surviving_nodes:
             clean_entries.append((h, seq))
 
-    fasta_writer(fasta_folder / f"{tree_num}_pruned.fasta", clean_entries)
+    fasta_writer(fasta_folder / f"{tree_num}{PRUNEDsuffix}", clean_entries)
 
 
 def write_sampled_sequences(tree_file: str, infasta_folder: Path, outfasta_folder: Path):
@@ -730,14 +758,14 @@ def write_sampled_sequences(tree_file: str, infasta_folder: Path, outfasta_folde
             my_tree = ete3.Tree(line, format=1)
     surviving_nodes = {x.name for x in my_tree.get_leaves()}
     file_name = tree_file.split("/")[-1].split("_")[0]
-    entries = fasta_reader(infasta_folder / f"{file_name}_complete.fasta")
+    entries = fasta_reader(infasta_folder / f"{file_name}{COMPLETEsuffix}")
 
     clean_entries = list()
     for h, seq in entries:
         if h[1:] in surviving_nodes:
             clean_entries.append((h, seq))
 
-    fasta_writer(outfasta_folder / f"{file_name}_sampled.fasta", clean_entries)
+    fasta_writer(outfasta_folder / f"{file_name}{SAMPLEDsuffix}", clean_entries)
 
 
 def parse_GFF(gff_file: Path, sort=True) -> Tuple[int, List[SeqFeature]]:
@@ -818,8 +846,8 @@ class MissingInfoFileError(Exception):
 
 
 def read_nucleotide_sequences(fasta: Path, genome_folder: Path,
-                              #gene_family_info = 'GeneFamily_info.tsv',
-                              initial_genome_info = 'InitialGenome_info.tsv') \
+                              #gene_family_info = GENEFAMILYINFO,
+                              initial_genome_info = INITIALGENOMEINFO) \
     -> Tuple[Dict[str, SeqRecord], Dict[str, SeqRecord]]:
     """
     Return a dictionary mapping the gene id to its SeqRecord.
@@ -898,7 +926,7 @@ def read_nucleotide_sequences(fasta: Path, genome_folder: Path,
 
 
 def read_protein_sequences(gff_file: str, genome_folder: Path,
-                           gene_family_info = 'GeneFamily_info.tsv') -> Dict[str, str]:
+                           gene_family_info = GENEFAMILYINFO) -> Dict[str, str]:
     """
     Return a dictionary mapping the gene id to its sequence.
     The file `gene_family_info` contains a the GFF IDs necessary to find

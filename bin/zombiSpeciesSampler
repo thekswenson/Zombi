@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 
 import zombi.AuxiliarFunctions as af
+from zombi.Filenames import SAMPLEDTREE, TREEEVENTS, GENEFAMEVENTSsuffix
+from zombi.Filenames import SAMPLEDTREEsuffix, SAMPLEDsuffix
 from zombi.Random import RNG, NPRNG
 
 
@@ -34,7 +36,7 @@ class SpeciesSampler():
             self.computed_datasets = [False] * 3
         else:
 
-            self.species_tree_events = self.read_events(os.path.join(self.species_folder, "Events.tsv"))
+            self.species_tree_events = self.read_events(os.path.join(self.species_folder, TREEEVENTS))
 
             if not os.path.isdir(self.gene_family_folder):
 
@@ -103,7 +105,7 @@ class SpeciesSampler():
 
         # p stores the pruned Species Tree
 
-        return [("SampledSpeciesTree.nwk", p)]
+        return [(SAMPLEDTREE, p)]
 
     def cut_gt(self, species_sampled):
         # Now we cut the gene trees
@@ -137,7 +139,7 @@ class SpeciesSampler():
             self.write_sampled_trees(gtrees)
         if self.computed_datasets[2] == True:
             for tree in trees[1:]:              #BUG: trees is not defined!!!!
-                sampled_tree = os.path.join(self.output_folder, tree[0].replace("_events.tsv", "_sampledtree.nwk"))
+                sampled_tree = os.path.join(self.output_folder, tree[0].replace(GENEFAMEVENTSsuffix, SAMPLEDTREEsuffix))
                 af.write_sampled_sequences(sampled_tree, self.seq_folder, self.output_folder)
 
 
@@ -167,7 +169,7 @@ class SpeciesSampler():
             # We cut the sequences too
 
             for tree in trees[1:]:           #BUG: trees is not defined!!!!
-                sampled_tree = self.output_folder / (tree[0].replace("_events.tsv", "_sampledtree.nwk"))
+                sampled_tree = self.output_folder / (tree[0].replace(GENEFAMEVENTSsuffix, SAMPLEDTREEsuffix))
                 af.write_sampled_sequences(sampled_tree, self.seq_folder, self.output_folder)
 
 
@@ -188,7 +190,7 @@ class SpeciesSampler():
         if self.computed_datasets[2] == True:
 
             for tree in trees[1:]:         #BUG: trees is not defined!!!!
-                sampled_tree = self.output_folder / tree[0].replace("_events.tsv", "_sampledtree.nwk")
+                sampled_tree = self.output_folder / (tree[0].replace(GENEFAMEVENTSsuffix, SAMPLEDTREEsuffix))
                 af.write_sampled_sequences(sampled_tree, self.seq_folder, self.output_folder)
 
     def mode_w(self, input):
@@ -214,7 +216,7 @@ class SpeciesSampler():
             self.write_sampled_trees(gtrees)
         if self.computed_datasets[2] == True:
             for tree in trees[1:]:         #BUG: trees is not defined!!!!
-                sampled_tree = self.output_folder / (tree[0].replace("_events.tsv", "_sampledtree.nwk"))
+                sampled_tree = self.output_folder / (tree[0].replace(GENEFAMEVENTSsuffix, SAMPLEDTREEsuffix))
                 af.write_sampled_sequences(sampled_tree, self.seq_folder, self.output_folder)
 
 
@@ -222,7 +224,7 @@ class SpeciesSampler():
 
         for name, tree in trees:
 
-            tree_name = name.replace("_events.tsv", "_sampledtree.nwk")
+            tree_name = name.replace(SAMPLEDsuffix, SAMPLEDTREEsuffix)
 
             print("Writing %s" % tree_name)
 

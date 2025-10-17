@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from collections import defaultdict as ddict
 from itertools import combinations
 import sys
 import argparse
@@ -10,6 +9,7 @@ from Bio import SeqIO
 from Bio.Align import Alignment
 import numpy as np
     
+from zombi.Filenames import PRUNEDsuffix
     
 # Constants
 GENOMES = 'G/Genomes'
@@ -64,7 +64,7 @@ def analyze_alignments(args):
     minmismatches = sys.maxsize
     maxratio = 0
     minratio = np.inf
-    for alignfile in proj_dir.glob(f'{GENES}/*_pruned.fasta'):
+    for alignfile in proj_dir.glob(f'{GENES}/*{PRUNEDsuffix}'):
         #Read the alignment with biopython:
         alignment = SeqIO.parse(alignfile, 'fasta')
         for s1, s2 in combinations(alignment, 2):

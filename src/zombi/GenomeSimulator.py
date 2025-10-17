@@ -1,3 +1,4 @@
+import sys
 import numpy
 import copy
 import os
@@ -7,7 +8,7 @@ import itertools
 
 from ete3.coretype.tree import TreeNode
 from Bio.SeqFeature import SeqFeature
-from typing import Union
+from typing import Any, Union
 from pathlib import Path
 
 from . import AuxiliarFunctions as af
@@ -17,6 +18,13 @@ from .Genomes import Chromosome, CircularChromosome, CoordinateChoiceError
 from .Genomes import Gene, GeneFamily, Genome, DivisionFamily, Intergene
 from .Genomes import Division, T_DIR, LEFT, RIGHT, Intergene, LinearChromosome
 from .Random import G_RNG, G_NPRNG
+from .Filenames import BRANCHEVENTSTABLE, COMPLETETREE, EVENTRATES, FAMILYRATES
+from .Filenames import GENEFAMILYGFF, TREEEVENTS, BRANCHEVENTSSCALEDsuffix
+from .Filenames import BRANCHEVENTSsuffix, GENEFAMEVENTSsuffix, GENOMEsuffix
+from .Filenames import INTERACTOMEsuffix
+from .Filenames import PIECESsuffix, GENEFAMILYLENGTHS, PROFILES
+from .Filenames import DIVISIONLENGTHS, LENGTHSsuffix, INITIALGENOMEINFO
+from .Filenames import GENEFAMILYINFO, EXTENSIONRATES, TRANSFERRATES
 
 
 class GenomeSimulator():
@@ -40,13 +48,14 @@ class GenomeSimulator():
         genome. For debugging purposes.
     """
 
-    def __init__(self, parameters, events_file: str, root_genome: Path|None):
+    def __init__(self, parameters: dict[str, Any], events_file: str,
+                 root_genome: Path|None):
 
         self.parameters = parameters
 
         self.tree_events = self._read_events_file(events_file)
         self.distances_to_start = self._read_distances_to_start(events_file) # Only useful when computing assortative transfers
-        self.complete_tree = self._read_tree(events_file.replace("Events.tsv", "CompleteTree.nwk"))
+        self.complete_tree = self._read_tree(events_file.replace(TREEEVENTS, COMPLETETREE))
 
         self.all_genomes: dict[str, Genome] = dict()
         self.all_gene_families: dict[str, GeneFamily] = dict()
@@ -56,12 +65,16 @@ class GenomeSimulator():
         self.gene_families_counter = 0
         self.active_genomes: set[str] = set()
 
-        if self.parameters["RATE_FILE"] != "False":
-            if self.parameters["SCALE_RATES"] == "True":
-                self.crown_length = self._read_crown_length(events_file.replace("Events", "Lengths"))
-                self.empirical_rates = af.read_empirical_rates(rates_file=self.parameters["RATE_FILE"], scale_rates= self.crown_length)
-            else:
-                self.empirical_rates = af.read_empirical_rates(rates_file=self.parameters["RATE_FILE"])
+        try:
+            if self.parameters["RATE_FILE"] != "False":
+                if self.parameters["SCALE_RATES"] == "True":
+                    self.crown_length = self._read_crown_length(events_file.replace("Events", "Lengths"))
+                    self.empirical_rates = af.read_empirical_rates(rates_file=self.parameters["RATE_FILE"], scale_rates=self.crown_length)
+                else:
+                    self.empirical_rates = af.read_empirical_rates(rates_file=self.parameters["RATE_FILE"])
+        except KeyError as e:
+            sys.exit(f"ERROR: missing parameter {e}.\n"
+                     f"       Did you use the correct parameter file?")
 
         self.root_genome_file = root_genome     #Get root genome from GFF file.
         if root_genome and not root_genome.exists():
@@ -78,7 +91,7 @@ class GenomeSimulator():
 
         for genome_name,genome in self.all_genomes.items():
 
-            with open(os.path.join(genome_folder, genome_name + "_GENOME.tsv"), "w") as f:
+            with open(os.path.join(genome_folder, genome_name + GENOMEsuffix), "w") as f:
 
                 header = ["POSITION", "GENE_FAMILY", "ORIENTATION", "GENE_ID"]
                 header = "\t".join(map(str, header)) + "\n"
@@ -93,7 +106,7 @@ class GenomeSimulator():
 
             if intergenic_sequences == True:
 
-                with open(os.path.join(genome_folder, genome_name + "_LENGTHS.tsv"), "w") as f:
+                with open(os.path.join(genome_folder, genome_name + LENGTHSsuffix), "w") as f:
 
                     header = ["POSITION", "IDENTITY", "LENGTH"]
                     header = "\t".join(map(str, header)) + "\n"
@@ -122,7 +135,7 @@ class GenomeSimulator():
 
         for genome_name, genome in self.all_genomes_second.items():
 
-            with open(os.path.join(genome_folder, genome_name + "_PIECES.tsv"), "w") as f:
+            with open(os.path.join(genome_folder, genome_name + PIECESsuffix), "w") as f:
 
                 header = ["FAMILY", "TYPE", "IDENTITY", "LENGTH", "TOTAL_LEFT", "TOTAL_RIGHT", "ORIENTATION"]
                 header = "\t".join(map(str, header)) + "\n"
@@ -138,7 +151,7 @@ class GenomeSimulator():
                         f.write(line)
 
     def write_genome_info(self, genome_folder:Path,
-                          filename="InitialGenome_info.tsv"):
+                          filename=INITIALGENOMEINFO):
         """
         Write a TSV file containing gene id, gff gene id, and start and
         end coordinates for every gene and division in the intial genome.
@@ -172,7 +185,7 @@ class GenomeSimulator():
 
     
     def write_gene_family_info(self, genome_folder:Path,
-                               filename="GeneFamily_info.tsv"):
+                               filename=GENEFAMILYINFO):
         """
         Write a TSV file with containing gene id, gff gene id, and start and
         end coordinates for every gene in `self.all_gene_families`.
@@ -182,7 +195,7 @@ class GenomeSimulator():
         genome_folder : str
             the folder
         filename : str, optional
-            the filename to use, by default "GeneFamily_info.tsv"
+            the filename to use, by default GENEFAMILYINFO
         """
         with open(genome_folder / filename, "w") as f:
             header = ["GENE_FAMILY", "GFF_ID", "START", "END"]
@@ -197,7 +210,7 @@ class GenomeSimulator():
 
 
     def write_gene_family_GFF_ids(self, genome_folder:str,
-                               filename="GeneFamily_GFF_ids.tsv"):
+                               filename=GENEFAMILYGFF):
         """
         Write a TSV file with containing gene id and gff gene id for every gene
         in `self.all_gene_families`.
@@ -207,7 +220,7 @@ class GenomeSimulator():
         genome_folder : str
             the folder
         filename : str, optional
-            the filename to use, by default "GeneFamily_GFF_ids.tsv"
+            the filename to use, by default GENEFAMILYGFF
         """
         with open(os.path.join(genome_folder, filename), "w") as f:
             header = ["GENE_FAMILY", "GFF_ID"]
@@ -221,7 +234,7 @@ class GenomeSimulator():
             
     def write_gene_family_lengths(self, genome_folder):
 
-        with open(os.path.join(genome_folder, "GeneFamily_lengths.tsv"), "w") as f:
+        with open(os.path.join(genome_folder, GENEFAMILYLENGTHS), "w") as f:
             header = ["GENE_FAMILY", "LENGTH"]
             header = "\t".join(map(str, header)) + "\n"
             f.write(header)
@@ -233,7 +246,7 @@ class GenomeSimulator():
 
     def write_division_lengths(self, genome_folder):
 
-        with open(os.path.join(genome_folder, "Division_lengths.tsv"), "w") as f:
+        with open(os.path.join(genome_folder, DIVISIONLENGTHS), "w") as f:
             header = ["DIVISION_ID", "LENGTH"]
             header = "\t".join(map(str, header)) + "\n"
             f.write(header)
@@ -243,14 +256,14 @@ class GenomeSimulator():
                 f.write(line)
 
 
-    def write_gene_family_events(self, gene_family_events_folder):
+    def write_gene_family_events(self, gene_family_events_folder: Path):
 
         if not os.path.isdir(gene_family_events_folder):
             os.mkdir(gene_family_events_folder)
 
         for gene_family_name, gene_family in self.all_gene_families.items():
 
-            with open(os.path.join(gene_family_events_folder, gene_family_name + "_events.tsv"),"w") as f:
+            with open(gene_family_events_folder / (gene_family_name + GENEFAMEVENTSsuffix),"w") as f:
 
                 header = ["TIME","EVENT","NODES"]
 
@@ -310,7 +323,7 @@ class GenomeSimulator():
                         
             table = sorted(table, key=lambda x:x[1])
             
-            with open(events_per_branch_folder / "Table_branch_events.tsv", "w") as f:
+            with open(events_per_branch_folder / BRANCHEVENTSTABLE, "w") as f:
                 
                 header = "\t".join(["Branch", "Time", "Event", "Breakpoints"]) + "\n"
                 f.write(header)
@@ -369,7 +382,7 @@ class GenomeSimulator():
 
         for name, events in events_per_branch.items():
 
-            with open(events_per_branch_folder / (name + "_branchevents.tsv"), "w") as f:
+            with open(events_per_branch_folder / (name + BRANCHEVENTSsuffix), "w") as f:
 
                 header = ["TIME", "EVENT", "NODES"]
                 header = "\t".join(map(str, header)) + "\n"
@@ -410,7 +423,7 @@ class GenomeSimulator():
                     mfactor = scale / totaltime
 
 
-                with open(events_per_branch_folder / (name + "_brancheventsscaled.tsv"), "w") as f:
+                with open(events_per_branch_folder / (name + BRANCHEVENTSSCALEDsuffix), "w") as f:
 
                     header = ["TIME", "EVENT", "NODES"]
                     header = "\t".join(map(str, header)) + "\n"
@@ -462,7 +475,7 @@ class GenomeSimulator():
         mlenx = len(data)
         mleny = len(data[0])
 
-        with open(os.path.join(profiles_folder, "Profiles.tsv"), "w") as f:
+        with open(os.path.join(profiles_folder, PROFILES), "w") as f:
             for i in range(mleny):
                 line = list()
                 for j in range(mlenx):
@@ -481,7 +494,7 @@ class GenomeSimulator():
             if not hasattr(genome, "interactome"):
                 continue
 
-            with open(os.path.join(genome_folder, genome_name + "_INTERACTOME.tsv"), "w") as f:
+            with open(os.path.join(genome_folder, genome_name + INTERACTOMEsuffix), "w") as f:
 
                 header = ["GENE_1", "GENE_2"]
                 header = "\t".join(map(str, header)) + "\n"
@@ -492,7 +505,7 @@ class GenomeSimulator():
 
     def write_family_rates(self, genome_folder):
 
-        with open(os.path.join(genome_folder, "Family_rates.tsv"), "w") as f:
+        with open(os.path.join(genome_folder, FAMILYRATES), "w") as f:
             header = ["GENE_FAMILY", "D", "T", "L"]
             header = "\t".join(map(str, header)) + "\n"
             f.write(header)
@@ -1404,19 +1417,19 @@ class GenomeSimulator():
         self.branch_extension_rates = dict()
         self.transfer_rates = dict()
 
-        with open(rates_folder / "Event_rates.tsv") as f:
+        with open(rates_folder / EVENTRATES) as f:
             f.readline()
             for line in f:
                 sp, d, t, l, i, c, o,  = line.split("\t")
                 self.branch_event_rates[sp] = tuple([float(x) for x in (d, t, l, i, c, o)])
 
-        with open(rates_folder / "Extension_rates.tsv") as f:
+        with open(rates_folder / EXTENSIONRATES) as f:
             f.readline()
             for line in f:
                 sp, d, t, l, i, c,  = line.split("\t")
                 self.branch_extension_rates[sp] = tuple([x for x in (d, t, l, i, c)])
 
-        with open(rates_folder / "Transfer_rates.tsv") as f:
+        with open(rates_folder / TRANSFERRATES) as f:
             f.readline()
             for line in f:
                 dn, rc, wt  = line.split("\t")
@@ -4363,6 +4376,6 @@ class GenomeSimulator():
                 with open(division_tree_folder / (str(division_family_name) + "_prunedtree.nwk"), "w") as f:
                     f.write(pruned_tree)
 
-        with open(division_tree_folder / "Division_lengths.tsv", "w") as f:
+        with open(division_tree_folder / DIVISIONLENGTHS, "w") as f:
             for division_family_name, division_family in self.all_division_families.items():
                 f.write("\t".join(list(map(str,[division_family_name, len(division_family)]))) + "\n")

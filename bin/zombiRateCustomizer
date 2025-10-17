@@ -4,6 +4,12 @@ import argparse
 import os
 import ete3
 
+from zombi.Filenames import COMPLETETREE, EVENTRATES, EXTENSIONRATES
+from zombi.Filenames import GENEFAMILYRATES, GENOMEPARAMETERS
+from zombi.Filenames import GTSUBSTITUTIONRATES, STSUBSTITUTIONRATES
+from zombi.Filenames import TRANSFERRATES, TREEEVENTS
+from zombi.Random import G_NPRNG, S_NPRNG, seed_G_generators
+
 
 class RateCustomizer():
 
@@ -15,7 +21,7 @@ class RateCustomizer():
 
     def generate_substitution_speciestree_file(self):
 
-        tree_file = os.path.join(self.experiment_folder, "T/CompleteTree.nwk")
+        tree_file = os.path.join(self.experiment_folder, "T", COMPLETETREE)
 
         with open(tree_file) as f:
             mytree = ete3.Tree(f.readline().strip(), format=1)
@@ -26,9 +32,9 @@ class RateCustomizer():
         self.branch_substitution_rates = dict()
 
         for node in mytree.traverse():      #type: ignore
-            self.branch_substitution_rates[node.name] = af.obtain_value(self.parameters["ST_RATE_MULTIPLIERS"])
+            self.branch_substitution_rates[node.name] = af.obtain_value(self.parameters["ST_RATE_MULTIPLIERS"], S_NPRNG)
 
-        with open(os.path.join(self.experiment_folder,"CustomRates/ST_Substitution_rates.tsv"),"w") as f:
+        with open(os.path.join(self.experiment_folder, "CustomRates", STSUBSTITUTIONRATES),"w") as f:
 
             line = "\t".join(["lineage", "SUBSTITUTION_RATE_MULTIPLIER"]) + "\n"
             f.write(line)
@@ -43,12 +49,12 @@ class RateCustomizer():
 
         gene_trees = [x.split("_")[0] for x in os.listdir(os.path.join(self.experiment_folder, "G/Gene_trees")) if "complete" in x]
 
-        with open(os.path.join(self.experiment_folder,"CustomRates/GT_Substitution_rates.tsv"),"w") as f:
+        with open(os.path.join(self.experiment_folder, "CustomRates", GTSUBSTITUTIONRATES),"w") as f:
 
             line = "\t".join(["gene_family", "SUBSTITUTION_RATE_MULTIPLIER"]) + "\n"
             f.write(line)
             for gf in gene_trees:
-                v = af.obtain_value(self.parameters["GF_RATE_MULTIPLIERS"])
+                v = af.obtain_value(self.parameters["GF_RATE_MULTIPLIERS"], S_NPRNG)
                 line = "\t".join(map(str,[gf, str(v)])) + "\n"
                 f.write(line)
 
@@ -57,7 +63,7 @@ class RateCustomizer():
         rates = dict()
         alive_lineages = {"Root"}
 
-        with open(os.path.join(self.experiment_folder,"T/Events.tsv")) as f:
+        with open(os.path.join(self.experiment_folder, "T", TREEEVENTS)) as f:
 
             f.readline()
             for line in f:
@@ -95,7 +101,7 @@ class RateCustomizer():
                     alive_lineages.remove(nodes)
 
 
-        with open(os.path.join(self.experiment_folder,"CustomRates/Transfer_rates.tsv"),"w") as f:
+        with open(os.path.join(self.experiment_folder, "CustomRates", TRANSFERRATES), "w") as f:
             header = "\t".join(["DONOR","RECIPIENT","WEIGHT"]) +"\n"
             f.write(header)
             for k1,v1 in rates.items():
@@ -103,9 +109,10 @@ class RateCustomizer():
                     line = "\t".join([k1, k2, str(v2)]) + "\n"
                     f.write(line)
 
+
     def generate_events_file(self):
 
-        tree_file = os.path.join(self.experiment_folder, "T/CompleteTree.nwk")
+        tree_file = os.path.join(self.experiment_folder, "T", COMPLETETREE)
 
         with open(tree_file) as f:
             mytree = ete3.Tree(f.readline().strip(), format=1)
@@ -116,16 +123,16 @@ class RateCustomizer():
 
         for node in mytree.traverse():   #type: ignore
 
-            d = af.obtain_value(self.parameters["DUPLICATION"])
-            t = af.obtain_value(self.parameters["TRANSFER"])
-            l = af.obtain_value(self.parameters["LOSS"])
-            i = af.obtain_value(self.parameters["INVERSION"])
-            p = af.obtain_value(self.parameters["TRANSPOSITION"])
-            o = af.obtain_value(self.parameters["ORIGINATION"])
+            d = af.obtain_value(self.parameters["DUPLICATION"], G_NPRNG)
+            t = af.obtain_value(self.parameters["TRANSFER"], G_NPRNG)
+            l = af.obtain_value(self.parameters["LOSS"], G_NPRNG)
+            i = af.obtain_value(self.parameters["INVERSION"], G_NPRNG)
+            p = af.obtain_value(self.parameters["TRANSPOSITION"], G_NPRNG)
+            o = af.obtain_value(self.parameters["ORIGINATION"], G_NPRNG)
 
             branch_rates[node.name] = (d,t,l,i,p,o)
 
-        with open(os.path.join(self.experiment_folder,"CustomRates/Event_rates.tsv"),"w") as f:
+        with open(os.path.join(self.experiment_folder, "CustomRates", EVENTRATES), "w") as f:
 
             line = "\t".join(["lineage","D","T","L","I","C","O"]) + "\n"
             f.write(line)
@@ -139,7 +146,7 @@ class RateCustomizer():
 
     def generate_extension_file(self):
 
-        tree_file = os.path.join(self.experiment_folder, "T/CompleteTree.nwk")
+        tree_file = os.path.join(self.experiment_folder, "T", COMPLETETREE)
 
         with open(tree_file) as f:
             mytree = ete3.Tree(f.readline().strip(), format=1)
@@ -158,7 +165,7 @@ class RateCustomizer():
 
             branch_rates[node.name] = (d,t,l,i,p)
 
-        with open(os.path.join(self.experiment_folder,"CustomRates/Extension_rates.tsv"),"w") as f:
+        with open(os.path.join(self.experiment_folder, "CustomRates", EXTENSIONRATES), "w") as f:
 
             line = "\t".join(["lineage","D_E","T_E","L_E","I_E","P_E"]) + "\n"
             f.write(line)
@@ -173,16 +180,16 @@ class RateCustomizer():
 
         nfamilies = int(self.parameters["INITIAL_GENOME_SIZE"])
 
-        with open(os.path.join(self.experiment_folder,"CustomRates/GeneFamiliy_rates.tsv"),"w") as f:
+        with open(os.path.join(self.experiment_folder, "CustomRates", GENEFAMILYRATES), "w") as f:
 
             line = "\t".join(["GeneFamily","DUPLICATION","TRANSFER","LOSS"]) + "\n"
             f.write(line)
 
             for nf in range(nfamilies):
 
-                d = af.obtain_value(self.parameters["DUPLICATION"])
-                t = af.obtain_value(self.parameters["TRANSFER"])
-                l = af.obtain_value(self.parameters["LOSS"])
+                d = af.obtain_value(self.parameters["DUPLICATION"], G_NPRNG)
+                t = af.obtain_value(self.parameters["TRANSFER"], G_NPRNG)
+                l = af.obtain_value(self.parameters["LOSS"], G_NPRNG)
 
                 line = "\t".join(map(str,[nf, d,t,l])) + "\n"
                 f.write(line)
@@ -192,8 +199,8 @@ class RateCustomizer():
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("mode", type=str, choices = ["G", "Gm", "S"], help="GenomeParameters.tsv")
-    parser.add_argument("parameters", type=str,  help="GenomeParameters.tsv")
+    parser.add_argument("mode", type=str, choices = ["G", "Gm", "S"], help=GENOMEPARAMETERS)
+    parser.add_argument("parameters", type=str,  help=GENOMEPARAMETERS)
     parser.add_argument("output", type=str, help="Name of the experiment folder")
 
     args = parser.parse_args()
@@ -209,6 +216,7 @@ def main():
     rc = RateCustomizer(mode, parameters, experiment_folder)
 
     if mode == "G":
+        seed_G_generators(parameters["SEED"])
 
         rc.generate_transfers_file()
         rc.generate_events_file()
@@ -219,7 +227,6 @@ def main():
         rc.generate_genefamily_file()
 
     elif mode == "S":
-
         rc.generate_substitution_speciestree_file()
         rc.generate_substitution_genetree_file()
 

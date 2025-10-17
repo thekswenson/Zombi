@@ -6,22 +6,29 @@ import re
 
 from pathlib import Path
 from Bio.SeqRecord import SeqRecord
+from typing import Any
 
 from . import AuxiliarFunctions as af
 from .Random import S_RNG, S_NPRNG
+from .Filenames import COMPLETETREEsuffix, GENOMEsuffix, WHOLEGENOMEsuffix
+from .Filenames import PIECESsuffix, COMPLETEsuffix
 
 
 class SequenceSimulator():
 
-    def __init__(self, parameters, force_nuc_model=False):
+    def __init__(self, parameters: dict[str, Any], force_nuc_model=False):
 
         self.parameters = parameters
 
-        self.size = self.parameters["SEQUENCE_SIZE"]
-        if force_nuc_model:
-            self.sequence = 'nucleotide'
-        else:
-            self.sequence = self.parameters["SEQUENCE"]
+        try:
+            self.size = self.parameters["SEQUENCE_SIZE"]
+            if force_nuc_model:
+                self.sequence = 'nucleotide'
+            else:
+                self.sequence = self.parameters["SEQUENCE"]
+        except KeyError as e:
+            sys.exit(f'ERROR: missing parameter {e}.\n'
+                     f'       Did you use the correct parameter file?')
 
         sequence_type = "The type of sequence be either 'nucleotide', 'amino-acid' or 'codon'"
         assert self.sequence in ['nucleotide', 'amino-acid', 'codon'], sequence_type
@@ -53,7 +60,7 @@ class SequenceSimulator():
         name_mapping = self.get_mapping_internal_names(tree, my_tree)
         partition = pyvolve.Partition(models=self.model, size=self.size)
         evolver = pyvolve.Evolver(tree=tree, partitions=partition)
-        fasta_file = tree_file.name.replace("_completetree.nwk", "_complete").replace(".nwk","") + ".fasta"
+        fasta_file = tree_file.name.replace(COMPLETETREEsuffix, COMPLETEsuffix)
         fasta_path = sequences_folder / fasta_file
         evolver(seqfile=fasta_path, ratefile=None, infofile=None, write_anc=True)
 
@@ -61,7 +68,7 @@ class SequenceSimulator():
         self.correct_names(fasta_path, name_mapping)
 
 
-    def run_u(self, tree_file, sequences_folder):
+    def run_u(self, tree_file: str, sequences_folder: Path):
 
         with open(tree_file) as f:
             line = f.readline().strip()
@@ -86,12 +93,13 @@ class SequenceSimulator():
         name_mapping = self.get_mapping_internal_names(tree, my_tree)
         partition = pyvolve.Partition(models=self.model, size=self.size)
         evolver = pyvolve.Evolver(tree=tree, partitions=partition)
-        fasta_file = tree_file.split("/")[-1].replace("_completetree.nwk", "_") +  "complete.fasta"
-        evolver(seqfile=os.path.join(sequences_folder, fasta_file), ratefile=None, infofile=None, write_anc=True)
+        fasta_file = tree_file.replace(COMPLETETREEsuffix, COMPLETEsuffix)
+        evolver(seqfile=sequences_folder / fasta_file, ratefile=None, infofile=None, write_anc=True)
         # Correct the names
-        self.correct_names(os.path.join(sequences_folder, fasta_file), name_mapping)
+        self.correct_names(sequences_folder / fasta_file, name_mapping)
 
-    def run_f(self, tree_file, gene_length: int, sequences_folder: Path,
+
+    def run_f(self, tree_file: Path, gene_length: int, sequences_folder: Path,
               sequence: SeqRecord|None = None):
         """
         Simulate full genome sequence evolution for the gene tree.
@@ -122,7 +130,7 @@ class SequenceSimulator():
                     partition = pyvolve.Partition(models=self.model, size=gene_length)
 
                 evolver = pyvolve.Evolver(tree=tree, partitions=partition)
-                fasta_file = tree_file.split("/")[-1].replace("_completetree.nwk", "_complete") + ".fasta"
+                fasta_file = tree_file.name.replace(COMPLETETREEsuffix, COMPLETEsuffix)
                 fasta_path = sequences_folder / fasta_file
                 evolver(seqfile=fasta_path, ratefile=None, infofile=None, write_anc=True)
                 self.correct_names(fasta_path, name_mapping)
@@ -274,16 +282,15 @@ class SequenceSimulator():
         """
         Read the simulated sequences from the specified location.
         """
-        for n,s in af.fasta_reader(os.path.join(sequences_folder, gf + "_complete.fasta")):
+        for n,s in af.fasta_reader(os.path.join(sequences_folder, gf + COMPLETEsuffix)):
             if n[1:] == name:
                 return s
 
-        raise(NodeMissingError('Missing sequence for {name} in "{gf}_complete.fasta".'))
+        raise(NodeMissingError('Missing sequence for {name} in "{gf}{COMPLETEsuffix}".'))
 
 
-    def retrieve_orientation(self, species, gene_name, lengths_folder):
-
-        with open(os.path.join(lengths_folder, species + "_GENOME.tsv")) as f:
+    def retrieve_orientation(self, species, gene_name, lengths_folder: Path):
+        with open(lengths_folder / species + GENOMEsuffix) as f:
             f.readline()
             for line in f:
                 h = line.strip().split("\t")
@@ -296,26 +303,26 @@ class SequenceSimulator():
         raise(NodeMissingError('Missing info for {gene_name} in "{gr}_{id}".'))
 
 
-    def simulate_single_sequence(self, name, gene_length, tree_file, sequences_folder):
+    def simulate_single_sequence(self, name, gene_length, tree_file: Path, sequences_folder: Path):
 
         my_tree = "(A:1,B:1);".replace("A",name)
         tree = pyvolve.read_tree(tree=my_tree)
         partition = pyvolve.Partition(models=self.model, size=gene_length)
         evolver = pyvolve.Evolver(tree=tree, partitions=partition)
 
-        fasta_file = tree_file.split("/")[-1].replace("_completetree.nwk", "_complete") + ".fasta"
+        fasta_file = tree_file.name.replace(COMPLETETREEsuffix, COMPLETEsuffix)
         evolver(seqfile=os.path.join(sequences_folder, fasta_file), ratefile=None, infofile=None, write_anc=True)
 
         # Select single sequence
 
         entries = list()
 
-        for n, v in af.fasta_reader(os.path.join(sequences_folder, fasta_file)):
+        for n, v in af.fasta_reader(sequences_folder / fasta_file):
             if n[1:] != name:
                 continue
             else:
                 entries.append((n,v))
-        af.fasta_writer(os.path.join(sequences_folder, fasta_file), entries)
+        af.fasta_writer(sequences_folder / fasta_file, entries)
 
 
     def generate_intergenic_sequences(self, l):
@@ -744,7 +751,7 @@ class NodeMissingError(Exception):
     pass
 
 
-node_piecesre = re.compile(r'.*/(\w+)_PIECES.tsv')
+node_piecesre = re.compile(rf'.*/(\w+){PIECESsuffix}')
 def write_whole_genome(pieces_file: Path, seq_sim: SequenceSimulator,
                        sequences_folder: Path, out_folder: Path,
                        leaves: set[str]):
@@ -806,7 +813,7 @@ def write_whole_genome(pieces_file: Path, seq_sim: SequenceSimulator,
                 print(f'Error. Bad orientation "{orientation}" of gene')
 
     entry = [(">" + node, whole_genome)]
-    af.fasta_writer(out_folder / f"{node}_Wholegenome.fasta", entry)
+    af.fasta_writer(out_folder / f"{node}{WHOLEGENOMEsuffix}", entry)
 
 
 

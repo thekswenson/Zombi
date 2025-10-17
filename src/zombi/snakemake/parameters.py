@@ -9,6 +9,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
+from zombi.Filenames import GENOMEPARAMETERS, SEQUENCEPARAMETERS, TREEPARAMETERS
+
 # The location of zombi.smk and the export.smk files:
 share_zombi = Path(sys.prefix) / 'share/zombi'
 PATH_TO_RULES = share_zombi / 'workflow/rules'
@@ -21,9 +23,9 @@ ZOMBI_EXPORT_SNAKEFILE = str(PATH_TO_RULES / 'export.smk')
 parameters_dir = share_zombi / 'Parameters'
 if not parameters_dir.exists():
   raise FileNotFoundError(f'Installation problem: "{parameters_dir}" not found.')
-DEFAULTTREECONFIG = str(parameters_dir / 'SpeciesTreeParameters.tsv')
-DEFAULTGENOMECONFIG = str(parameters_dir / 'GenomeParameters.tsv')
-DEFAULTSEQCONFIG = str(parameters_dir / 'SequenceParameters.tsv')
+DEFAULTTREECONFIG = str(parameters_dir / TREEPARAMETERS)
+DEFAULTGENOMECONFIG = str(parameters_dir / GENOMEPARAMETERS)
+DEFAULTSEQCONFIG = str(parameters_dir / SEQUENCEPARAMETERS)
 
 # Enum for Parameter Directory Names
 class PDirNames(StrEnum):

@@ -14,6 +14,8 @@ import networkx as nx
 
 from zombi.Export import get_genes, get_leaf_names, random_seq
 from zombi.Export import whole_genome_to_GFF
+from zombi.Filenames import GENEFAMEVENTSsuffix, GENOMEsuffix, COMPLETEsuffix
+from zombi.Filenames import PIECESsuffix
     
     
 # Constants
@@ -139,7 +141,7 @@ def processGeneFamilies(fam2id2genome2rec: dict[str, dict[str, dict[str, SeqReco
         Map family id to gene id to start and end coordinates.
     """
     genomesdir = projdir / GENOMES
-    genomesuffix = '_GENOME.tsv'
+    genomesuffix = GENOMEsuffix
 
     fam2recid2pos: dict[str, dict[str, CoordPair]] = ddict(dict)
     leaves = get_leaf_names(projdir)
@@ -228,7 +230,7 @@ def main():
     p_gf.add_argument('OUT_FILE', type=Path,
                       help='output file')
     p_gf.add_argument('-p', '--pieces', action='store_true',
-                      help='use _PIECES.tsv files instead _GENOME.tsv files')
+                      help=f'use {PIECESsuffix} files instead {GENOMEsuffix} files')
 
     p_po.add_argument('OUT_FILE', type=Path,
                       help='the JSON file')
@@ -241,7 +243,7 @@ def main():
     p_bd.add_argument('OUT_DIR', type=Path,
                       help='output files to this directory')
     p_bd.add_argument('-p', '--pieces', action='store_true',
-                      help='use _PIECES.tsv files instead _GENOME.tsv files')
+                      help=f'use {PIECESsuffix} files instead {GENOMEsuffix} files')
 
     p_du.add_argument('OUT_FILE', type=Path,
                       help='output TSV file')
@@ -279,7 +281,7 @@ def export_PositionalOrthologs(args):
     #For each gene family, get the positional orthologs and output them in
     #JSON format:
     familiesdir = proj_dir / FAMILIES
-    eventssuffix = '_events.tsv'
+    eventssuffix = GENEFAMEVENTSsuffix
     fam2orthosets = {}
     for famfile in familiesdir.iterdir():
         if famfile.name.endswith(eventssuffix):
@@ -329,7 +331,7 @@ def export_FFGC(args):
 
     #Read the gene sequences
     genesdir = proj_dir / GENES
-    genesuffix = '_complete.fasta'
+    genesuffix = COMPLETEsuffix
     fam2id2genome2rec = get_genes(genesdir, genesuffix)
 
     fam2recid2pos = processGeneFamilies(fam2id2genome2rec, proj_dir, out_dir,
@@ -361,7 +363,7 @@ def export_GFF(args):
     out_file: Path = args.OUT_FILE
     use_pieces = args.pieces
     if not use_pieces:
-        raise NotImplementedError('Exporting _GENOME.tsv to GFF is not yet '
+        raise NotImplementedError(f'Exporting {GENOMEsuffix} to GFF is not yet '
                                   'supported.  Use the -p option.')
 
     genomesdir = proj_dir / GENOMES
@@ -370,10 +372,10 @@ def export_GFF(args):
     out_file.parent.mkdir(parents=True, exist_ok=True)
 
     piecesfiles = [x for x in genomesdir.iterdir()
-                   if x.name.endswith('PIECES.tsv')]
+                   if x.name.endswith(PIECESsuffix)]
 
     if not piecesfiles:
-        raise ValueError(f'No _PIECES.tsv files found in "{genomesdir}"')
+        raise ValueError(f'No {PIECESsuffix} files found in "{genomesdir}"')
 
     whole_genome_to_GFF(piecesfiles, out_file)
 
@@ -387,7 +389,7 @@ def export_BED(args):
     out_dir: Path = args.OUT_DIR
     use_pieces = args.pieces
     if use_pieces:
-        raise NotImplementedError('Exporting _PIECES.tsv to BED is not '
+        raise NotImplementedError(f'Exporting {PIECESsuffix} to BED is not '
                                   'yet supported.')
 
     #Make the directory if it doesn't exist
@@ -395,7 +397,7 @@ def export_BED(args):
 
     #Read the gene sequences
     genesdir = proj_dir / GENES
-    genesuffix = '_complete.fasta'
+    genesuffix = COMPLETEsuffix
     fam2id2genome2rec = get_genes(genesdir, genesuffix)
 
     processGeneFamilies(fam2id2genome2rec, proj_dir, out_dir, gff=False)
@@ -415,7 +417,7 @@ def export_DupInfo(args):
 
     #For each gene family, get the number of duplications:
     familiesdir = proj_dir / FAMILIES
-    eventssuffix = '_events.tsv'
+    eventssuffix = GENEFAMEVENTSsuffix
     fam2dups = {}
     for famfile in familiesdir.iterdir():
         if famfile.name.endswith(eventssuffix):
