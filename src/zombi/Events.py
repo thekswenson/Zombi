@@ -2,9 +2,10 @@ import copy
 import abc
 from typing import List, Tuple, TYPE_CHECKING
 
+
 from .Interval import Interval
 if TYPE_CHECKING:                   #Avoid circular imports
-    from .Genomes import Intergene
+    from .Genomes import Intergene, Gene
 
 # Types:
 T_EVENT = str
@@ -490,9 +491,9 @@ class Loss(EventTwoCuts):
     def __init__(self, int1: Interval, int2: Interval, sbp1: int, sbp2: int,
                  swraplen: int, twraplen: int, lineage: str, time: float,
                  pseudogenize: bool,
-                 pseudo_intergene_list: List['Intergene'],
-                 pseudo_gene_list: List['Intergene'],
-                 adjustment_factor: int):
+                 pseudo_intergene_list: List[Intergene],
+                 pseudo_gene_list: List[Gene],
+                 adjustment_factor: int|None):
         """
         Create a Loss event. Either cut out everything between `sbp1` and
         `sbp2`, or turn everything in that region into a big intergene,
@@ -810,37 +811,30 @@ class Loss(EventTwoCuts):
 
             for gene in self.pseudo_gene_list: 
                 lf, rf = gene.total_flanking
-            
 
             for gene in self.pseudo_gene_list: 
 
                 lf, rf = gene.total_flanking
 
-                
                 if lf == 0: # If the left flanking is 0, then we are dealing with genes at the beginning 
-                    
                     genes_at_beginning = True
 
+                assert self.adjustment_factor is not None
                 if genes_at_beginning:
-                    
-                    
-                    
-                    if (lf - self.adjustment_factor + self.twraplen) < tc and (rf - self.adjustment_factor + self.twraplen) > tc: 
-                        
+                    if ((lf - self.adjustment_factor + self.twraplen) < tc and
+                        (rf - self.adjustment_factor + self.twraplen) > tc): 
                         return gene, tc - (self.twraplen - (self.adjustment_factor - lf))
                 else:
-                    
-                    
-                    if (lf - self.adjustment_factor) < tc and (rf - self.adjustment_factor) > tc:  
-                                              
+                    if ((lf - self.adjustment_factor) < tc and
+                        (rf - self.adjustment_factor) > tc): 
                         return gene, tc - (lf - self.adjustment_factor)
-                
+
             for intergene in self.pseudo_intergene_list:  
-                
+
                 lf, rf = intergene.total_flanking
                 if lf < tc and rf > tc:
                     return intergene, tc - lf
-        
+
         else:
 
             for gene in self.pseudo_gene_list:    

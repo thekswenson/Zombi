@@ -358,7 +358,7 @@ class GenomeSimulator():
 
 
     def write_events_per_branch(self, events_per_branch_folder: Path, scale,
-                                scaled_file: Path, events_file: str): ### THIS FUNCTION SHOULD BE CLEANED! THE INFO NOW IS REDUNDANT
+                                scaled_file: Path, events_file: Path): ### THIS FUNCTION SHOULD BE CLEANED! THE INFO NOW IS REDUNDANT
         
         def clever_writing():
             table = list()
@@ -3314,7 +3314,7 @@ class GenomeSimulator():
         
         # We need the adjustment factor if the event wraps,
         # and wether the genes are at the end of the chromosome
-        # or at the begnning
+        # or at the beginning
         
         if d == RIGHT and c1 > c2 or d==LEFT and c1 < c2: # If the event wraps
             
