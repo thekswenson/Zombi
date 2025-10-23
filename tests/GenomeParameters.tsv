@@ -77,16 +77,16 @@ PSEUDOGENIZATION 0
 #PSEUDOGENIZATION 0.5
 #
 ### Gm SPECIFIC PARAMETERS ###
-# Include the path to the parameters file. The parameters file has a first
+# Include the whole path to the parameters file. The parameters file has a first
 # line (header) and 4 tab separated columns with the name of the gene family
-# (ignored), D, T and L rates.
-RATE_FILE False
+# (ignore), D, T and L rate.
+#RATE_FILE Tutorials/Tutorial2/ArchaeaRates.tsv
+RATE_FILE Tutorials/Tutorial2/CyanoRates.tsv
 # If SCALE_RATES is True, it will scale the rates used in the parameters file to
 # the height of the tree, from the leaves to the root node (not the initial
-# node, remember that Zombi also simulates the stem above the root)
-# The value should be True or False
-SCALE_RATES True
+# node, remember that Zombi also simulates the stem above the root). Value
+# can be True or False.
+SCALE_RATES False
 #
-### Random Seed ###
 ## SEED : If 0, the SEED is chosen randomly
-SEED 0
+SEED 10

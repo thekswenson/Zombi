@@ -12,6 +12,10 @@ dependencies:
   - biopython
   - bcbio-gff
   - ete3
+  - pytest
+  - pytest-console-scripts
+  - pytest-dependency
+  - pytest-repeat
   - pip
   - pip:
     - pyvolve>=1.0.1

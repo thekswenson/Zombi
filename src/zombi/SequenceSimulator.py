@@ -49,20 +49,21 @@ class SequenceSimulator():
             print(f"Simulating sequence for gene family {tree_file.name.split('_')[0]}")
 
         with open(tree_file) as f:
-
             line = f.readline().strip()
             if "(" not in line or line == ";":
                 return None
             else:
                 my_tree = ete3.Tree(line, format=1)
 
-        tree = pyvolve.read_tree(tree=my_tree.write(format=5), scale_tree = self.parameters["SCALING"])
+        tree = pyvolve.read_tree(tree=my_tree.write(format=5),
+                                 scale_tree = self.parameters["SCALING"])
         name_mapping = self.get_mapping_internal_names(tree, my_tree)
         partition = pyvolve.Partition(models=self.model, size=self.size)
         evolver = pyvolve.Evolver(tree=tree, partitions=partition)
         fasta_file = tree_file.name.replace(COMPLETETREEsuffix, COMPLETEsuffix)
         fasta_path = sequences_folder / fasta_file
-        evolver(seqfile=fasta_path, ratefile=None, infofile=None, write_anc=True)
+        evolver(seqfile=fasta_path, ratefile=None, infofile=None, write_anc=True,
+                seed=self.parameters["SEED"])
 
         # Correct the names
         self.correct_names(fasta_path, name_mapping)
@@ -94,7 +95,8 @@ class SequenceSimulator():
         partition = pyvolve.Partition(models=self.model, size=self.size)
         evolver = pyvolve.Evolver(tree=tree, partitions=partition)
         fasta_file = tree_file.replace(COMPLETETREEsuffix, COMPLETEsuffix)
-        evolver(seqfile=sequences_folder / fasta_file, ratefile=None, infofile=None, write_anc=True)
+        evolver(seqfile=sequences_folder / fasta_file, ratefile=None, infofile=None, write_anc=True,
+                seed=self.parameters["SEED"])
         # Correct the names
         self.correct_names(sequences_folder / fasta_file, name_mapping)
 
@@ -132,7 +134,8 @@ class SequenceSimulator():
                 evolver = pyvolve.Evolver(tree=tree, partitions=partition)
                 fasta_file = tree_file.name.replace(COMPLETETREEsuffix, COMPLETEsuffix)
                 fasta_path = sequences_folder / fasta_file
-                evolver(seqfile=fasta_path, ratefile=None, infofile=None, write_anc=True)
+                evolver(seqfile=fasta_path, ratefile=None, infofile=None, write_anc=True,
+                        seed=self.parameters["SEED"])
                 self.correct_names(fasta_path, name_mapping)
 
 
@@ -311,7 +314,8 @@ class SequenceSimulator():
         evolver = pyvolve.Evolver(tree=tree, partitions=partition)
 
         fasta_file = tree_file.name.replace(COMPLETETREEsuffix, COMPLETEsuffix)
-        evolver(seqfile=os.path.join(sequences_folder, fasta_file), ratefile=None, infofile=None, write_anc=True)
+        evolver(seqfile=os.path.join(sequences_folder, fasta_file), ratefile=None,
+                infofile=None, write_anc=True, seed=self.parameters["SEED"])
 
         # Select single sequence
 
@@ -327,7 +331,7 @@ class SequenceSimulator():
 
     def generate_intergenic_sequences(self, l):
 
-        return("".join(S_NPRNG.choice(["A", "T", "C", "G"], l)))
+        return("".join(S_NPRNG().choice(["A", "T", "C", "G"], l)))
 
     def get_mapping_internal_names(self, pytree, ettree):
 
@@ -399,7 +403,7 @@ class SequenceSimulator():
         if total == 0:
             return 1000000000000000 # We sent an arbitrarily big number. Probably not the most elegant thing to do
         else:
-            return S_NPRNG.exponential(1/total)
+            return S_NPRNG().exponential(1/total)
     
     def simulate_shifts(self, events_file: Path):
         
@@ -486,18 +490,18 @@ class SequenceSimulator():
                 # A shift event occurs in a randomly selected lineage
                 # First we select that lineage
 
-                lineage = S_RNG.choice(sorted(self.active_genomes))
+                lineage = S_RNG().choice(sorted(self.active_genomes))
 
                 # The substitution rate changes
 
                 cat = self.category_position[lineage]
                 oldcat = cat
                 if cat == cats-1:         # Meaning that we are in the border
-                    direction = S_NPRNG.choice([-1,0])
+                    direction = S_NPRNG().choice([-1,0])
                 elif cat == 0:
-                    direction = S_NPRNG.choice([0,1])            
+                    direction = S_NPRNG().choice([0,1])            
                 else:
-                    direction = S_NPRNG.choice([-1,1], p = [0.5,0.5])
+                    direction = S_NPRNG().choice([-1,1], p = [0.5,0.5])
 
                 p = self.category_position[lineage]                    
                 self.category_position[lineage] = p + direction

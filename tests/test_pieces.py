@@ -1,8 +1,6 @@
 """
-Unittests for testing the GenomeEvents and how they map coordinates.
+Old style unittests for testing the GenomeEvents and how they map coordinates.
 """
-
-import os
 import unittest
 from pathlib import Path
 
@@ -12,16 +10,16 @@ from zombi.Genomes import LEFT, RIGHT
 import zombi.AuxiliarFunctions as af
 
 
-GENOME_PARAMS = Path('test/GenomeParametersDivisions.tsv')
-TEST_FOLDER1 = Path('test/TestDivisions1/')
-TEST_GENOME = Path('test/30_6.gff')
+GENOME_PARAMS = Path('tests/GenomeParametersDivisions.tsv')
+TEST_FOLDER1 = Path('tests/TestDivisions1/')
+TEST_GENOME = Path('tests/30_6.gff')
 
 
 class TestDivisions(unittest.TestCase):
 
   def setUp(self, genome_file=TEST_GENOME):
     params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
-    events_file = os.path.join(TEST_FOLDER1, 'T/Events.tsv')
+    events_file = TEST_FOLDER1 / 'T/Events.tsv'
 
     self.gss = GenomeSimulator(params, events_file, genome_file)
   
@@ -47,7 +45,7 @@ class TestDivisions(unittest.TestCase):
       #print("Should look like:")
       #for ch in self.gss.all_genomes["n1"]:
       #    for gene, intergene in zip(ch.genes, ch.intergenes):
-      #        print("Gene", gene.total_flanking, gene.gene_family)
+      #        print("Gene", gene.total_flanking, gene.family)
       #        print("Intergene", intergene.total_flanking)
 
       #print("**")
@@ -100,7 +98,7 @@ class TestTranspositions(unittest.TestCase):
 
   def setUp(self, genome_file=TEST_GENOME):
     params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
-    events_file = os.path.join(TEST_FOLDER1, 'T/Events.tsv')
+    events_file = TEST_FOLDER1 / 'T/Events.tsv'
     self.gss = GenomeSimulator(params, events_file, genome_file)
 
 
@@ -109,7 +107,7 @@ class TestDuplications(unittest.TestCase):
 
   def setUp(self, genome_file=TEST_GENOME):
     params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
-    events_file = os.path.join(TEST_FOLDER1, 'T/Events.tsv')
+    events_file = TEST_FOLDER1 / 'T/Events.tsv'
     self.gss = GenomeSimulator(params, events_file, genome_file)
 
   def test_transpositions1(self):
@@ -127,10 +125,10 @@ class TestDuplications(unittest.TestCase):
       
 
       params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
-      events_file = os.path.join(TEST_FOLDER1, 'T/Events.tsv')
+      events_file = TEST_FOLDER1 / 'T/Events.tsv'
       
 
-      self.gss = GenomeSimulator(params, events_file, Path("test/30_6.gff"))
+      self.gss = GenomeSimulator(params, events_file, TEST_GENOME)
       #self.gss.run_f_debug([event1, event2, event3, event4, event5, event6, event7]) 
       #self.gss.run_f_debug([event1, event2, event3, event4, event5, event6, event7]) 
       #self.gss.run_f_debug([event1, event2, event3, event4, event5, event6, event7]) 
@@ -141,7 +139,7 @@ class TestDuplications(unittest.TestCase):
      
       for _ in range(10000):
 
-        self.gss = GenomeSimulator(params, events_file, Path("test/30_6.gff"))
+        self.gss = GenomeSimulator(params, events_file, TEST_GENOME)
         self.gss.run_f() 
          
         events = self.gss.return_all_events()
@@ -149,11 +147,9 @@ class TestDuplications(unittest.TestCase):
         
         
         try:
-            self.gss.obtain_events_for_divisions()
+          self.gss.obtain_events_for_divisions()
 
         except:
-        
-      
           with open("./TempEvents.txt", "w") as f:
             for event in events:
               line = ["G", str(event.time), event.etype, event.lineage]
@@ -183,13 +179,13 @@ class TestDuplications(unittest.TestCase):
       #print(self.gss.all_genomes["n1"])
       
       print("****")
-      for ch in self.gss.all_genomes_second["n1"]:
+      for ch in self.gss.node_genomes_pieces["n1"]:
           ch.print_pieces() 
       print("****")
       
       #for ch in self.gss.all_genomes["n2"]:
       #    for gene, intergene in zip(ch.genes, ch.intergenes):
-      #        print("Gene", gene.total_flanking, gene.gene_family)
+      #        print("Gene", gene.total_flanking, gene.family)
       #        print("Intergene", intergene.total_flanking)
       print("^^^")
       print("^^^")

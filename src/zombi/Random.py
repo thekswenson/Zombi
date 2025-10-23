@@ -1,5 +1,9 @@
 """
 Global random number generators.  There is one for each type of simulator.
+
+In many spots, we sort lists seemingly for no good reason, but this is
+done so that the results remain consistant when using the same seed.
+(to speed things up, we could sort only when a seed is given)
 """
 import numpy as np
 import random
@@ -8,40 +12,62 @@ import random
 RNG = random.Random()
 NPRNG = np.random.default_rng()
 
-T_RNG = random.Random(11)
-T_NPRNG = np.random.default_rng(11)
-def seed_T_generators(seed):
+def T_RNG() -> random.Random:
+    """ Global random number generator for the tree simulator. """
+    return T_RNGvar
+def T_NPRNG() -> np.random.Generator:
+    """ Global numpy random number generator for the tree simulator. """
+    return T_NPRNGvar
+
+T_RNGvar = random.Random()
+T_NPRNGvar = np.random.default_rng()
+def seed_T_generators(seed: int):
     """
     Seed the global random number generators for the tree simulator.
     A seed of 0 means to not reseed.
     """
-    global T_RNG, T_NPRNG
-    if seed != 0 and seed != "0":
-        T_RNG = random.Random(seed)
-        T_NPRNG = np.random.default_rng(seed)
+    global T_RNGvar, T_NPRNGvar
+    if seed != 0 and seed is not None:
+        print("Seeding T generators with seed", seed)
+        T_RNGvar = random.Random(seed)
+        T_NPRNGvar = np.random.default_rng(seed)
 
 
-G_RNG = random.Random(11)
-G_NPRNG = np.random.default_rng(11)
-def seed_G_generators(seed):
+def G_RNG() -> random.Random:
+    """ Global random number generator for the genome simulator. """
+    return G_RNGvar
+def G_NPRNG() -> np.random.Generator:
+    """ Global numpy random number generator for the genome simulator. """
+    return G_NPRNGvar
+
+G_RNGvar = random.Random()
+G_NPRNGvar = np.random.default_rng()
+def seed_G_generators(seed: int):
     """
     Seed the global random number generators for the genome simulator.
     A seed of 0 means to not reseed.
     """
-    global G_RNG, G_NPRNG
-    if seed != 0 and seed != "0":
-        G_RNG = random.Random(seed)
-        G_NPRNG = np.random.default_rng(seed)
+    global G_RNGvar, G_NPRNGvar
+    if seed != 0 and seed is not None:
+        G_RNGvar = random.Random(seed)
+        G_NPRNGvar = np.random.default_rng(seed)
 
 
-S_RNG = random.Random(11)
-S_NPRNG = np.random.default_rng(11)
-def seed_S_generators(seed):
+def S_RNG() -> random.Random:
+    """ Global random number generator for the species simulator. """
+    return S_RNGvar
+def S_NPRNG() -> np.random.Generator:
+    """ Global numpy random number generator for the species simulator. """
+    return S_NPRNGvar
+
+S_RNGvar = random.Random()
+S_NPRNGvar = np.random.default_rng()
+def seed_S_generators(seed: int):
     """
     Seed the global random number generators for the species simulator.
     A seed of 0 means to not reseed.
     """
-    global S_RNG, S_NPRNG
-    if seed != 0 and seed != "0":
-        S_RNG = random.Random(seed)
-        S_NPRNG = np.random.default_rng(seed)
+    global S_RNGvar, S_NPRNGvar
+    if seed != 0 and seed is not None:
+        S_RNGvar = random.Random(seed)
+        S_NPRNGvar = np.random.default_rng(seed)

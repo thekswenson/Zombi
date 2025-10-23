@@ -32,7 +32,7 @@ class RateCustomizer():
         self.branch_substitution_rates = dict()
 
         for node in mytree.traverse():      #type: ignore
-            self.branch_substitution_rates[node.name] = af.obtain_value(self.parameters["ST_RATE_MULTIPLIERS"], S_NPRNG)
+            self.branch_substitution_rates[node.name] = af.obtain_value(self.parameters["ST_RATE_MULTIPLIERS"], S_NPRNG())
 
         with open(os.path.join(self.experiment_folder, "CustomRates", STSUBSTITUTIONRATES),"w") as f:
 
@@ -54,7 +54,7 @@ class RateCustomizer():
             line = "\t".join(["gene_family", "SUBSTITUTION_RATE_MULTIPLIER"]) + "\n"
             f.write(line)
             for gf in gene_trees:
-                v = af.obtain_value(self.parameters["GF_RATE_MULTIPLIERS"], S_NPRNG)
+                v = af.obtain_value(self.parameters["GF_RATE_MULTIPLIERS"], S_NPRNG())
                 line = "\t".join(map(str,[gf, str(v)])) + "\n"
                 f.write(line)
 
@@ -123,12 +123,12 @@ class RateCustomizer():
 
         for node in mytree.traverse():   #type: ignore
 
-            d = af.obtain_value(self.parameters["DUPLICATION"], G_NPRNG)
-            t = af.obtain_value(self.parameters["TRANSFER"], G_NPRNG)
-            l = af.obtain_value(self.parameters["LOSS"], G_NPRNG)
-            i = af.obtain_value(self.parameters["INVERSION"], G_NPRNG)
-            p = af.obtain_value(self.parameters["TRANSPOSITION"], G_NPRNG)
-            o = af.obtain_value(self.parameters["ORIGINATION"], G_NPRNG)
+            d = af.obtain_value(self.parameters["DUPLICATION"], G_NPRNG())
+            t = af.obtain_value(self.parameters["TRANSFER"], G_NPRNG())
+            l = af.obtain_value(self.parameters["LOSS"], G_NPRNG())
+            i = af.obtain_value(self.parameters["INVERSION"], G_NPRNG())
+            p = af.obtain_value(self.parameters["TRANSPOSITION"], G_NPRNG())
+            o = af.obtain_value(self.parameters["ORIGINATION"], G_NPRNG())
 
             branch_rates[node.name] = (d,t,l,i,p,o)
 
@@ -187,9 +187,9 @@ class RateCustomizer():
 
             for nf in range(nfamilies):
 
-                d = af.obtain_value(self.parameters["DUPLICATION"], G_NPRNG)
-                t = af.obtain_value(self.parameters["TRANSFER"], G_NPRNG)
-                l = af.obtain_value(self.parameters["LOSS"], G_NPRNG)
+                d = af.obtain_value(self.parameters["DUPLICATION"], G_NPRNG())
+                t = af.obtain_value(self.parameters["TRANSFER"], G_NPRNG())
+                l = af.obtain_value(self.parameters["LOSS"], G_NPRNG())
 
                 line = "\t".join(map(str,[nf, d,t,l])) + "\n"
                 f.write(line)

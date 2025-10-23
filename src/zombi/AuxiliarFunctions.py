@@ -66,21 +66,26 @@ def read_parameters(parameters_file) -> dict[str, str]:
 
     with open(parameters_file) as f:
 
-        for line in f:
+        try:
+            for i, line in enumerate(f):
 
-            if line[0] == "#" or line == "\n":
-                continue
+                if line[0] == "#" or line == "\n":
+                    continue
 
-            if "\t" in line and " " in line:
-                sys.exit(f'ERROR: parameter file "{parameters_file}" has a '
-                         f'line\n"{line.strip()}" containing a mix of tabs '
-                         f'and spaces!')
-            elif "\t" in line:
-                parameter, value = line.strip().split("\t")
-                parameters[parameter] = value
-            elif " " in line:
-                parameter, value = line.strip().split(" ")
-                parameters[parameter] = value
+                if "\t" in line and " " in line:
+                    sys.exit(f'ERROR: parameter file "{parameters_file}" has a '
+                             f'line\n"{line.strip()}" containing a mix of tabs '
+                             f'and spaces!')
+                elif "\t" in line:
+                    parameter, value = line.strip().split("\t")
+                    parameters[parameter] = value
+                elif " " in line:
+                    parameter, value = line.strip().split(" ")
+                    parameters[parameter] = value
+
+        except Exception:
+            sys.exit(f'ERROR: problem reading line {i+1} of '
+                     f'"{parameters_file}":\n"{line.rstrip()}"')
 
     return parameters
 
@@ -107,7 +112,7 @@ def read_seed(parameters_file: Path):
 
     return myseed
 
-def read_empirical_rates(rates_file: Path, scale_rates = 1.0):
+def read_empirical_rates(rates_file: str, scale_rates = 1.0):
 
     empirical_rates = list()
 
@@ -182,6 +187,11 @@ def prepare_sequence_parameters(parameters) -> dict[str, Any]:
     Convert some of the S parameters to the correct type.
     """
     for parameter, value in parameters.items():
+
+        if parameter == "SEED":
+            parameters[parameter] = int(value)
+            if parameters[parameter] == 0:
+                parameters[parameter] = None
 
         if parameter == "SEQUENCE_SIZE" or parameter == "VERBOSE" or parameter == "SEED":
             parameters[parameter] = int(value)
@@ -289,11 +299,20 @@ def prepare_genome_parameters(parameters):
         if parameter == "REPLACEMENT_TRANSFER" or parameter == "ALPHA":
             parameters[parameter] = float(value)
 
-        if parameter == "PROFILES" or parameter == "EVENTS_PER_BRANCH" or parameter == "GENE_TREES" \
-                or parameter == "PRUNE_TREES" or parameter == "TRANSFER_PREFERENCE" or parameter == "RECONCILED_TREES" \
-                or parameter == "VERBOSE" or parameter == "MIN_GENOME_SIZE" or parameter == "EXTENSION_MULTIPLIER" or parameter == "SEED" or parameter == "SCALE_TREE":
+        if(parameter == "PROFILES" or parameter == "EVENTS_PER_BRANCH" or
+           parameter == "GENE_TREES" or parameter == "PRUNE_TREES" or
+           parameter == "TRANSFER_PREFERENCE" or
+           parameter == "RECONCILED_TREES" or parameter == "VERBOSE" or
+           parameter == "MIN_GENOME_SIZE" or
+           parameter == "EXTENSION_MULTIPLIER" or
+           parameter == "SEED" or parameter == "SCALE_TREE"):
 
             parameters[parameter] = int(value)
+
+        if parameter == "ASSORTATIVE_TRANSFER" or parameter == "SCALE_RATES":
+            if not (parameters[parameter] == "True" or parameters[parameter] == "False"):
+                sys.exit(f'ERROR: parameter "{parameter}" must be either "True" or "False".')
+            parameters[parameter] = parameters[parameter] == "True"
 
     return parameters
 

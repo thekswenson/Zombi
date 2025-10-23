@@ -38,7 +38,7 @@ LEFT = True
 
 
 
-class GeneFamily():
+class GeneFamily:
     """
     Represent a gene family which knows its history of events on a gene tree.
 
@@ -393,7 +393,7 @@ class GeneFamily():
 
 
 
-class Gene():
+class Gene:
     """
     Attributes
     ----------
@@ -431,7 +431,7 @@ class Gene():
         self.family = ""      # FIX this variable should have the same name that the division one
         self.gene_id = -1     # FIX this variable should have the same name that the division one
         self.sequence = ""
-        self.species = ""
+        self.species = ""     #: Also known as "lineage" in some places
         self.importance = 0
         self.length = 0
         self.start: int              #: pythonic (inclusive start, 0 indexed)
@@ -442,7 +442,7 @@ class Gene():
 
     def determine_orientation(self):
 
-        if G_NPRNG.binomial(1,0.5):
+        if G_NPRNG().binomial(1,0.5):
             self.orientation = "+"
 
         else:
@@ -472,7 +472,7 @@ class Gene():
         return self.length
 
 
-class Division():
+class Division:
     """
     A class that represents all the subdivisions of an intergene
     
@@ -514,7 +514,7 @@ class Division():
         return self.length
 
 
-class Intergene():
+class Intergene:
     """
     Attributes
     ----------
@@ -593,7 +593,7 @@ class Intergene():
        return self.length
 
 
-class DivisionFamily():
+class DivisionFamily:
     """
     A division family is akin to a GeneFamily. It stores all the events in an
     ensemble of homologous divisions.
@@ -840,7 +840,7 @@ class DivisionFamily():
     
   
 
-class Chromosome():
+class Chromosome:
     """
     A chromosome that knows its genes and intergenes, as well as its
     `map_of_locations`, which is the representation of the chromosome as a
@@ -895,9 +895,9 @@ class Chromosome():
             positions = [i for i in range(len(self.genes)) if i not in blacklist]
             if not positions:
                 raise ValueError("All positions blacklisted!")
-            return G_NPRNG.choice(sorted(positions))
+            return G_NPRNG().choice(sorted(positions))
 
-        return int(G_NPRNG.integers(len(self.genes)))
+        return int(G_NPRNG().integers(len(self.genes)))
 
     def fill_pieces(self):
         """
@@ -1106,20 +1106,20 @@ class Chromosome():
                 if sum([range1[1], range2[1] - range2[0]]) == 0:
                     raise(CoordinateChoiceError)
 
-                r = G_RNG.choices([range1, range2],
+                r = G_RNG().choices([range1, range2],
                                   weights=[range1[1], range2[1] - range2[0]])
 
-                return G_RNG.randint(*r[0])
+                return G_RNG().randint(*r[0])
             else:                               # wrap around
 
                 try:
-                    return G_RNG.randint(self.intergenes[exclude[-1]].sc2 + 1,
-                                         self.intergenes[exclude[0]].sc1 - 1)
+                    return G_RNG().randint(self.intergenes[exclude[-1]].sc2 + 1,
+                                           self.intergenes[exclude[0]].sc1 - 1)
                 except:
                     raise(CoordinateChoiceError)
 
         t = sum([x.length for x in self.intergenes]) + len(self.intergenes) - 1
-        return G_RNG.randint(0, t)
+        return G_RNG().randint(0, t)
 
 
     def select_random_intergenic_coordinate_excluding(self, c1: int, c2: int,
@@ -1349,7 +1349,7 @@ class Chromosome():
 
     def select_random_length(self, p):
 
-        return int(af.obtain_value(p, G_NPRNG))
+        return int(af.obtain_value(p, G_NPRNG()))
 
     def return_rates(self):
 
@@ -1739,7 +1739,7 @@ class CircularChromosome(Chromosome):
 
             norm = af.normalize([vl for x, vl in gene2rate.items()])
             mgenes = [i for i in range(len(self.genes))]
-            affected_genes = G_NPRNG.choice(mgenes, size = 1, p=norm)
+            affected_genes = G_NPRNG().choice(mgenes, size = 1, p=norm)
             return affected_genes
 
         else:
@@ -1771,8 +1771,8 @@ class CircularChromosome(Chromosome):
 
                     all_weights.append(reduce(lambda x, y: x * y, [gene2rate[self.genes[x]] for x in affected_genes]))
                 #print(all_weights)
-                position = G_NPRNG.choice(range(len(self.genes)), 1,
-                                          p=af.normalize(all_weights))[0]
+                position = G_NPRNG().choice(range(len(self.genes)), 1,
+                                            p=af.normalize(all_weights))[0]
                 affected_genes = list()
 
                 # Returns the index list of the affected genes
@@ -1825,8 +1825,8 @@ class CircularChromosome(Chromosome):
 
                 all_weights.append(reduce(lambda x, y: x * y, [corrected_node_degrees[x] for x in affected_genes]))
 
-        position = G_NPRNG.choice(range(len(self.genes)), 1,
-                                  p=af.normalize(all_weights))[0]
+        position = G_NPRNG().choice(range(len(self.genes)), 1,
+                                    p=af.normalize(all_weights))[0]
         affected_genes = list()
 
         # Returns the index list of the affected genes
@@ -1960,7 +1960,7 @@ class LinearChromosome(Chromosome):
         raise(NotImplementedError)
 
 
-class Genome():
+class Genome:
     """
     Attributes
     ----------
@@ -2011,7 +2011,7 @@ class Genome():
         ## Need to shuffle the nodes!!
 
         randomly_ordered_genes = list(self.chromosomes[0].genes)
-        G_RNG.shuffle(randomly_ordered_genes)
+        G_RNG().shuffle(randomly_ordered_genes)
 
         self.interactome = nx.relabel_nodes(self.interactome, {i:str(n) for i,n in enumerate(randomly_ordered_genes)})
 

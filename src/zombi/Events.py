@@ -10,13 +10,13 @@ if TYPE_CHECKING:                   #Avoid circular imports
 T_EVENT = str
 
 # Event types:
-TDUP = 'D'  #: Tandem Duplication
-DUP = 'U'   #: dUplication
-FER = 'T'   #: Transfer
-LOSS = 'L'  #: Loss
-INV = 'I'   #: Inversion
-POS = 'P'   #: Transposition
-ORIG = 'O'  #: Origination
+TDUP = "D"  #: Tandem Duplication
+DUP = "U"   #: dUplication
+FER = "T"   #: Transfer
+LOSS = "L"  #: Loss
+INV = "I"   #: Inversion
+POS = "P"   #: Transposition
+ORIG = "O"  #: Origination
 
 class GenomeEvent:
     """

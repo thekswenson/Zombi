@@ -41,8 +41,8 @@ class SpeciesTreeGenerator():
 
         self.start()
 
-        speciation = af.obtain_value(self.parameters["SPECIATION"], T_NPRNG)
-        extinction = af.obtain_value(self.parameters["EXTINCTION"], T_NPRNG)
+        speciation = af.obtain_value(self.parameters["SPECIATION"], T_NPRNG())
+        extinction = af.obtain_value(self.parameters["EXTINCTION"], T_NPRNG())
         stopping_rule = self.parameters["STOPPING_RULE"]
         total_time = self.parameters["TOTAL_TIME"]
         total_lineages = self.parameters["TOTAL_LINEAGES"]
@@ -68,7 +68,7 @@ class SpeciesTreeGenerator():
             if stopping_rule == 0 and time + time_to_next_event >= total_time:
 
                 self.increase_distances(total_time - time)
-                for lineage in self.active_lineages:
+                for lineage in sorted(self.active_lineages):
                     self.events.append((total_time, "F", lineage))
                 success = True
                 return success
@@ -76,7 +76,7 @@ class SpeciesTreeGenerator():
             elif stopping_rule == 1 and n_lineages_alive == total_lineages:
 
                 self.increase_distances(time_to_next_event)
-                for lineage in self.active_lineages:
+                for lineage in sorted(self.active_lineages):
                     self.events.append((time + time_to_next_event, "F", lineage))
                 success = True
                 return success
@@ -94,7 +94,7 @@ class SpeciesTreeGenerator():
 
                 self.increase_distances(time_to_next_event)
                 event = self.choose_event(speciation, extinction)
-                lineage = T_RNG.sample(sorted(self.active_lineages), 1)[0]
+                lineage = T_RNG().sample(sorted(self.active_lineages), 1)[0]
 
                 if event == "S":
                     self._get_speciated(lineage, time)
@@ -110,8 +110,8 @@ class SpeciesTreeGenerator():
         # Each time I create a new lineage, I have to generate new number for its rates
         # We create a dictionary to store the rates
 
-        speciation = af.obtain_value(self.parameters["SPECIATION"], T_NPRNG)
-        extinction = af.obtain_value(self.parameters["EXTINCTION"], T_NPRNG)
+        speciation = af.obtain_value(self.parameters["SPECIATION"], T_NPRNG())
+        extinction = af.obtain_value(self.parameters["EXTINCTION"], T_NPRNG())
 
         self.branchwise_rates = dict()
         self.branchwise_rates["Root"] = (speciation, extinction)
@@ -145,7 +145,7 @@ class SpeciesTreeGenerator():
             if stopping_rule == 0 and time + time_to_next_event >= total_time:
 
                 self.increase_distances(total_time - time)
-                for lineage in self.active_lineages:
+                for lineage in sorted(self.active_lineages):
                     self.events.append((total_time, "F", lineage))
                 success = True
                 return success
@@ -153,7 +153,7 @@ class SpeciesTreeGenerator():
             elif stopping_rule == 1 and n_lineages_alive == total_lineages:
 
                 self.increase_distances(time_to_next_event)
-                for lineage in self.active_lineages:
+                for lineage in sorted(self.active_lineages):
                     self.events.append((time + time_to_next_event, "F", lineage))
                 success = True
                 return success
@@ -175,7 +175,7 @@ class SpeciesTreeGenerator():
 
                 active_lineages = sorted(self.active_lineages)
 
-                lineage = T_NPRNG.choice(active_lineages, 1, p=af.normalize(
+                lineage = T_NPRNG().choice(active_lineages, 1, p=af.normalize(
                     [sum((self.branchwise_rates[x][0], self.branchwise_rates[x][1])) for x in active_lineages]))[0]
 
                 myspeciation = self.branchwise_rates[lineage][0]
@@ -188,11 +188,11 @@ class SpeciesTreeGenerator():
                     n_lineages_alive += 1
 
                     self.branchwise_rates[c1] = (
-                        af.obtain_value(self.parameters["SPECIATION"], T_NPRNG),
-                        af.obtain_value(self.parameters["EXTINCTION"], T_NPRNG))
+                        af.obtain_value(self.parameters["SPECIATION"], T_NPRNG()),
+                        af.obtain_value(self.parameters["EXTINCTION"], T_NPRNG()))
                     self.branchwise_rates[c2] = (
-                        af.obtain_value(self.parameters["SPECIATION"], T_NPRNG),
-                        af.obtain_value(self.parameters["EXTINCTION"], T_NPRNG))
+                        af.obtain_value(self.parameters["SPECIATION"], T_NPRNG()),
+                        af.obtain_value(self.parameters["EXTINCTION"], T_NPRNG()))
 
                 elif event == "E":
                     self._get_extinct(lineage, time)
@@ -204,8 +204,8 @@ class SpeciesTreeGenerator():
         self.start()
         print("Computing tree with fine control of the number of lineages")
 
-        speciation = af.obtain_value(self.parameters["SPECIATION"], T_NPRNG)
-        extinction = af.obtain_value(self.parameters["EXTINCTION"], T_NPRNG)
+        speciation = af.obtain_value(self.parameters["SPECIATION"], T_NPRNG())
+        extinction = af.obtain_value(self.parameters["EXTINCTION"], T_NPRNG())
         turnover = self.parameters["TURNOVER"]
 
         time_slices = self.parameters["LINEAGE_PROFILE"]
@@ -244,7 +244,7 @@ class SpeciesTreeGenerator():
             elif time + time_to_next_event >= total_time:
 
                 self.increase_distances(total_time - time)
-                for lineage in self.active_lineages:
+                for lineage in sorted(self.active_lineages):
                     self.events.append((total_time, "F", lineage))
                 success = True
                 return success
@@ -260,19 +260,19 @@ class SpeciesTreeGenerator():
 
                 if action == 0:
 
-                    lineage1, lineage2 = T_RNG.sample(sorted(self.active_lineages), 2)
+                    lineage1, lineage2 = T_RNG().sample(sorted(self.active_lineages), 2)
                     self._get_speciated(lineage1, time)
                     self._get_extinct(lineage2, time)
 
                 elif action == 1:
 
-                    lineage = T_RNG.sample(sorted(self.active_lineages), 1)[0]
+                    lineage = T_RNG().sample(sorted(self.active_lineages), 1)[0]
                     self._get_speciated(lineage, time)
                     n_lineages_alive += 1
 
                 elif action == 2:
 
-                    lineage = T_RNG.sample(sorted(self.active_lineages), 1)[0]
+                    lineage = T_RNG().sample(sorted(self.active_lineages), 1)[0]
                     self._get_extinct(lineage, time)
                     n_lineages_alive -= 1
 
@@ -280,8 +280,8 @@ class SpeciesTreeGenerator():
 
         self.start()
 
-        speciation = af.obtain_value(self.parameters["SPECIATION"], T_NPRNG)
-        extinction = af.obtain_value(self.parameters["EXTINCTION"], T_NPRNG)
+        speciation = af.obtain_value(self.parameters["SPECIATION"], T_NPRNG())
+        extinction = af.obtain_value(self.parameters["EXTINCTION"], T_NPRNG())
         stopping_rule = self.parameters["STOPPING_RULE"]
         total_time = self.parameters["TOTAL_TIME"]
         total_lineages = self.parameters["TOTAL_LINEAGES"]
@@ -314,8 +314,8 @@ class SpeciesTreeGenerator():
 
                 time = extinction_time
                 extinctions = set()
-                for lineage in self.active_lineages:
-                    if T_NPRNG.uniform(0, 1) <= p_extinction:
+                for lineage in sorted(self.active_lineages):
+                    if T_NPRNG().uniform(0, 1) <= p_extinction:
                         extinctions.add(lineage)
                 for lineage in extinctions:
                     self._get_extinct(lineage, time)
@@ -326,7 +326,7 @@ class SpeciesTreeGenerator():
             elif stopping_rule == 0 and time + time_to_next_event >= total_time:
 
                 self.increase_distances(total_time - time)
-                for lineage in self.active_lineages:
+                for lineage in sorted(self.active_lineages):
                     self.events.append((total_time, "F", lineage))
                 success = True
                 return success
@@ -334,7 +334,7 @@ class SpeciesTreeGenerator():
             elif stopping_rule == 1 and n_lineages_alive == total_lineages:
 
                 self.increase_distances(time_to_next_event)
-                for lineage in self.active_lineages:
+                for lineage in sorted(self.active_lineages):
                     self.events.append((time + time_to_next_event, "F", lineage))
                 success = True
                 return success
@@ -352,7 +352,7 @@ class SpeciesTreeGenerator():
 
                 self.increase_distances(time_to_next_event)
                 event = self.choose_event(speciation, extinction)
-                lineage = T_RNG.sample(sorted(self.active_lineages), 1)[0]
+                lineage = T_RNG().sample(sorted(self.active_lineages), 1)[0]
 
                 if event == "S":
                     self._get_speciated(lineage, time)
@@ -370,8 +370,8 @@ class SpeciesTreeGenerator():
         hextinction = self.parameters["BASE_EXTINCTION"]
         cat_speciation = int(self.parameters["NUM_SPECIATION_RATE_CATEGORIES"])
         cat_extinction = int(self.parameters["NUM_EXTINCTION_RATE_CATEGORIES"])
-        s_speciation = af.obtain_value(self.parameters["SHIFT_SPECIATION_RATE_FREQUENCY"], T_NPRNG)
-        s_extinction = af.obtain_value(self.parameters["SHIFT_EXTINCTION_RATE_FREQUENCY"], T_NPRNG)
+        s_speciation = af.obtain_value(self.parameters["SHIFT_SPECIATION_RATE_FREQUENCY"], T_NPRNG())
+        s_extinction = af.obtain_value(self.parameters["SHIFT_EXTINCTION_RATE_FREQUENCY"], T_NPRNG())
 
         # We get the categories for speciations
 
@@ -444,7 +444,7 @@ class SpeciesTreeGenerator():
             if stopping_rule == 0 and time + time_to_next_event >= total_time:
 
                 self.increase_distances(total_time - time)
-                for lineage in self.active_lineages:
+                for lineage in sorted(self.active_lineages):
                     self.events.append((total_time, "F", lineage))
                 success = True
                 return success
@@ -452,7 +452,7 @@ class SpeciesTreeGenerator():
             elif stopping_rule == 1 and n_lineages_alive == total_lineages:
 
                 self.increase_distances(time_to_next_event)
-                for lineage in self.active_lineages:
+                for lineage in sorted(self.active_lineages):
                     self.events.append((time + time_to_next_event, "F", lineage))
                 success = True
                 return success
@@ -474,7 +474,7 @@ class SpeciesTreeGenerator():
 
                 active_lineages = sorted(self.active_lineages)
 
-                lineage = T_NPRNG.choice(active_lineages, 1, p=af.normalize(
+                lineage = T_NPRNG().choice(active_lineages, 1, p=af.normalize(
                     [sum(self.branchwise_rates[x])
                      for x in active_lineages]))[0]
 
@@ -508,11 +508,11 @@ class SpeciesTreeGenerator():
 
                     cat = self.category_position[lineage][0]
                     if cat == cat_speciation-1:
-                        direction = T_NPRNG.choice([-1,0])
+                        direction = T_NPRNG().choice([-1,0])
                     elif cat == 0:
-                        direction = T_NPRNG.choice([0,1])
+                        direction = T_NPRNG().choice([0,1])
                     else:
-                        direction = T_NPRNG.choice([-1,1], p = [0.5,0.5])
+                        direction = T_NPRNG().choice([-1,1], p = [0.5,0.5])
 
                     p_sp, p_ex = self.category_position[lineage]
                     self.category_position[lineage] = (p_sp + direction, p_ex)
@@ -527,11 +527,11 @@ class SpeciesTreeGenerator():
                     # Shift event
                     cat = self.category_position[lineage][1]
                     if cat == cat_extinction-1:
-                        direction = T_NPRNG.choice([-1,0])
+                        direction = T_NPRNG().choice([-1,0])
                     elif cat == 0:
-                        direction = T_NPRNG.choice([0,1])
+                        direction = T_NPRNG().choice([0,1])
                     else:
-                        direction = T_NPRNG.choice([-1,1], p = [0.5,0.5])
+                        direction = T_NPRNG().choice([-1,1], p = [0.5,0.5])
                     p_sp, p_ex = self.category_position[lineage]
                     self.category_position[lineage] = (p_sp, p_ex + direction)
                     new_extinction = extinction_rates[self.category_position[lineage][1]]
@@ -552,7 +552,7 @@ class SpeciesTreeGenerator():
         for i in range(n):
             for event in events:
                 total += event
-        time = T_NPRNG.exponential(1/total)
+        time = T_NPRNG().exponential(1/total)
         return time
 
     def get_time_to_next_event_advanced_modes(self):
@@ -561,7 +561,7 @@ class SpeciesTreeGenerator():
         for lineage in self.active_lineages:
             total += sum(self.branchwise_rates[lineage])
 
-        time = T_NPRNG.exponential(1 / total)
+        time = T_NPRNG().exponential(1 / total)
         return time
 
 
@@ -593,16 +593,16 @@ class SpeciesTreeGenerator():
 
     def choose_event(self, speciation, extinction):
 
-        if T_NPRNG.uniform(0, 1) <= (speciation / (speciation + extinction)):
+        if T_NPRNG().uniform(0, 1) <= (speciation / (speciation + extinction)):
             return "S"
         else:
             return "E"
 
     def choose_event_s_mode(self, speciation, extinction, shif_speciation, shif_extinction):
 
-        draw = T_NPRNG.choice(["S", "E", "SS", "SE"], 1,
-                              p=af.normalize([speciation, extinction,
-                                              shif_speciation, shif_extinction]))
+        draw = T_NPRNG().choice(["S", "E", "SS", "SE"], 1,
+                                p=af.normalize([speciation, extinction,
+                                                shif_speciation, shif_extinction]))
         return draw
 
 

@@ -1,8 +1,6 @@
 """
-Unittests for testing the GenomeEvents and how they map coordinates.
+Pytests for testing the GenomeEvents and how they map coordinates.
 """
-
-import os
 import unittest
 from pathlib import Path
 
@@ -11,17 +9,18 @@ from zombi.Genomes import LEFT, RIGHT
 import zombi.AuxiliarFunctions as af
 
 
-GENOME_PARAMS = Path('test/GenomeParametersDivisions.tsv')
-TEST_FOLDER1 = Path('test/TestDivisions1/')
-TEST_FOLDER2 = Path('test/TestDivisions2/')
-TEST_GENOME_30_6 = Path('test/30_6.gff')  #30 bases, 5 * length-3 genomic/intergenomic pairs
+GENOME_PARAMS = Path('tests/GenomeParametersDivisions.tsv')
+TEST_GENOME_30_6 = Path('tests/30_6.gff')  #30 bases, 5 * length-3 genomic/intergenomic pairs
+TEST_FOLDER1 = Path('tests/TestDivisions1')
+TEST_FOLDER2 = Path('tests/TestDivisions2')
 
 
 class TestDivisions1(unittest.TestCase):
 
   def setUp(self, genome_file=TEST_GENOME_30_6):
     params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
-    events_file = os.path.join(TEST_FOLDER1, 'T/Events.tsv')
+    #events_file = self.projbase / TEST_FOLDER1 / 'T/Events.tsv'
+    events_file = TEST_FOLDER1 / 'T/Events.tsv'
 
     self.gss = GenomeSimulator(params, events_file, genome_file)
   
@@ -86,7 +85,8 @@ class TestDivisions2(unittest.TestCase): # In a slightly more compex tree
 
   def setUp(self, genome_file=TEST_GENOME_30_6):
     params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
-    events_file = os.path.join(TEST_FOLDER2, 'T/Events.tsv')
+    #events_file = self.projbase / TEST_FOLDER2 / 'T/Events.tsv'
+    events_file = TEST_FOLDER2 / 'T/Events.tsv'
     self.gss = GenomeSimulator(params, events_file, genome_file)
 
   def test_inversions_multiple_branches(self):
@@ -125,7 +125,7 @@ class TestDivisions2(unittest.TestCase): # In a slightly more compex tree
     self.gss.obtain_divisions() 
     self.gss.obtain_events_for_divisions() 
   
-    for ch in self.gss.all_genomes_second["n1"]:
+    for ch in self.gss.node_genomes_pieces["n1"]:
          for intergene in ch.iter_intergenes():
              if len(intergene) == 0:
                print(intergene)

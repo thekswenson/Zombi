@@ -123,6 +123,5 @@ SCALE_GENE_TREES 1
 #
 #
 #
-### Random Seed ###
 ## SEED : If 0, the SEED is chosen randomly
-SEED 0
+SEED 10

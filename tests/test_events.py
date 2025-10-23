@@ -1,35 +1,47 @@
 """
-Unittests for testing the GenomeEvents and how they map coordinates.
+Old style unittests for testing the GenomeEvents and how they map coordinates.
 """
-
+import shutil
+import pytest
 import unittest
 from pathlib import Path
 
 from zombi.Events import Inversion, Loss, Origination, TandemDup, Transposition
 from zombi.Events import MapOriginError, MapPseudogeneError, Transfer
+from zombi.Filenames import TREEEVENTS
 from zombi.GenomeSimulator import GenomeSimulator
 from zombi.Genomes import LEFT, RIGHT
 import zombi.AuxiliarFunctions as af
 
 
 GENOME_PARAMS = 'Parameters/GenomeParameters.tsv'
-TEST_FOLDER = Path('test/test_output/')
-TEST_GENOME_30_10 = Path('test/30_10.gff')  #30 bases, 3 * length-5 genomic/intergenomic pairs
-TEST_GENOME_30_6 = Path('test/30_6.gff')  #30 bases, 5 * length-3 genomic/intergenomic pairs
-TEST_GENOME_30_6_MOD = Path('test/30_6_mod.gff')  #A modified version of 30_6
-TEST_GENOME_18_6 = Path('test/18_6.gff')  #18 bases, 3 * length-3 genomic/intergenomic pairs
+TEST_DIVISIONS = Path('tests/TestDivisions1/')
+TEST_GENOME_30_10 = Path('tests/30_10.gff')  #30 bases, 3 * length-5 genomic/intergenomic pairs
+TEST_GENOME_30_6 = Path('tests/30_6.gff')  #30 bases, 5 * length-3 genomic/intergenomic pairs
+TEST_GENOME_30_6_MOD = Path('tests/30_6_mod.gff')  #A modified version of 30_6
+TEST_GENOME_18_6 = Path('tests/18_6.gff')  #18 bases, 3 * length-3 genomic/intergenomic pairs
 
+@pytest.fixture(autouse=True)
+def _inject_tmp_path_factory(request, tmp_path_factory):
+    if hasattr(request, "cls") and request.cls is not None:
+        request.cls.tmp_path_factory = tmp_path_factory
+
+
+@pytest.mark.usefixtures("tmp_path_factory")
 class TestEvent(unittest.TestCase):
 
   def setUp(self, genome_file=TEST_GENOME_30_6):
     params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
-    events_file = TEST_FOLDER / 'T/Events.tsv'
+    test_folder = self.tmp_path_factory.mktemp('session')   #type: ignore
 
-    self.gss = GenomeSimulator(params, str(events_file), genome_file)
+    shutil.copytree(TEST_DIVISIONS / 'T', test_folder / 'T')
+    events_file = test_folder / 'T' / TREEEVENTS
+
+    self.gss = GenomeSimulator(params, events_file, genome_file)
     self.genome = self.gss.read_genome(genome_file, intergenic_sequences=True)
 
     self.gss.active_genomes.add(self.genome.species)
-    self.gss.all_genomes["Root"] = self.genome
+    self.gss.node_genomes["Root"] = self.genome
 
   # INVERSIONS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   def test_inversion_0(self):
@@ -1184,7 +1196,7 @@ class TestEvent(unittest.TestCase):
     lineage = self.genome.species
     self.gss.make_transposition_intergenic(ch, 14, 1, RIGHT, 10, lineage, 0.0)
     trans = ch.event_history[0]
-    assert isinstance(trans, Origination)
+    assert isinstance(trans, Transposition)
 
 
     self.assertEqual(ch.intergenes[0].length, 3,
