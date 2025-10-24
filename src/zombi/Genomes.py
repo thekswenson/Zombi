@@ -1392,6 +1392,12 @@ class Chromosome:
             assert self.map_of_locations, "map_of_locations not set yet!"
             return self.map_of_locations[-1].tc2
 
+
+    def get_num_genes(self) -> int:
+        """ Return the number of genes in this chromosome. """
+        return len(self.genes)
+
+
     def __len__(self):
 
         # Watch out!! This is probably no the safest thing to do
@@ -1466,11 +1472,17 @@ class CircularChromosome(Chromosome):
         super().__init__(*args, **kwargs)
         self.shape = "C"
 
-    def obtain_segment(self, affected_genes) -> list[Gene]:
-
-        segment = [self.genes[x] for x in affected_genes]
-
-        return segment
+    def obtain_segment(self, affected_indices: list[int]) -> list[Gene]:
+        """
+        Get the genes affected by the segment. Return them in the order in
+        which they appear in the chromosome (if the segment wraps around, start
+        with the rightmost segment).
+        """
+        if ends := af.affected_indices_wrap(affected_indices):
+            return ([self.genes[x] for x in range(ends[0], self.get_num_genes())] +
+                    [self.genes[x] for x in range(0, ends[1] + 1)])
+        else:
+            return [self.genes[x] for x in affected_indices]
 
     def obtain_intergenic_segment(self, affected_intergenes) -> list[Intergene]:
 
