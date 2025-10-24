@@ -13,9 +13,10 @@ from Bio.SeqFeature import SeqFeature
 from Bio.SeqRecord import SeqRecord
 from Bio import SeqIO
 
-from zombi.Filenames import COMPLETEsuffix, SUBSTITUTIONSCALEDsuffix
-from zombi.Filenames import PRUNEDsuffix, SAMPLEDsuffix, INITIALGENOMEINFO
-from zombi.Filenames import GENEFAMILYINFO
+from .Events import FER, LOSS, ORIG, TDUP
+from .Filenames import COMPLETEsuffix, SUBSTITUTIONSCALEDsuffix
+from .Filenames import PRUNEDsuffix, SAMPLEDsuffix, INITIALGENOMEINFO
+from .Filenames import GENEFAMILYINFO
 
 
 def normalize(array):
@@ -597,14 +598,14 @@ def generate_gene_tree(events):
             times[nodename] = float(current_time)
             surviving_nodes[nodename] = {"state": 1, "descendant": "None"}
 
-        elif event == "E" or event == "L":
+        elif event == "E" or event == LOSS:
 
             nodename = nodes.replace(";", "_")
 
             times[nodename] = float(current_time)
             surviving_nodes[nodename] = {"state": 0, "descendant": "None"}
 
-        elif event == "S" or event == "D" or event == "T":
+        elif event == "S" or event == TDUP or event == FER:
 
             p, g0, c1, g1, c2, g2 = nodes.split(";")
 
@@ -673,13 +674,13 @@ def generate_gene_tree(events):
 
         current_time, event, nodes = values
 
-        if event == "O":
+        if event == ORIG:
 
             wroot = completetree.get_tree_root()
             wroot.name = nodes + "_1"
             wquick_nodes[wroot.name] = wroot
 
-        if event == "S" or event == "D" or event == "T":
+        if event == "S" or event == TDUP or event == FER:
 
             p, g0, c1, g1, c2, g2 = nodes.split(";")
             pnodename = p + "_" + g0

@@ -511,8 +511,8 @@ class Zombi():
 
             pieces_files = [d for d in genomes_folder.iterdir()
                             if str(d).endswith(PIECESsuffix)] # could be renamed to COORDINATES.tsv
-            
-            leaves_file = Path(experiment_folder, "T", LEAVES)
+
+            leaves_file = experiment_folder / "T" / LEAVES
             leaves = af.get_leaves_from_file(leaves_file)
     
             for pieces_file in pieces_files:
@@ -550,7 +550,7 @@ class Zombi():
 #                    whole_genome += af.get_complementary_sequence(sequence)
 #                else:
 #                    print("Error. Bad orientation of gene")
-#            elif id == "I":
+#            elif id == INV:
 #                whole_genome += seq_sim.generate_intergenic_sequences(int(l))
 #
 #    entry = [(">" + species, whole_genome)]
@@ -689,7 +689,7 @@ def T_mode(args):
     force_overwrite = args.force
     advanced_mode = setAdvancedMode(args)
     Z = Zombi()
-    
+
     t_folder = experiment_folder / "T"
     clear_directory(t_folder, force_overwrite)
     Z.T(parameters_file, experiment_folder, advanced_mode)

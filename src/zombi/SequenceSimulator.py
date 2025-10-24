@@ -673,11 +673,11 @@ class SequenceSimulator():
         with open(events_gtree) as f:
 
             vls = f.readlines()[1:]
-            vls = [x.strip().split("\t") for x in vls if x.split("\t")[1] in ["S","O","D","T","L","E","F"]]
+            vls = [x.strip().split("\t") for x in vls if x.split("\t")[1] in ["S",ORIG,TDUP,FER,LOSS,"E","F"]]
         
             for t, event, nodes in vls:                  
                 
-                if event == "O":
+                if event == ORIG:
                     all_nodes[nodes.strip() + "_1"] = [t]                    
                 else:
                     nodes = nodes.split(";")                

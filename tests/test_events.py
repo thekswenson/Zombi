@@ -10,7 +10,7 @@ from zombi.Events import Inversion, Loss, Origination, TandemDup, Transposition
 from zombi.Events import MapOriginError, MapPseudogeneError, Transfer
 from zombi.Filenames import TREEEVENTS
 from zombi.GenomeSimulator import GenomeSimulator
-from zombi.Genomes import LEFT, RIGHT
+from zombi.Genomes import T_DIR
 import zombi.AuxiliarFunctions as af
 
 
@@ -49,7 +49,7 @@ class TestEvent(unittest.TestCase):
 
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
-    self.gss.make_inversion_intergenic(ch, 0, 6, RIGHT, lineage, 0.0)
+    self.gss.make_inversion_intergenic(ch, 0, 6, T_DIR.RIGHT, lineage, 0.0)
     inversion = ch.event_history[0]
     assert isinstance(inversion, Inversion)
 
@@ -98,7 +98,7 @@ class TestEvent(unittest.TestCase):
 
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
-    self.gss.make_inversion_intergenic(ch, 3, 10, RIGHT, lineage, 0.0)
+    self.gss.make_inversion_intergenic(ch, 3, 10, T_DIR.RIGHT, lineage, 0.0)
     inversion = ch.event_history[0]
     assert isinstance(inversion, Inversion)
 
@@ -144,7 +144,7 @@ class TestEvent(unittest.TestCase):
 
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
-    self.gss.make_inversion_intergenic(ch, 3, 10, LEFT, lineage, 0.0)
+    self.gss.make_inversion_intergenic(ch, 3, 10, T_DIR.LEFT, lineage, 0.0)
     inversion = ch.event_history[0]
     assert isinstance(inversion, Inversion)
 
@@ -198,7 +198,7 @@ class TestEvent(unittest.TestCase):
     """
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
-    self.gss.make_inversion_intergenic(ch, 9, 5, RIGHT, lineage, 0.0)
+    self.gss.make_inversion_intergenic(ch, 9, 5, T_DIR.RIGHT, lineage, 0.0)
     inversion = ch.event_history[0]
     assert isinstance(inversion, Inversion)
 
@@ -252,7 +252,7 @@ class TestEvent(unittest.TestCase):
     """
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
-    self.gss.make_inversion_intergenic(ch, 13, 8, RIGHT, lineage, 0.0)
+    self.gss.make_inversion_intergenic(ch, 13, 8, T_DIR.RIGHT, lineage, 0.0)
     inversion = ch.event_history[0]
     assert isinstance(inversion, Inversion)
 
@@ -308,7 +308,7 @@ class TestEvent(unittest.TestCase):
     """
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
-    self.gss.make_inversion_intergenic(ch, 16, 10, RIGHT, lineage, 0.0)
+    self.gss.make_inversion_intergenic(ch, 16, 10, T_DIR.RIGHT, lineage, 0.0)
     inversion = ch.event_history[0]
     assert isinstance(inversion, Inversion)
 
@@ -355,7 +355,7 @@ class TestEvent(unittest.TestCase):
     lineage = self.genome.species
 
       #Do first inversion:
-    self.gss.make_inversion_intergenic(ch, 8, 0, RIGHT, lineage, 0.0)
+    self.gss.make_inversion_intergenic(ch, 8, 0, T_DIR.RIGHT, lineage, 0.0)
     inversion1 = ch.event_history[0]
     assert isinstance(inversion1, Inversion)
 
@@ -406,7 +406,7 @@ class TestEvent(unittest.TestCase):
 
       #Do second inversion:
     ch.obtain_locations()
-    self.gss.make_inversion_intergenic(ch, 1, 11, RIGHT, lineage, 0.0)
+    self.gss.make_inversion_intergenic(ch, 1, 11, T_DIR.RIGHT, lineage, 0.0)
     inversion2 = ch.event_history[1]
     assert isinstance(inversion2, Inversion)
 
@@ -450,7 +450,7 @@ class TestEvent(unittest.TestCase):
     lineage = self.genome.species
 
       #Do first inversion:
-    self.gss.make_inversion_intergenic(ch, 19, 6, RIGHT, lineage, 0.0)
+    self.gss.make_inversion_intergenic(ch, 19, 6, T_DIR.RIGHT, lineage, 0.0)
     inversion1 = ch.event_history[0]
     assert isinstance(inversion1, Inversion)
 
@@ -497,7 +497,7 @@ class TestEvent(unittest.TestCase):
 
       #Do second inversion:
     ch.obtain_locations()
-    self.gss.make_inversion_intergenic(ch, 10, 3, RIGHT, lineage, 0.0)
+    self.gss.make_inversion_intergenic(ch, 10, 3, T_DIR.RIGHT, lineage, 0.0)
     inversion2 = ch.event_history[1]
     assert isinstance(inversion2, Inversion)
 
@@ -544,7 +544,7 @@ class TestEvent(unittest.TestCase):
     self.setUp(TEST_GENOME_30_6_MOD)
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
-    self.gss.make_inversion_intergenic(ch, 11, 1, RIGHT, lineage, 0.0)
+    self.gss.make_inversion_intergenic(ch, 11, 1, T_DIR.RIGHT, lineage, 0.0)
     inv1 = ch.event_history[0]
     assert isinstance(inv1, Inversion)
 
@@ -574,7 +574,7 @@ class TestEvent(unittest.TestCase):
     lineage = self.genome.species
 
       #Do first inversion:
-    self.gss.make_inversion_intergenic(ch, 1, 9, RIGHT, lineage, 0.0)
+    self.gss.make_inversion_intergenic(ch, 1, 9, T_DIR.RIGHT, lineage, 0.0)
     inv1 = ch.event_history[0]
     assert isinstance(inv1, Inversion)
 
@@ -591,7 +591,7 @@ class TestEvent(unittest.TestCase):
 
       #Do second inversion:
     ch.obtain_locations()
-    self.gss.make_inversion_intergenic(ch, 15, 6, RIGHT, lineage, 0.0)
+    self.gss.make_inversion_intergenic(ch, 15, 6, T_DIR.RIGHT, lineage, 0.0)
     inv2 = ch.event_history[1]
     assert isinstance(inv2, Inversion)
 
@@ -634,7 +634,7 @@ class TestEvent(unittest.TestCase):
 
       #Do third inversion:
     ch.obtain_locations()
-    self.gss.make_inversion_intergenic(ch, 11, 1, RIGHT, lineage, 0.0)
+    self.gss.make_inversion_intergenic(ch, 11, 1, T_DIR.RIGHT, lineage, 0.0)
     inv3 = ch.event_history[2]
     assert isinstance(inv3, Inversion)
 
@@ -663,7 +663,7 @@ class TestEvent(unittest.TestCase):
     lineage = self.genome.species
 
       #Do first inversion:
-    self.gss.make_inversion_intergenic(ch, 17, 8, RIGHT, lineage, 0.0)
+    self.gss.make_inversion_intergenic(ch, 17, 8, T_DIR.RIGHT, lineage, 0.0)
     inversion1 = ch.event_history[0]
     assert isinstance(inversion1, Inversion)
 
@@ -714,7 +714,7 @@ class TestEvent(unittest.TestCase):
 
       #Do second inversion:
     ch.obtain_locations()
-    self.gss.make_inversion_intergenic(ch, 19, 5, RIGHT, lineage, 0.0)
+    self.gss.make_inversion_intergenic(ch, 19, 5, T_DIR.RIGHT, lineage, 0.0)
     inversion2 = ch.event_history[1]
     assert isinstance(inversion2, Inversion)
 
@@ -758,7 +758,7 @@ class TestEvent(unittest.TestCase):
   def test_tandemdup_1(self):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
-    self.gss.make_duplication_within_intergene(ch, 3, 9, RIGHT, lineage, 0.0)
+    self.gss.make_tandemdup_within_intergene(ch, 3, 9, T_DIR.RIGHT, lineage, 0.0)
     tdup = ch.event_history[0]
     assert isinstance(tdup, TandemDup)
 
@@ -791,7 +791,7 @@ class TestEvent(unittest.TestCase):
 
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
-    self.gss.make_duplication_within_intergene(ch, 9, 2, RIGHT, lineage, 0.0)
+    self.gss.make_tandemdup_within_intergene(ch, 9, 2, T_DIR.RIGHT, lineage, 0.0)
     tdup = ch.event_history[0]
     assert isinstance(tdup, TandemDup)
 
@@ -844,7 +844,7 @@ class TestEvent(unittest.TestCase):
 
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
-    self.gss.make_duplication_within_intergene(ch, 2, 9, LEFT, lineage, 0.0)
+    self.gss.make_tandemdup_within_intergene(ch, 2, 9, T_DIR.LEFT, lineage, 0.0)
     tdup = ch.event_history[0]
     assert isinstance(tdup, TandemDup)
 
@@ -880,7 +880,7 @@ class TestEvent(unittest.TestCase):
   def test_tandemdup_3(self):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
-    self.gss.make_duplication_within_intergene(ch, 13, 8, RIGHT, lineage, 0.0)
+    self.gss.make_tandemdup_within_intergene(ch, 13, 8, T_DIR.RIGHT, lineage, 0.0)
     tdup = ch.event_history[0]
     assert isinstance(tdup, TandemDup)
 
@@ -938,7 +938,7 @@ class TestEvent(unittest.TestCase):
   def test_loss_1(self):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
-    self.gss.make_loss_intergenic(ch, 3, 10, RIGHT, lineage, 0.0)
+    self.gss.make_loss_intergenic(ch, 3, 10, T_DIR.RIGHT, lineage, 0.0)
     loss = ch.event_history[0]
     assert isinstance(loss, Loss)
 
@@ -968,7 +968,7 @@ class TestEvent(unittest.TestCase):
   def test_loss_1P(self):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
-    self.gss.make_loss_intergenic(ch, 3, 10, RIGHT, lineage, 0.0, True)
+    self.gss.make_loss_intergenic(ch, 3, 10, T_DIR.RIGHT, lineage, 0.0, True)
     loss = ch.event_history[0]
     assert isinstance(loss, Loss)
 
@@ -1016,7 +1016,7 @@ class TestEvent(unittest.TestCase):
   def test_loss_2(self):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
-    self.gss.make_loss_intergenic(ch, 14, 6, RIGHT, lineage, 0.0)
+    self.gss.make_loss_intergenic(ch, 14, 6, T_DIR.RIGHT, lineage, 0.0)
     loss = ch.event_history[0]
     assert isinstance(loss, Loss)
 
@@ -1044,7 +1044,7 @@ class TestEvent(unittest.TestCase):
   def test_loss_2P(self):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
-    self.gss.make_loss_intergenic(ch, 14, 6, RIGHT, lineage, 0.0, True)
+    self.gss.make_loss_intergenic(ch, 14, 6, T_DIR.RIGHT, lineage, 0.0, True)
     loss = ch.event_history[0]
     assert isinstance(loss, Loss)
 
@@ -1098,7 +1098,7 @@ class TestEvent(unittest.TestCase):
   def test_transposition1(self):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
-    self.gss.make_transposition_intergenic(ch, 2, 9, RIGHT, 17, lineage, 0.0)
+    self.gss.make_transposition_intergenic(ch, 2, 9, T_DIR.RIGHT, 17, lineage, 0.0)
     trans = ch.event_history[0]
     assert isinstance(trans, Transposition)
 
@@ -1144,7 +1144,7 @@ class TestEvent(unittest.TestCase):
   def test_transposition2(self):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
-    self.gss.make_transposition_intergenic(ch, 6, 11, RIGHT, 0, lineage, 0.0)
+    self.gss.make_transposition_intergenic(ch, 6, 11, T_DIR.RIGHT, 0, lineage, 0.0)
     trans = ch.event_history[0]
     assert isinstance(trans, Transposition)
 
@@ -1194,7 +1194,7 @@ class TestEvent(unittest.TestCase):
   def test_transposition3(self):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
-    self.gss.make_transposition_intergenic(ch, 14, 1, RIGHT, 10, lineage, 0.0)
+    self.gss.make_transposition_intergenic(ch, 14, 1, T_DIR.RIGHT, 10, lineage, 0.0)
     trans = ch.event_history[0]
     assert isinstance(trans, Transposition)
 
@@ -1256,7 +1256,7 @@ class TestEvent(unittest.TestCase):
   #  """
   #  ch = self.genome.chromosomes[0]
   #  lineage = self.genome.species
-  #  self.gss.make_transposition_intergenic(ch, 15, 5, RIGHT, 12, lineage, 0.0)
+  #  self.gss.make_transposition_intergenic(ch, 15, 5, T_DIR.RIGHT, 12, lineage, 0.0)
   #  trans: Transposition = ch.event_history[0]
 
 
@@ -1323,7 +1323,7 @@ class TestEvent(unittest.TestCase):
     self.setUp(TEST_GENOME_18_6)
     donor, donorlineage, receptor, receptorlineage = self.transferSetUp()
 
-    self.gss.make_transfer_intergenic(donor, 2, 10, RIGHT, donorlineage,
+    self.gss.make_transfer_intergenic(donor, 2, 10, T_DIR.RIGHT, donorlineage,
                                       receptor, 1, receptorlineage, 1.5)
     trans = receptor.event_history[0]
     assert isinstance(trans, Transfer)
@@ -1359,7 +1359,7 @@ class TestEvent(unittest.TestCase):
     self.setUp(TEST_GENOME_18_6)
     donor, donorlineage, receptor, receptorlineage = self.transferSetUp()
 
-    self.gss.make_transfer_intergenic(donor, 3, 10, LEFT, donorlineage,
+    self.gss.make_transfer_intergenic(donor, 3, 10, T_DIR.LEFT, donorlineage,
                                       receptor, 7, receptorlineage, 1.5)
     trans = receptor.event_history[0]
     assert isinstance(trans, Transfer)

@@ -491,8 +491,8 @@ class Loss(EventTwoCuts):
     def __init__(self, int1: Interval, int2: Interval, sbp1: int, sbp2: int,
                  swraplen: int, twraplen: int, lineage: str, time: float,
                  pseudogenize: bool,
-                 pseudo_intergene_list: List[Intergene],
-                 pseudo_gene_list: List[Gene],
+                 pseudo_intergene_list: List['Intergene'],
+                 pseudo_gene_list: List['Gene'],
                  adjustment_factor: int|None):
         """
         Create a Loss event. Either cut out everything between `sbp1` and

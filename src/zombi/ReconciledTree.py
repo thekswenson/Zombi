@@ -22,6 +22,8 @@
 
 import ete3
 
+from .Events import TDUP, DUP, LOSS
+
 
 RECPHYLOTAG = "recPhylo"
 RECTREETAG = "recGeneTree"
@@ -70,11 +72,11 @@ def myBasicTreeXMLLines(tree):
     return lines
 
 
-EVENTTAGCORRESPONDANCE = { "D" : "tandemdup",
-                           "U" : "duplication",
+EVENTTAGCORRESPONDANCE = { TDUP: "tandemdup",
+                           DUP : "duplication",
                            "S" : "speciation",
                            "C" : "leaf",
-                           "L":"loss",
+                           LOSS:"loss",
                            "Bo": "bifurcationOut",
                            "bro": "branchingOut",
                            "Tb": "transferBack",
@@ -338,15 +340,15 @@ class ReconciledTree(ete3.TreeNode):
                 evtCode = "loss"
                 report = True
 
-            elif evtCode == EVENTTAGCORRESPONDANCE["D"] or evtCode =="D":
+            elif evtCode == EVENTTAGCORRESPONDANCE[TDUP] or evtCode ==TDUP:
                 evtCode = "tandemdup"
                 report = True
 
-            elif evtCode == EVENTTAGCORRESPONDANCE["U"] or evtCode =="U":
+            elif evtCode == EVENTTAGCORRESPONDANCE[DUP] or evtCode ==DUP:
                 evtCode = "duplication"
                 report = True
 
-            elif evtCode == EVENTTAGCORRESPONDANCE["L"] or evtCode =="L":
+            elif evtCode == EVENTTAGCORRESPONDANCE[LOSS] or evtCode ==LOSS:
                 evtCode = "loss"
                 report = True
 

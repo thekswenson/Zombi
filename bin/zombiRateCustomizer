@@ -9,6 +9,7 @@ from zombi.Filenames import GENEFAMILYRATES, GENOMEPARAMETERS
 from zombi.Filenames import GTSUBSTITUTIONRATES, STSUBSTITUTIONRATES
 from zombi.Filenames import TRANSFERRATES, TREEEVENTS
 from zombi.Random import G_NPRNG, S_NPRNG, seed_G_generators
+from zombi.Events import TDUP, FER, LOSS, INV, ORIG
 
 
 class RateCustomizer():
@@ -134,7 +135,7 @@ class RateCustomizer():
 
         with open(os.path.join(self.experiment_folder, "CustomRates", EVENTRATES), "w") as f:
 
-            line = "\t".join(["lineage","D","T","L","I","C","O"]) + "\n"
+            line = "\t".join(["lineage",TDUP,FER,LOSS,INV,"C",ORIG]) + "\n"
             f.write(line)
 
             for lineage, values in branch_rates.items():

@@ -19,22 +19,29 @@ import ete3
 
 import networkx as nx
 from functools import reduce
-from typing import Union
+from typing import Union, cast
+from enum import Enum, auto
 
 
 from . import AuxiliarFunctions as af
 from . import ReconciledTree as RT
 from . import T_PAIR
 from .Interval import Interval
-from .Events import GenomeEvent
+from .Events import GenomeCoordEvent, GenomeEvent, LOSS, ORIG, POS, TDUP, DUP, FER, INV
 from .Random import G_RNG, G_NPRNG
 
 
 # Directions:
-T_DIR = bool
+class T_DIR(Enum):
+    """ The direction to extend from an index. """
+    RIGHT = auto()
+    LEFT = auto()
 
-RIGHT = False
-LEFT = True
+    
+#T_DIR = bool #: the direction
+#
+#RIGHT = False
+#LEFT = True
 
 
 
@@ -110,14 +117,14 @@ class GeneFamily:
 
                 family_size += 1
 
-            elif event == "E" or event == "L":
+            elif event == "E" or event == LOSS:
 
                 nodename = nodes.replace(";", "_")
 
                 times[nodename] = float(current_time)
                 surviving_nodes[nodename] = {"state": 0, "descendant": "None"}
 
-            elif event == "S" or event == "D" or event == "U" or event == "T":
+            elif event == "S" or event == TDUP or event == DUP or event == FER:
 
                 p, g0, c1, g1, c2, g2 = nodes.split(";")
 
@@ -184,18 +191,18 @@ class GeneFamily:
 
             current_time, event, nodes = values
 
-            if event == "O":
+            if event == ORIG:
 
                 wroot = completetree.get_tree_root()
                 wroot.name = nodes + "_1"
                 wquick_nodes[wroot.name] = wroot
 
-            if event == "L" or event == "E":
+            if event == LOSS or event == "E":
 
                 p, g0 = nodes.split(";")
                 pnodename = p + "_" + g0
                 mynode = wquick_nodes[pnodename]
-                e = RT.RecEvent("L", p, int(float(current_time)))
+                e = RT.RecEvent(LOSS, p, int(float(current_time)))
                 mynode.addEvent(e, append=True)
 
             if event == "F":
@@ -203,10 +210,10 @@ class GeneFamily:
                 p, g0 = nodes.split(";")
                 pnodename = p + "_" + g0
                 mynode = wquick_nodes[pnodename]
-                e = RT.RecEvent("P", p, int(float(current_time)))
+                e = RT.RecEvent(POS, p, int(float(current_time)))
                 mynode.addEvent(e, append=True)
 
-            if event == "S" or event == "D" or event == "U" or event == "T":
+            if event == "S" or event == TDUP or event == DUP or event == FER:
 
                 p, g0, c1, g1, c2, g2 = nodes.split(";")
                 pnodename = p + "_" + g0
@@ -319,13 +326,13 @@ class GeneFamily:
                 mynode = tree & myname
                 mynode.is_active = False        #type: ignore
 
-            elif event == "L":
+            elif event == LOSS:
                 sp, gp = nodes.split(";")
                 myname = sp + "_" + gp
                 mynode = tree & myname
                 mynode.is_active = False        #type: ignore
 
-            elif event == "D" or event == "U":
+            elif event == TDUP or event == DUP:
 
                 sp, gp, c1, g1, c2, g2 = nodes.split(";")
                 myname = sp + "_" + gp
@@ -341,7 +348,7 @@ class GeneFamily:
                 gc2.name = c2 + "_" + g2
                 gc2.add_feature("is_active", True)
 
-            elif event == "T":
+            elif event == FER:
                 sp, gp, c1, g1, c2, g2 = nodes.split(";")
 
                 myname = sp + "_" + gp
@@ -660,14 +667,14 @@ class DivisionFamily:
 
                 family_size += 1
 
-            elif event == "E" or event == "L":
+            elif event == "E" or event == LOSS:
 
                 nodename = nodes.replace(";", "_")
 
                 times[nodename] = float(current_time)
                 surviving_nodes[nodename] = {"state": 0, "descendant": "None"}
 
-            elif event == "S" or event == "D" or event == "U" or event == "T":
+            elif event == "S" or event == TDUP or event == DUP or event == FER:
 
                 p, g0, c1, g1, c2, g2 = nodes.split(";")
 
@@ -720,7 +727,7 @@ class DivisionFamily:
                     mynode = find_descendant(surviving_nodes, c2nodename)
                     surviving_nodes[pnodename] = {"state": -1, "descendant": mynode}
 
-            elif event == "O":
+            elif event == ORIG:
                 pass
 
             else:
@@ -739,18 +746,18 @@ class DivisionFamily:
 
             current_time, event, nodes = values
 
-            if event == "O":
+            if event == ORIG:
 
                 wroot = completetree.get_tree_root()
                 wroot.name = nodes + "_1"
                 wquick_nodes[wroot.name] = wroot
 
-            if event == "L" or event == "E":
+            if event == LOSS or event == "E":
 
                 p, g0 = nodes.split(";")
                 pnodename = p + "_" + g0
                 mynode = wquick_nodes[pnodename]
-                e = RT.RecEvent("L", p, int(float(current_time)))
+                e = RT.RecEvent(LOSS, p, int(float(current_time)))
                 mynode.addEvent(e, append=True)
 
             if event == "F":
@@ -758,10 +765,10 @@ class DivisionFamily:
                 p, g0 = nodes.split(";")
                 pnodename = p + "_" + g0
                 mynode = wquick_nodes[pnodename]
-                e = RT.RecEvent("P", p, int(float(current_time)))
+                e = RT.RecEvent(POS, p, int(float(current_time)))
                 mynode.addEvent(e, append=True)
 
-            if event == "S" or event == "D" or event == "U" or event == "T":
+            if event == "S" or event == TDUP or event == DUP or event == FER:
 
                 p, g0, c1, g1, c2, g2 = nodes.split(";")
                 pnodename = p + "_" + g0
@@ -853,10 +860,13 @@ class Chromosome:
     _num_nucleotides: int
         the length of the chromosome (in nucleotides)
     shape: str
-        one of "L" or "C" for linear or circular
-    event_history: GenomeEvent
-        list of genome events (e.g. INV, TDUP, etc.) that have happened to this
-        chromosome
+        one of LOSS or "C" for linear or circular
+    event_history: GenomeCoordEvent
+        list of genome events (e.g. INV, TDUP, etc.) that have modified this
+        chromosome, with the genome coordinates of where they occurred
+    geneorder_history: GenomeEvent
+        list of genome events (e.g. INV, TDUP, etc.) that have modified this
+        chromosome, with the breakpoint (gene-order) positions of where they occurred
     """
     def __init__(self, num_nucleotides=0):
 
@@ -871,7 +881,7 @@ class Chromosome:
 
         self.total_rates = 0
 
-        self.event_history: list[GenomeEvent] = []
+        self.event_history: list[GenomeCoordEvent] = []
 
         self.pieces: list[Gene|Division] = []  # In the F mode, keeps a list of genes and divisions
 
@@ -1050,7 +1060,7 @@ class Chromosome:
             tc2 = self.intergenes[i].total_flanking[1]
             sc1 = self.intergenes[i].specific_flanking[0]
             sc2 = self.intergenes[i].specific_flanking[1]
-            self.map_of_locations.append(Interval(tc1, tc2, sc1, sc2, i, "I"))
+            self.map_of_locations.append(Interval(tc1, tc2, sc1, sc2, i, INV))
     
     def update_flankings_divisions(self):
 
@@ -1150,7 +1160,7 @@ class Chromosome:
 
         return c3
 
-    def return_total_coordinate_from_specific_coordinate(self, c, type = "I", debug = False) -> int:
+    def return_total_coordinate_from_specific_coordinate(self, c, type = INV, debug = False) -> int:
 
         tc = None
         for r in self.map_of_locations:
@@ -1173,7 +1183,7 @@ class Chromosome:
         for r in self.map_of_locations:
             if debug:
                 print(r)
-            if r.itype == "I" and r.inTotal(c):
+            if r.itype == INV and r.inTotal(c):
 
                 distance_to_lower_bound = c - r.tc1
                 sc = r.sc1 + distance_to_lower_bound
@@ -1305,12 +1315,12 @@ class Chromosome:
         elif p1 == p2:
             raise(CoordinateChoiceError)
 
-        elif c1 < c2 and direction == RIGHT:
+        elif c1 < c2 and direction == T_DIR.RIGHT:
 
             affected_genes = [i + 1 for i in range(p1, p2)]
             affected_intergenes = [i for i in range(p1, p2 + 1)]
 
-        elif c1 > c2 and direction == RIGHT:
+        elif c1 > c2 and direction == T_DIR.RIGHT:
 
             affected_genes = [i + 1 for i in range(p1, t_length - 1)]
             affected_genes += [i for i in range(0, p2 + 1)]
@@ -1318,7 +1328,7 @@ class Chromosome:
             affected_intergenes = [i for i in range(p1, t_length)]
             affected_intergenes += [i for i in range(0, p2 + 1)]
 
-        elif c1 > c2 and direction == LEFT:
+        elif c1 > c2 and direction == T_DIR.LEFT:
 
             affected_genes = [i for i in range(p1, p2, - 1)]
             affected_intergenes = [i for i in range(p1, p2 - 1, -1)]
@@ -1326,7 +1336,7 @@ class Chromosome:
             affected_genes.reverse()
             affected_intergenes.reverse()
 
-        elif c1 < c2 and direction == LEFT:
+        elif c1 < c2 and direction == T_DIR.LEFT:
 
             affected_genes = [i for i in range(p1, -1, - 1)]
             affected_genes += [i for i in range(t_length - 1, p2, -1)]
@@ -1431,8 +1441,8 @@ class Chromosome:
         raise(NotImplementedError)
 
     @abc.abstractmethod
-    def obtain_affected_genes_accounting_for_family_rates(self, p_extension,
-                                                          gene_families, mrate):
+    def obtain_affected_indices_family_rates(self, p_extension, gene_families,
+                                             mrate) -> list[int]:
         raise(NotImplementedError)
 
     @abc.abstractmethod
@@ -1727,9 +1737,11 @@ class CircularChromosome(Chromosome):
         return affected_genes
 
 
-    def obtain_affected_genes_accounting_for_family_rates(self, p_extension, gene_families, mrate):
+    def obtain_affected_indices_family_rates(self, p_extension, gene_families,
+                                             mrate) -> list[int]:
 
-        # In this first version, length is 1. For a more advanced version, I should extent the interactome model
+        # In this first version, length is 1. For a more advanced version,
+        # I should extent the interactome model
         # Returns N genes accounting for the family rates
 
 
@@ -1739,7 +1751,7 @@ class CircularChromosome(Chromosome):
 
             norm = af.normalize([vl for x, vl in gene2rate.items()])
             mgenes = [i for i in range(len(self.genes))]
-            affected_genes = G_NPRNG().choice(mgenes, size = 1, p=norm)
+            affected_genes = cast(list[int], G_NPRNG().choice(mgenes, size=1, p=norm))
             return affected_genes
 
         else:
@@ -1752,8 +1764,8 @@ class CircularChromosome(Chromosome):
             if length >= total_length:
                 affected_genes = [x for x in range(total_length)]
                 return affected_genes
-            else:
 
+            else:
                 all_weights = list()
 
                 # If the extension is shorter than the whole genome length
@@ -1956,7 +1968,7 @@ class LinearChromosome(Chromosome):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.shape = "L"
+        self.shape = LOSS
         raise(NotImplementedError)
 
 
@@ -1976,7 +1988,7 @@ class Genome:
     def start_genome(self, input):
 
         for size, shape in input:
-            if shape == "L":
+            if shape == LOSS:
                 self.chromosomes.append(LinearChromosome(size))
             elif shape == "C":
                 self.chromosomes.append(CircularChromosome(size))

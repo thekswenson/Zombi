@@ -5,8 +5,9 @@ import unittest
 from pathlib import Path
 
 from zombi.Events import Origination, Transfer, Transposition, EventTwoCuts
+from zombi.Events import INV, ORIG, POS, TDUP, FER
 from zombi.GenomeSimulator import GenomeSimulator
-from zombi.Genomes import LEFT, RIGHT
+from zombi.Genomes import T_DIR
 import zombi.AuxiliarFunctions as af
 
 
@@ -25,10 +26,10 @@ class TestDivisions(unittest.TestCase):
   
   def test_divisions(self):
 
-      event0 = ("G", 1.21, "D", "n1", (1, 9, RIGHT))
-      event1 = ("G", 1.22, "I", "n1", (15, 6, RIGHT))
-      event2 = ("G", 1.233, "I", "n1", (11, 1, RIGHT))
-      event3 = ("G", 1.234, "I", "n1", (8, 17, RIGHT))
+      event0 = ("G", 1.21, TDUP, "n1", (1, 9, T_DIR.RIGHT))
+      event1 = ("G", 1.22, INV, "n1", (15, 6, T_DIR.RIGHT))
+      event2 = ("G", 1.233, INV, "n1", (11, 1, T_DIR.RIGHT))
+      event3 = ("G", 1.234, INV, "n1", (8, 17, T_DIR.RIGHT))
 
       #
       #self.gss.run_f()
@@ -52,22 +53,22 @@ class TestDivisions(unittest.TestCase):
 
   def test_divisions2(self):
 
-      event0 = ("G", 0.028, "I", "Root", (5, 9, RIGHT))
-      event1 = ("G", 0.21, "I", "Root", (19, 1, RIGHT))
-      event2 = ("G", 0.37, "I", "Root", (8, 12, RIGHT))
-      event3 = ("G", 0.40, "I", "Root", (10, 6, RIGHT))
-      event4 = ("G", 0.44, "I", "Root", (19, 4, RIGHT))
-      event5 = ("G", 0.48, "I", "Root", (5, 17, RIGHT))
-      event6 = ("G", 0.53, "I", "Root", (18, 14, RIGHT))
-      event7 = ("G", 0.644, "I", "Root", (11, 2, RIGHT))
-      event8 = ("G", 0.74, "I", "Root", (14, 2, RIGHT))
-      event9 = ("G", 0.748, "I", "Root", (12, 15, RIGHT))
-      event10 = ("G", 0.919, "I", "Root", (2, 3, RIGHT))
-      event11 = ("G", 1.27, "I", "n2", (1, 14, RIGHT))
-      event12 = ("G", 1.42, "I", "n2", (13, 11, RIGHT))
-      event13 = ("G", 1.48, "I", "n2", (6, 19, RIGHT))
-      event14 = ("G", 1.55, "I", "n2", (0, 18, RIGHT))
-      event15 = ("G", 1.47, "I", "n1", (13, 18, RIGHT))
+      event0 = ("G", 0.028, INV, "Root", (5, 9, T_DIR.RIGHT))
+      event1 = ("G", 0.21, INV, "Root", (19, 1, T_DIR.RIGHT))
+      event2 = ("G", 0.37, INV, "Root", (8, 12, T_DIR.RIGHT))
+      event3 = ("G", 0.40, INV, "Root", (10, 6, T_DIR.RIGHT))
+      event4 = ("G", 0.44, INV, "Root", (19, 4, T_DIR.RIGHT))
+      event5 = ("G", 0.48, INV, "Root", (5, 17, T_DIR.RIGHT))
+      event6 = ("G", 0.53, INV, "Root", (18, 14, T_DIR.RIGHT))
+      event7 = ("G", 0.644, INV, "Root", (11, 2, T_DIR.RIGHT))
+      event8 = ("G", 0.74, INV, "Root", (14, 2, T_DIR.RIGHT))
+      event9 = ("G", 0.748, INV, "Root", (12, 15, T_DIR.RIGHT))
+      event10 = ("G", 0.919, INV, "Root", (2, 3, T_DIR.RIGHT))
+      event11 = ("G", 1.27, INV, "n2", (1, 14, T_DIR.RIGHT))
+      event12 = ("G", 1.42, INV, "n2", (13, 11, T_DIR.RIGHT))
+      event13 = ("G", 1.48, INV, "n2", (6, 19, T_DIR.RIGHT))
+      event14 = ("G", 1.55, INV, "n2", (0, 18, T_DIR.RIGHT))
+      event15 = ("G", 1.47, INV, "n1", (13, 18, T_DIR.RIGHT))
 
       
       #self.gss.run_f_debug([event1,event2])
@@ -81,7 +82,7 @@ class TestDivisions(unittest.TestCase):
 
   def test_genetrees(self):
      
-      event1 = ("G", 0.028, "P", "Root", (5, 9, RIGHT))
+      event1 = ("G", 0.028, POS, "Root", (5, 9, T_DIR.RIGHT))
       
       #self.gss.run_f() 
       #self.gss.obtain_divisions()       
@@ -113,16 +114,16 @@ class TestDuplications(unittest.TestCase):
   def test_transpositions1(self):
      
       print("TEST")
-     
-      event1 = ("G", 0.11, "O", "Root", (7, RIGHT))
-      event2 = ("G", 1.312, "I", "n1", (13, 15, RIGHT))
-      #event3 = ("G", 1.32, "T", "n1", (17, 20, 1, RIGHT, "n2"))
-      #event4 = ("G", 1.33, "T", "n1", (16, 0, 1, RIGHT, "n2"))
-      #event5 = ("G", 1.34, "L", "n2", (5, 32, RIGHT))
-      #event6 = ("G", 1.345, "L", "n1", (15, 3, RIGHT))
-      #event7 = ("G", 1.346, "T", "n2", (1, 5, 22, RIGHT, "n1"))
-      #event7 = ("G", 1.346, "I", "n2", (15, 20, RIGHT))
-      
+
+      event1 = ("G", 0.11, ORIG, "Root", (7, T_DIR.RIGHT))
+      event2 = ("G", 1.312, INV, "n1", (13, 15, T_DIR.RIGHT))
+      #event3 = ("G", 1.32, FER, "n1", (17, 20, 1, T_DIR.RIGHT, "n2"))
+      #event4 = ("G", 1.33, FER, "n1", (16, 0, 1, T_DIR.RIGHT, "n2"))
+      #event5 = ("G", 1.34, LOSS, "n2", (5, 32, T_DIR.RIGHT))
+      #event6 = ("G", 1.345, LOSS, "n1", (15, 3, T_DIR.RIGHT))
+      #event7 = ("G", 1.346, FER, "n2", (1, 5, 22, T_DIR.RIGHT, "n1"))
+      #event7 = ("G", 1.346, INV, "n2", (15, 20, T_DIR.RIGHT))
+
 
       params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
       events_file = TEST_FOLDER1 / 'T/Events.tsv'
@@ -154,14 +155,14 @@ class TestDuplications(unittest.TestCase):
             for event in events:
               line = ["G", str(event.time), event.etype, event.lineage]
                       
-              if event.etype == "P":
+              if event.etype == POS:
                   assert isinstance(event, Transposition)
                   c1, c2, c3 = event.sbpL, event.sbpR, event.sbpH
                   line.append(str((c1, c2, c3)))
-              elif event.etype == "O":
+              elif event.etype == ORIG:
                   assert isinstance(event, Origination)
                   c1 = event.sbp
-              elif event.etype == "T":
+              elif event.etype == FER:
                   assert isinstance(event, Transfer)
                   c1, c2, c3, recipient, donor = event.sbpL, event.sbpR, event.receptorsbp, event.receptorlineage, event.donorlineage
                   line.append(str((c1,c2,c3,recipient, donor)))

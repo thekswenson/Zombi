@@ -8,7 +8,7 @@ from pathlib import Path
 
 from zombi.Filenames import TREEEVENTS
 from zombi.GenomeSimulator import GenomeSimulator
-from zombi.Genomes import RIGHT
+from zombi.Genomes import T_DIR
 import zombi.AuxiliarFunctions as af
 
 
@@ -46,7 +46,7 @@ class TestGenomes(unittest.TestCase):
     for _ in range(REPS):
         # The specific coordinate ranges for the intergenes are the following:
         # 0-5, 6-11, 12-17, 18-23, 24-29, 30-35, 36-41, 42-47, 48-53, 54-59
-      c = ch.select_random_intergenic_coordinate_excluding(16, 38, RIGHT)
+      c = ch.select_random_intergenic_coordinate_excluding(16, 38, T_DIR.RIGHT)
       assert c is not None
       self.assertTrue(0 <= c <= 11 or 42 <= c <= 59, f'bad coordinate: {c}')
       chosen.append(c)
