@@ -8,6 +8,8 @@ from pathlib import Path
 from Bio.SeqRecord import SeqRecord
 from typing import Any
 
+from zombi.Events import FER, ORIG, TDUP, LOSS
+
 from . import AuxiliarFunctions as af
 from .Random import S_RNG, S_NPRNG
 from .Filenames import COMPLETETREEsuffix, GENOMEsuffix, WHOLEGENOMEsuffix

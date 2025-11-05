@@ -2144,6 +2144,7 @@ class Genome:
 
         for size, shape in input:
             if shape == "L":
+                raise(NotImplementedError("Linear chromosomes not implemented"))
                 self.chromosomes.append(LinearChromosome("0", size))
             elif shape == "C":
                 self.chromosomes.append(CircularChromosome("0", size))
