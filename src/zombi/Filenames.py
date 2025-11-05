@@ -37,6 +37,8 @@ GENEFAMEVENTSsuffix = "_events.tsv"
 
 BRANCHEVENTSsuffix = "_branchevents.tsv"
 BRANCHEVENTSSCALEDsuffix = "_brancheventsscaled.tsv"
+GENEORDEREVENTSsuffix = "_geneorderevents.tsv"
+GENEORDEREVENTSSCALEDsuffix = "_geneordereventsscaled.tsv"
 BRANCHEVENTSTABLE = "Table_branch_events.tsv"
 ROOTBRANCHEVENTS = "Root_branchevents.tsv"
 FAMILYRATES = "Family_rates.tsv"

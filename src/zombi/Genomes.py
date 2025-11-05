@@ -19,15 +19,16 @@ import ete3
 
 import networkx as nx
 from functools import reduce
-from typing import Union, cast
+from typing import Iterable, Union, cast
 from enum import Enum, auto
 
 
 from . import AuxiliarFunctions as af
 from . import ReconciledTree as RT
 from . import T_PAIR
-from .Interval import Interval
-from .Events import GenomeCoordEvent, GenomeEvent, LOSS, ORIG, POS, TDUP, DUP, FER, INV
+from .Interval import ITYPE, Interval
+from .Events import BACKWARDS, FORWARDS, GenomeCoordEvent
+from .Events import LOSS, ORIG, POS, TDUP, DUP, FER, INV
 from .Random import G_RNG, G_NPRNG
 
 
@@ -64,8 +65,8 @@ class GeneFamily:
 
         self.gff_id = ''                #unique ID from the gff file
 
-        self.genes = list()
-        self.events: list[tuple[float, str, str]] = list()
+        self.genes: list[Gene] = []
+        self.events: list[tuple[float, str, str]] = []
         self.event_counter = 0  # Each time that the family is modified in any form, we have to update the event counter
         self.gene_ids_counter = 0
 
@@ -455,7 +456,7 @@ class Gene:
         else:
             self.orientation = "-"
 
-    def change_sense(self):
+    def change_orientation(self):
 
         if self.orientation == "+":
             self.orientation = "-"
@@ -504,7 +505,7 @@ class Division:
 
         self.initial_sequence = "" # The initial sequence if the gene comes from a pseudogenization
 
-    def change_sense(self):
+    def change_orientation(self):
 
         if self.orientation == "+":
             self.orientation = "-"
@@ -847,7 +848,7 @@ class DivisionFamily:
     
   
 
-class Chromosome:
+class Chromosome(abc.ABC):
     """
     A chromosome that knows its genes and intergenes, as well as its
     `map_of_locations`, which is the representation of the chromosome as a
@@ -859,17 +860,26 @@ class Chromosome:
         list of Locations, which represent gene or intergene regions
     _num_nucleotides: int
         the length of the chromosome (in nucleotides)
+    genes: list[Gene]
+        ordered list of genes in this chromosome
+    intergenes: list[Intergene]
+        ordered list of intergenes in this chromosome
     shape: str
-        one of LOSS or "C" for linear or circular
+        one of "L" or "C" for linear or circular
     event_history: GenomeCoordEvent
         list of genome events (e.g. INV, TDUP, etc.) that have modified this
         chromosome, with the genome coordinates of where they occurred
     geneorder_history: GenomeEvent
         list of genome events (e.g. INV, TDUP, etc.) that have modified this
-        chromosome, with the breakpoint (gene-order) positions of where they occurred
+        chromosome, with the breakpoint (gene-order) positions of where they
+        occurred
+    pieces: list[Gene|Division]
+        In the F mode, an ordered list of genes and divisions that is used to
+        reconstruct the rearrangement sequence once all divisions are known.
     """
-    def __init__(self, num_nucleotides=0):
+    def __init__(self, name: str, num_nucleotides=0):
 
+        self.name = name
         self.has_intergenes = False
         self.intergenes: list[Intergene] = list()
         self.genes: list[Gene] = list()
@@ -882,8 +892,10 @@ class Chromosome:
         self.total_rates = 0
 
         self.event_history: list[GenomeCoordEvent] = []
+        #self.geneorder_history: list[GeneOrderEvent] = []
 
         self.pieces: list[Gene|Division] = []  # In the F mode, keeps a list of genes and divisions
+
 
     def obtain_total_itergenic_length(self):
 
@@ -891,6 +903,7 @@ class Chromosome:
         for intergene in self.intergenes:
             total_length += intergene.length
         return total_length
+
 
     def select_random_position(self, blacklist: list[int]=[]) -> int:
         """
@@ -908,6 +921,7 @@ class Chromosome:
             return G_NPRNG().choice(sorted(positions))
 
         return int(G_NPRNG().integers(len(self.genes)))
+
 
     def fill_pieces(self):
         """
@@ -1054,13 +1068,15 @@ class Chromosome:
             tc2 = self.genes[i].total_flanking[1]
             sc1 = self.genes[i].specific_flanking[0]
             sc2 = self.genes[i].specific_flanking[1]
-            self.map_of_locations.append(Interval(tc1, tc2, sc1, sc2, i, "G"))
+            self.map_of_locations.append(Interval(tc1, tc2, sc1, sc2, i,
+                                                  ITYPE.GENE, gene=self.genes[i]))
 
             tc1 = self.intergenes[i].total_flanking[0]
             tc2 = self.intergenes[i].total_flanking[1]
             sc1 = self.intergenes[i].specific_flanking[0]
             sc2 = self.intergenes[i].specific_flanking[1]
-            self.map_of_locations.append(Interval(tc1, tc2, sc1, sc2, i, INV))
+            self.map_of_locations.append(Interval(tc1, tc2, sc1, sc2, i,
+                                                  ITYPE.INTERGENE))
     
     def update_flankings_divisions(self):
 
@@ -1085,11 +1101,7 @@ class Chromosome:
                 division.specific_flanking = (previous_division.specific_flanking[1], previous_division.specific_flanking[1] + len(division))
 
 
-
-                
-    def select_random_coordinate_in_intergenic_regions(self,
-                                                       exclude: list[int]=[]
-                                                      ) -> int:
+    def select_random_coordinate_in_intergenic_regions(self, exclude: list[int]=[]) -> int:
         """
         Return a random intergene specific breakpoint coordinate.
 
@@ -1150,7 +1162,7 @@ class Chromosome:
             the direction {LEFT, RIGHT} to go from `c1`
         """
         try:
-            r = self.return_affected_region(c1, c2, d)
+            r = self.get_affected_region(c1, c2, d)
 
             igpositions = r[1]
             c3 = self.select_random_coordinate_in_intergenic_regions(igpositions)
@@ -1197,55 +1209,73 @@ class Chromosome:
 
         return sc
 
-    def return_location_by_coordinate(self, c: int,
-                                      within_intergene = False) -> Interval:
+
+    def get_location_from_coord(self, c: int, use_intergene_specific = False) \
+        -> tuple[Interval, int]:
         """
         Given a coordinate, return the endpoints of the Gene or Intergene that
         contains it. Whether total or specific coordinates are used depends
-        on the value of `within_intergene`.
+        on the value of `use_intergene_specific`.
 
         Parameters
         ----------
         c : int
             the coordinate
-        within_intergene : bool, optional
-            search intergene specific coordinates. otherwise, search genes
-            and intergenes using total coordinates.
+        use_intergene_specific : bool, optional
+            search intergene specific coordinates, if True. otherwise, search
+            genes and intergenes using total coordinates.
 
         Returns
         -------
         Interval
-            Location information for the given coordinate
+            (interval, gene) where `interval` is Location information for the
+            given coordinate, and `gene` is the gene-order position of the
+            first occurring gene that occurs at coordinate `c` or after (or the
+            length of `self.genes` if no gene is found).
         """
-        if not within_intergene:
-
-            for l in self.map_of_locations:
+        if not use_intergene_specific:
+            for i, l in enumerate(self.map_of_locations):
                 if l.inTotal(c):
-                    return Interval(*l.asTuple(), c,
-                                    self.return_specific_coordinate_from_total_coordinate(c))
-        else:
+                    coord = self.return_specific_coordinate_from_total_coordinate(c)
+                    gene = self.get_next_gene_location(i)
 
-            for l in self.map_of_locations:
+                    return Interval(*l.asTuple(), c, coord, gene=l.gene), gene
+        else:
+            for i, l in enumerate(self.map_of_locations):
                 if l.isIntergenic() and l.inSpecific(c):
-                    return Interval(*l.asTuple(),
-                                    self.return_total_coordinate_from_specific_coordinate(c),
-                                    c)
+                    coord = self.return_total_coordinate_from_specific_coordinate(c)
+                    gene = self.get_next_gene_location(i)
+
+                    return Interval(*l.asTuple(), coord, c, gene=l.gene), gene
 
         raise(Exception(f'no gene or intergene found for coordinate {c}!'))
 
-    def return_intergene_by_coordinate(self, c: int) -> Intergene:
+
+    def get_next_gene_location(self, index: int) -> int:
         """
-        Given a specific coordinate, return the Intergene containing tha coordinate
+        Given an index into `self.map_of_locations`, return the position of
+        the first occurring gene starting from that index. Return the length
+        of `self.genes` if no gene is found.
 
         Parameters
         ----------
-        c : int
-            the coordinate
+        index : int
+            index into `self.map_of_locations`
+        """
+        for j in range(index, len(self.map_of_locations)):
+            if self.map_of_locations[j].isGene():
+                break
 
-        Returns
-        -------
-        Integene
-            
+        if not self.map_of_locations[j].isGene():
+            return len(self.genes)
+
+        return self.genes.index(cast(Gene, self.map_of_locations[j].gene))
+
+
+    def return_intergene_by_coordinate(self, c: int) -> Intergene:
+        """
+        Given a specific coordinate, return the Intergene containing that
+        coordinate.
         """
 
         for intergene in self.iter_intergenes():
@@ -1256,9 +1286,8 @@ class Chromosome:
         raise(Exception(f'no gene or intergene found for coordinate {c}!'))
 
 
-    def return_affected_region(self, c1: int, c2: int, direction: T_DIR
-                               ) -> tuple[list[int], list[int],
-                                          T_PAIR, T_PAIR, Interval, Interval]:
+    def get_affected_region(self, c1: int, c2: int, direction: T_DIR) \
+        -> tuple[list[int], list[int], T_PAIR, T_PAIR, Interval, Interval]:
         """
         Return information about the genes and intergenes between the given
         coordinates.
@@ -1298,8 +1327,8 @@ class Chromosome:
 
             5. The intergenic interval containing c2
         """
-        l1 = self.return_location_by_coordinate(c1, within_intergene=True)
-        l2 = self.return_location_by_coordinate(c2, within_intergene=True)
+        l1, _ = self.get_location_from_coord(c1, use_intergene_specific=True)
+        l2, _ = self.get_location_from_coord(c2, use_intergene_specific=True)
 
         p1 = l1.position
         p2 = l2.position
@@ -1353,6 +1382,7 @@ class Chromosome:
         return (affected_genes, affected_intergenes,
                 c1_lengths, c2_lengths, l1, l2)
                 
+
     def iter_intergenes(self):
         for x in self.intergenes:
             yield x
@@ -1377,6 +1407,7 @@ class Chromosome:
 
         return self.total_rates
 
+
     def get_num_nucleotides(self) -> int:
         """
         Return the total number of nuclotides in this genome.
@@ -1397,6 +1428,9 @@ class Chromosome:
         """ Return the number of genes in this chromosome. """
         return len(self.genes)
 
+    def get_num_intergenes(self) -> int:
+        """ Return the number of intergenes in this chromosome. """
+        return len(self.intergenes)
 
     def __len__(self):
 
@@ -1415,7 +1449,7 @@ class Chromosome:
 
         else:
 
-            return ";".join(["CHROMOSOME"] + [str(gene) for gene in self.genes])
+            return ";".join([f"CHROMOSOME {self.name}"] + [str(gene) for gene in self.genes])
 
     def __iter__(self):
 
@@ -1432,6 +1466,11 @@ class Chromosome:
 
     @abc.abstractmethod
     def insert_segment(self, position, segment):
+        raise(NotImplementedError)
+
+    @abc.abstractmethod
+    def replace_segment(self, affected_positions: list[int],
+                        new_segment: list[Gene]):
         raise(NotImplementedError)
 
     @abc.abstractmethod
@@ -1452,7 +1491,9 @@ class Chromosome:
         raise(NotImplementedError)
 
     @abc.abstractmethod
-    def cut_and_paste(self, affected_genes):
+    def cut_and_paste(self, segment: list[Gene],
+                      affected_indices: list[int],
+                      atposition: int|None=None) -> tuple[int, int]:
         raise(NotImplementedError)
 
     @abc.abstractmethod
@@ -1461,7 +1502,7 @@ class Chromosome:
         raise(NotImplementedError)
 
     @abc.abstractmethod
-    def get_homologous_position(self, segment) -> list[tuple[str, tuple]]:
+    def get_homologous_position(self, segment) -> list[tuple[str, Iterable[int]]]:
         raise(NotImplementedError)
 
 
@@ -1469,6 +1510,14 @@ class Chromosome:
 class CircularChromosome(Chromosome):
 
     def __init__(self, *args, **kwargs):
+        """
+        Parameters
+        ----------
+        name : str
+            name of the chromosome
+        num_nucleotides : int
+            length of the chromosome in nucleotides, optional
+        """
         super().__init__(*args, **kwargs)
         self.shape = "C"
 
@@ -1477,18 +1526,41 @@ class CircularChromosome(Chromosome):
         Get the genes affected by the segment. Return them in the order in
         which they appear in the chromosome (if the segment wraps around, start
         with the rightmost segment).
+
+        Notes
+        -----
+        We assume that `affected_indices` are given in the order in which
+        they appear in the chromosome (i.e. from left to right). So segment
+        that wraps will have indices like [8, 9, 0, 1, 2].
         """
-        if ends := af.affected_indices_wrap(affected_indices):
-            return ([self.genes[x] for x in range(ends[0], self.get_num_genes())] +
-                    [self.genes[x] for x in range(0, ends[1] + 1)])
-        else:
-            return [self.genes[x] for x in affected_indices]
+        return [self.genes[x] for x in affected_indices]
+        #THIS CODE IS UNNECESSARY BECAUSE OF THE ABOVE NOTE:
+        #if ends := af.affected_indices_wrap(affected_indices):
+        #    return ([self.genes[x] for x in range(ends[0], len(self.genes))] +
+        #            [self.genes[x] for x in range(0, ends[1] + 1)])
+        #else:
+        #    return [self.genes[x] for x in affected_indices]
 
-    def obtain_intergenic_segment(self, affected_intergenes) -> list[Intergene]:
 
-        segment = [self.intergenes[x] for x in affected_intergenes]
+    def obtain_intergenic_segment(self, affected_intergenes: list[int]) -> list[Intergene]:
+        """
+        Get the intergenes affected by the segment. Return them in the order in
+        which they appear in the chromosome (if the segment wraps around, start
+        with the rightmost segment).
 
-        return segment
+        Notes
+        -----
+        We assume that `affected_indices` are given in the order in which
+        they appear in the chromosome (i.e. from left to right). So segment
+        that wraps will have indices like [8, 9, 0, 1, 2].
+        """
+        return [self.intergenes[x] for x in affected_intergenes]
+        #if ends := af.affected_indices_wrap(affected_intergenes):
+        #    return ([self.intergenes[x] for x in range(ends[0], len(self.intergenes))] +
+        #            [self.intergenes[x] for x in range(0, ends[1] + 1)])
+        #else:
+        #    return [self.intergenes[x] for x in affected_intergenes]
+
 
     def remove_segment(self, segment: list[Gene]):
         """ Remove these genes (works with circular chromosomes) """
@@ -1508,11 +1580,12 @@ class CircularChromosome(Chromosome):
             self.intergenes.remove(intergene)
 
     def insert_segment(self, position: int, segment: list[Gene]):
-        """ Splice the segment into the genes list """
+        """ Splice the segment into the genes list at this position. """
         self.genes[position:position] = segment
 
-    def invert_segment(self, affected_genes: list[int],
-                       affected_intergenes: list[int]=[]):
+
+    def invert_segment(self, affected_indices: list[int],
+                       affected_inter_indices: list[int]=[]):
         """
         Invert the genes in `self.genes`. Invert all but the first and last
         intergenes in `self.intergenes` if `affected_intergenes` is provided.
@@ -1524,22 +1597,22 @@ class CircularChromosome(Chromosome):
         affected_intergenes : List[int]
             the indices of intergenes to be inverted
         """
-
-        reversed_segment = [self.genes[x] for x in reversed(affected_genes)]
+        reversed_segment = [self.genes[x] for x in reversed(affected_indices)]
 
         for gene in reversed_segment:
-            gene.change_sense()
+            gene.change_orientation()
 
-        for i, x in enumerate(affected_genes):
+        for i, x in enumerate(affected_indices):
             self.genes[x] = reversed_segment[i]
 
-        if affected_intergenes:         #Now reverse the intergenes:
+        if affected_inter_indices:         #Now reverse the intergenes:
             intergenes_reversed = [self.intergenes[x]
-                                   for x in reversed(affected_intergenes[1:-1])]
+                                   for x in reversed(affected_inter_indices[1:-1])]
 
-            for revi, i in enumerate(affected_intergenes[1:-1]):
+            for revi, i in enumerate(affected_inter_indices[1:-1]):
                 self.intergenes[i] = intergenes_reversed[revi]
     
+
     def invert_divisions(self, cut1, cut2):
         """
         Invert the divisions between the two cuts
@@ -1711,35 +1784,70 @@ class CircularChromosome(Chromosome):
         return sfirstlen, ssecondlen, tfirstlen, tsecondlen
 
 
-    def cut_and_paste(self, segment: list[Gene]) -> None:
+    def cut_and_paste(self, segment: list[Gene],
+                      affected_indices: list[int],
+                      atposition: int|None=None) -> tuple[int, int]:
         """
         Copy the genes at the given indices to a new location chosen uniformly
         at random.
+
+        Parameters
+        ----------
+        segment : List[Gene]
+            the genes to be moved
+        affected_indices : List[int]
+            the indices of the genes being moved
+        atposition : int, optional
+            if provided, the position where to paste the segment (the index
+            is in the genome ONCE THE SEGMENT IS REMOVED!), rather than choosing
+            a random position.
+
+        Returns
+        -------
+        tuple[int, int]
+            (oldpos, newpos) where `oldpos` is the position to paste the segment
+            before the move, and `newpos` is the position in the new chromosome
+            where the segment starts
         """
         if len(segment) == len(self.genes):
-            return
+            return 0, 0
 
         for gene in segment:
             self.genes.remove(gene)
 
-        position = self.select_random_position()
+        if atposition is None:
+            position = self.select_random_position()
+        else:
+            position = atposition
+
         self.genes[position:position] = segment
+
+        #if ends := af.affected_indices_wrap(affected_indices):
+        #    oldpos = position + (ends[1] + 1)
+        if affected_indices[0] > affected_indices[-1]:
+            oldpos = position + (affected_indices[-1] + 1)
+        elif position <= min(affected_indices):
+            oldpos = position
+        else:
+            oldpos = position + len(affected_indices)
+
+        return oldpos, position
 
 
     def obtain_affected_indices(self, p_extension) -> list[int]:
         """
         Returns the index list of the affected genes. This will be a range
-        of consecutive integers that can WRAP around.
+        of consecutive integers that can WRAP around, but always starts with
+        the first affected gene (e.g. [8, 9, 0, 1, 2])
         """
         position = self.select_random_position()
         length = self.select_random_length(p_extension)
         total_length = len(self.genes)
-        affected_genes = list()
 
         if length >= total_length:
-            affected_genes = [x for x in range(total_length)]
-            return affected_genes
+            return list(range(total_length))
 
+        affected_genes = list()
         for i in range(position, position + length):
             if i >= total_length:
                 affected_genes.append(i - total_length)
@@ -1811,11 +1919,11 @@ class CircularChromosome(Chromosome):
                 return affected_genes
 
 
-    def obtain_affected_genes_accounting_for_connectedness(self, p_extension, interactome):
-
+    def obtain_affected_genes_accounting_for_connectedness(self, p_extension,
+                                                           interactome: nx.Graph) -> list[int]:
         # Returns N genes accounting for the inverse of the connectedness
 
-        node_degrees = {n:d for n,d in interactome.degree()}
+        node_degrees = {n:d for n,d in interactome.degree()}    #type: ignore
 
         corrected_node_degrees = list()
         all_weights = list()
@@ -1829,41 +1937,42 @@ class CircularChromosome(Chromosome):
 
         for each_start, gene in enumerate(self.genes):
             position = each_start
-            affected_genes = list()
+            affected_indices = list()
 
             if length >= total_length:
                 # We select the whole genome
-                affected_genes = [x for x in range(total_length)]
-                return affected_genes
+                affected_indices = [x for x in range(total_length)]
+                return affected_indices
 
             else:
 
                 for i in range(position, position + length):
                     if i >= total_length:
-                        affected_genes.append(i - total_length)
+                        affected_indices.append(i - total_length)
                     else:
-                        affected_genes.append(i)
+                        affected_indices.append(i)
 
                 # We obtain the total weight of this option
                 # This means, multiplying all the weights if we start in a given position
 
-                all_weights.append(reduce(lambda x, y: x * y, [corrected_node_degrees[x] for x in affected_genes]))
+                all_weights.append(reduce(lambda x, y: x * y, [corrected_node_degrees[x]
+                                                               for x in affected_indices]))
 
         position = G_NPRNG().choice(range(len(self.genes)), 1,
                                     p=af.normalize(all_weights))[0]
-        affected_genes = list()
+        affected_indices = list()
 
         # Returns the index list of the affected genes
 
         for i in range(position, position + length):
             if i >= total_length:
-                affected_genes.append(i - total_length)
+                affected_indices.append(i - total_length)
             else:
-                affected_genes.append(i)
-        return affected_genes
+                affected_indices.append(i)
+        return affected_indices
 
 
-    def get_homologous_position(self, segment) -> list[tuple[str, tuple]]:
+    def get_homologous_position(self, segment) -> list[tuple[str, Iterable[int]]]:
 
         homologous = list()
 
@@ -1879,7 +1988,7 @@ class CircularChromosome(Chromosome):
         for i, gene in enumerate(genes):
 
             length_counter = 0
-            positions = list()
+            positions: list[int] = list()
 
             name_gene_in_genome = gene
             name_gene_in_segment = mysegment[0]
@@ -1891,7 +2000,7 @@ class CircularChromosome(Chromosome):
 
                 for j, x in enumerate(mysegment):
                     if length_counter == segment_length:
-                        homologous.append(("F", tuple(positions)))
+                        homologous.append((FORWARDS, tuple(positions)))
                         break
                     if 1 + i + j >= genes_length:
                         if genes[(i + j + 1) - genes_length] == mysegment[j + 1]:
@@ -1927,7 +2036,7 @@ class CircularChromosome(Chromosome):
 
                 for j, x in enumerate(inverted_segment):
                     if length_counter == segment_length:
-                        homologous.append(("B", tuple(positions)))
+                        homologous.append((BACKWARDS, tuple(positions)))
                         break
                     if 1 + i + j >= genes_length:
                         if genes[(i + j + 1) - genes_length] == inverted_segment[j + 1]:
@@ -1979,8 +2088,40 @@ class CircularChromosome(Chromosome):
 class LinearChromosome(Chromosome):
 
     def __init__(self, *args, **kwargs):
+        """
+        Parameters
+        ----------
+        name : str
+            name of the chromosome
+        num_nucleotides : int
+            length of the chromosome in nucleotides, optional
+        """
         super().__init__(*args, **kwargs)
-        self.shape = LOSS
+        self.shape = "L"
+        raise(NotImplementedError)
+    def obtain_segment(self, gpositions) -> list[Gene]:
+        raise(NotImplementedError)
+    def invert_segment(self, gpositions):
+        raise(NotImplementedError)
+    def insert_segment(self, position, segment):
+        raise(NotImplementedError)
+    def obtain_intergenic_segment(self, affected_intergenes):
+        raise(NotImplementedError)
+    def remove_segment(self, segment):
+        raise(NotImplementedError)
+    def obtain_affected_indices(self, p_extension) -> list[int]:
+        raise(NotImplementedError)
+    def obtain_affected_indices_family_rates(self, p_extension, gene_families,
+                                             mrate) -> list[int]:
+        raise(NotImplementedError)
+    def cut_and_paste(self, segment: list[Gene],
+                      affected_indices: list[int],
+                      atposition: int|None=None) -> tuple[int, int]:
+        raise(NotImplementedError)
+    def obtain_affected_genes_accounting_for_connectedness(self, p_extension,
+                                                           interactome):
+        raise(NotImplementedError)
+    def get_homologous_position(self, segment) -> list[tuple[str, Iterable[int]]]:
         raise(NotImplementedError)
 
 
@@ -1990,6 +2131,8 @@ class Genome:
     ----------
     species: str
         the string indicating the pendant node name
+    chromosomes: List[Chromosome]
+        the list of chromosomes in this genome
     """
 
     def __init__(self):
@@ -2000,14 +2143,14 @@ class Genome:
     def start_genome(self, input):
 
         for size, shape in input:
-            if shape == LOSS:
-                self.chromosomes.append(LinearChromosome(size))
+            if shape == "L":
+                self.chromosomes.append(LinearChromosome("0", size))
             elif shape == "C":
-                self.chromosomes.append(CircularChromosome(size))
+                self.chromosomes.append(CircularChromosome("0", size))
 
     def select_random_chromosome(self) -> Chromosome:
         """
-        At the moment, this just return the one and only chromosome.
+        At the moment, this just returns the one and only chromosome.
         """
         # I have to weight by the length of each chromosome
 
@@ -2038,6 +2181,13 @@ class Genome:
         G_RNG().shuffle(randomly_ordered_genes)
 
         self.interactome = nx.relabel_nodes(self.interactome, {i:str(n) for i,n in enumerate(randomly_ordered_genes)})
+
+
+    #def iter_geneorder_events(self) -> Iterable[GeneOrderEvent]:
+    #    """ Get the events from all chromosomes in this genome. """
+    #    for chromosome in self.chromosomes:
+    #        for event in chromosome.geneorder_history:
+    #            yield event
 
     def __str__(self):
 

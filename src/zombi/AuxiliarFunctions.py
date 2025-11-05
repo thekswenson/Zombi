@@ -4,8 +4,8 @@ import sys
 import scipy
 import scipy.stats as ss
 
-from itertools import tee, zip_longest
-from typing import Any, Dict, List, Set, Tuple, Optional
+from itertools import pairwise
+from typing import Any, Dict, Iterable, List, Set, Tuple, Optional
 from pathlib import Path
 from numpy.random import Generator as npGenerator
 from BCBio import GFF
@@ -183,10 +183,12 @@ def discretize(alpha, ncat, disttype="lognorm"):
 def sample_from_dirichlet(n, nprngen: npGenerator):
     return nprngen.dirichlet([1] * n)
 
-def prepare_sequence_parameters(parameters) -> dict[str, Any]:
+
+def prepare_sequence_parameters(parameters_file: Path) -> dict[str, Any]:
     """
     Convert some of the S parameters to the correct type.
     """
+    parameters: dict[str, Any] = read_parameters(parameters_file)
     for parameter, value in parameters.items():
 
         if parameter == "SEED":
@@ -213,7 +215,7 @@ def prepare_species_tree_parameters(parameters: dict[str, Any],
         if parameter == "TURNOVER":
             parameters[parameter] = obtain_value(value, nprngen)
 
-        elif parameter == "TOTAL_TIME":
+        elif parameter == "TOTAL_TIME" or parameter == "SCALE_TREE":
             parameters[parameter] = float(value)
 
         elif parameter == "LINEAGE_PROFILE":
@@ -224,7 +226,7 @@ def prepare_species_tree_parameters(parameters: dict[str, Any],
             
         elif(parameter == "SPECIES_EVOLUTION_MODE" or parameter == "N_LINEAGES" or parameter == "MIN_LINEAGES" or
              parameter == "TOTAL_LINEAGES" or parameter == "STOPPING_RULE" or parameter == "MAX_LINEAGES" or
-             parameter == "VERBOSE" or parameter == "SEED" or parameter == "SCALE_TREE" or
+             parameter == "VERBOSE" or parameter == "SEED" or
              parameter == "NUM_SPECIATION_RATE_CATEGORIES" or parameter == "NUM_EXTINCTION_RATE_CATEGORIES" or
              parameter == "SIMULATE_SEQUENCES" or parameter == "SCALE_GENE_TREES"):
             parameters[parameter] = int(value)
@@ -283,8 +285,9 @@ def fasta_writer(outfile: Path, entries):
                 f.write(line +"\n")
 
 
-def prepare_genome_parameters(parameters):
+def prepare_genome_parameters(parameters_file: Path):
 
+    parameters: dict[str, Any] = read_parameters(parameters_file)
     for parameter, value in parameters.items():
 
         #if parameter == "DUPLICATION_EXTENSION" or parameter == "TRANSFER_EXTENSION" \
@@ -297,7 +300,8 @@ def prepare_genome_parameters(parameters):
         if parameter == "ROOT_GENOME":
             parameters[parameter] = value.split(";")
 
-        if parameter == "REPLACEMENT_TRANSFER" or parameter == "ALPHA":
+        if(parameter == "REPLACEMENT_TRANSFER" or parameter == "ALPHA" or
+           parameter == "SCALE_TREE"):
             parameters[parameter] = float(value)
 
         if(parameter == "PROFILES" or parameter == "EVENTS_PER_BRANCH" or
@@ -306,7 +310,7 @@ def prepare_genome_parameters(parameters):
            parameter == "RECONCILED_TREES" or parameter == "VERBOSE" or
            parameter == "MIN_GENOME_SIZE" or
            parameter == "EXTENSION_MULTIPLIER" or
-           parameter == "SEED" or parameter == "SCALE_TREE"):
+           parameter == "SEED" or parameter == "GENEORDER_EVENTS_PER_BRANCH"):
 
             parameters[parameter] = int(value)
 
@@ -316,6 +320,7 @@ def prepare_genome_parameters(parameters):
             parameters[parameter] = parameters[parameter] == "True"
 
     return parameters
+
 
 def generate_events(tree_file: Path):
 
@@ -850,17 +855,6 @@ def parse_GFF(gff_file: Path, sort=True) -> Tuple[int, List[SeqFeature]]:
     return genome_len, genes
 
 
-
-def pairwise(iterable, wrap=False):
-    "s -> (s0,s1), (s1,s2), (s2, s3), ..."
-    a, b = tee(iterable)
-    first = next(b, None)
-    if wrap:
-        return zip_longest(a, b, fillvalue=first)
-
-    return zip(a, b)
-
-
 class MissingInfoFileError(Exception):
     pass
 
@@ -999,3 +993,35 @@ def get_leaves_from_file(leavesfile: Path) -> Set[str]:
             leaves.add(line.strip())
 
     return leaves
+
+
+def affected_indices_wrap(affected_indices: list[int]) -> None|tuple[int, int]:
+    """
+    Do the affected indices wrap around the genome end? If so, return
+    (start, end) indices, where start is the start of the wrapping interval
+    and end is the end (i.e. start > end).
+    """
+    for i, j in pairwise(sorted(affected_indices)):
+        if j != i+1:
+            return (j, i)
+
+    return None
+
+
+def well_behaved_indices(affected_indices: list[int]) -> bool:
+    """
+    We either have a series of consecutive integers, or we have two series
+    of consecutive integers, where the first series is higher than the
+    second.
+    """
+    series = 1
+    for i, j in pairwise(sorted(affected_indices)):
+        if j != i+1:
+            series += 1
+            if series > 2:
+                return False
+
+    if series == 1:
+       return True
+
+    return affected_indices[0] > affected_indices[-1]

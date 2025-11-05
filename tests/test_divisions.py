@@ -19,7 +19,7 @@ TEST_FOLDER2 = Path('tests/TestDivisions2')
 class TestDivisions1(unittest.TestCase):
 
   def setUp(self, genome_file=TEST_GENOME_30_6):
-    params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
+    params = af.prepare_genome_parameters(GENOME_PARAMS)
     #events_file = self.projbase / TEST_FOLDER1 / 'T/Events.tsv'
     events_file = TEST_FOLDER1 / 'T/Events.tsv'
 
@@ -85,7 +85,7 @@ class TestDivisions1(unittest.TestCase):
 class TestDivisions2(unittest.TestCase): # In a slightly more compex tree
 
   def setUp(self, genome_file=TEST_GENOME_30_6):
-    params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
+    params = af.prepare_genome_parameters(GENOME_PARAMS)
     #events_file = self.projbase / TEST_FOLDER2 / 'T/Events.tsv'
     events_file = TEST_FOLDER2 / 'T/Events.tsv'
     self.gss = GenomeSimulator(params, events_file, genome_file)

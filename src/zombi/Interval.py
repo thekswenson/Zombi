@@ -1,6 +1,11 @@
+from enum import StrEnum
 from typing import Tuple
 
 from . import T_PAIR
+
+class ITYPE(StrEnum):
+    GENE = 'G'
+    INTERGENE = 'I'
 
 class Interval:
     """
@@ -23,15 +28,17 @@ class Interval:
         right intergene specific breakpoint coordinate of interval, inclusive
     position: int
         the position of the Gene or Intergene in its list
-    itype: str
+    itype: ITYPE
         one of 'G' or 'I' for Gene or Intergene
     t_bp: int
         the total breakpoint coordinate
     s_bp: int
         the specific breakpoint coordinate
+    gene: Gene or None
+        the Gene object if itype is GENE, else None
     """
     def __init__(self, tc1: int, tc2: int, sc1: int, sc2: int, index: int,
-                 itype: str, total=-1, specific=-1):
+                 itype: ITYPE, total=-1, specific=-1, gene=None):
         """
         Create a new Interval that may or may not contain breakpoint
         coordinates.
@@ -48,23 +55,26 @@ class Interval:
             second specific coordinate, inclusive
         index : int
             the position of the Interval in its respective list
-        itype : str
-            one of 'I' or 'G'
+        itype : ITYPE
+            one of GENE or INTERGENE
         total : int, optional
             total coordinate in the interval corresponding to a breakpoint, by
             default -1
         specific : int, optional
             specific coordinate in the interval corresponding to `total`, by
             default -1
+        gene : Gene or None, optional
+            the Gene object if itype is GENE, else None, by default None
         """
         self.tc1: int = tc1
         self.tc2: int = tc2
         self.sc1: int = sc1
         self.sc2: int = sc2
         self.position: int = index
-        self.itype: str = itype
+        self.itype: ITYPE = itype
         self.t_bp: int = total
         self.s_bp: int = specific
+        self.gene = gene
 
             #Sanity checks:
         assert tc2 - tc1 == sc2 - sc1, f'{tc2-tc1} != {sc2-sc1}'
@@ -75,13 +85,13 @@ class Interval:
             if total >= 0:
                 assert tc2 - total == sc2 - specific, 'breakpoint mismatch'
 
-    def asTuple(self) -> Tuple[int, int, int, int, int, str]:
+    def asTuple(self) -> Tuple[int, int, int, int, int, ITYPE]:
         """
         Convert this Location into a tuple.
 
         Returns
         -------
-        Tuple[int, int, int, int, int, str]
+        Tuple[int, int, int, int, int, ITYPE]
             (tc1, tc2, sc1, sc2, position, itype)
         """
         return self.tc1, self.tc2, self.sc1, self.sc2, self.position, self.itype
@@ -123,7 +133,7 @@ class Interval:
         return self.tc2 - self.tc1 + 1
 
     def isIntergenic(self) -> bool:
-        return self.itype == 'I'
+        return self.itype == ITYPE.INTERGENE
 
     def splitSpecific(self) -> Tuple[T_PAIR, T_PAIR]:
         """
@@ -136,6 +146,9 @@ class Interval:
         Get the halves of the specific interval split by `t_bp`.
         """
         return (self.tc1, self.t_bp), (self.t_bp, self.tc2)
+
+    def isGene(self) -> bool:
+        return self.itype == ITYPE.GENE
 
     def __len__(self):
         return self.sc2 - self.sc1

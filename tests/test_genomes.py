@@ -14,7 +14,7 @@ import zombi.AuxiliarFunctions as af
 
 GENOME_PARAMS = Path('Parameters/GenomeParameters.tsv')
 TEST_DIVISIONS = Path('tests/TestDivisions1/')
-TEST_GENOME_30_10 = Path('tests/100_10.gff')  #10 bases, 3 * length-5 genomic/intergenomic pairs
+TEST_GENOME_100_10 = Path('tests/100_10.gff')  #10 bases, 10 * length-5 genomic/intergenomic pairs
 REPS = 1000
 
 @pytest.fixture(autouse=True)
@@ -26,8 +26,8 @@ def _inject_tmp_path_factory(request, tmp_path_factory):
 @pytest.mark.usefixtures("tmp_path_factory")
 class TestGenomes(unittest.TestCase):
 
-  def setUp(self, genome_file=TEST_GENOME_30_10):
-    params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
+  def setUp(self, genome_file=TEST_GENOME_100_10):
+    params = af.prepare_genome_parameters(GENOME_PARAMS)
     test_folder = self.tmp_path_factory.mktemp('session')   #type: ignore
 
     shutil.copytree(TEST_DIVISIONS / 'T', test_folder / 'T')
@@ -38,6 +38,7 @@ class TestGenomes(unittest.TestCase):
 
     self.gss.active_genomes.add(self.genome.species)
     self.gss.node_genomes["Root"] = self.genome
+
 
   def test_coordinate_selection_1(self):
     ch = self.genome.chromosomes[0]
@@ -54,7 +55,55 @@ class TestGenomes(unittest.TestCase):
     self.assertTrue(set(chosen) == set(range(12)) | set(range(42, 60)),
                     f'low probability event occured (coupon collectors problem)')
 
-    
+
+  def test_cut_and_paste(self):
+    ch = self.genome.chromosomes[0]
+
+    assert len(ch.genes) == 10
+    affected_indices = [4,5,6]
+    segment = ch.obtain_segment(affected_indices)
+    oldpos, newpos = ch.cut_and_paste(segment, affected_indices, 3)
+    assert oldpos == newpos == 3
+    assert [g.family for g in ch.genes] == ['1','2','3','5','6','7','4','8','9','10']
+
+    affected_indices = [4,5,6]
+    segment = ch.obtain_segment(affected_indices)
+    oldpos, newpos = ch.cut_and_paste(segment, affected_indices, 5)
+    assert newpos == 5
+    assert oldpos == 8
+    assert [g.family for g in ch.genes] == ['1','2','3','5','8','6','7','4','9','10']
+    #print([g.family for g in ch.genes])
+
+    affected_indices = [4,5,6]
+    segment = ch.obtain_segment(affected_indices)
+    oldpos, newpos = ch.cut_and_paste(segment, affected_indices, 4)
+    assert newpos == 4
+    assert oldpos == 4
+    assert [g.family for g in ch.genes] == ['1','2','3','5','8','6','7','4','9','10']
+
+    affected_indices = [0,1,2,3,4,5,6,7,8,9]
+    segment = ch.obtain_segment(affected_indices)
+    oldpos, newpos = ch.cut_and_paste(segment, affected_indices, 0)
+    assert newpos == 0
+    assert oldpos == 0
+    assert [g.family for g in ch.genes] == ['1','2','3','5','8','6','7','4','9','10']
+
+    affected_indices = [8,9,0,1,2]
+    segment = ch.obtain_segment(affected_indices)
+    assert len(segment) == len(affected_indices)
+    oldpos, newpos = ch.cut_and_paste(segment, affected_indices, 0)
+    assert newpos == 0
+    assert oldpos == 3
+    assert [g.family for g in ch.genes] == ['9','10','1','2','3','5','8','6','7','4']
+
+    affected_indices = [8,9,0,1,2]
+    segment = ch.obtain_segment(affected_indices)
+    assert len(segment) == len(affected_indices)
+    oldpos, newpos = ch.cut_and_paste(segment, affected_indices, 3)
+    assert newpos == 3
+    assert oldpos == 6
+    assert [g.family for g in ch.genes] == ['2','3','5','7','4','9','10','1','8','6']
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,3 +1,7 @@
+"""
+Test that two runs of Zombi with the same seed, for each mode (T, G, S),
+produce identical outputs.
+"""
 import filecmp
 import pytest
 
@@ -44,6 +48,21 @@ def test_G(basedir, script_runner):
                                                     f"{dcmp.report_full_closure()}")
 
 
+def test_Gf(basedir, script_runner):
+  """ Compare two runs of G mode using the same seed. """
+  proj1 = basedir / 'proj1'
+  assert (proj1 / 'T').exists(), 'Run test_T first!'
+  script_runner.run(['zombi', 'Gf', '-a', G_PARAMS, proj1])
+
+  proj2 = basedir / 'proj2'
+  assert (proj2 / 'T').exists(), 'Run test_T first!'
+  script_runner.run(['zombi', 'Gf', '-a', G_PARAMS, proj2])
+
+  dcmp = filecmp.dircmp(proj1 / 'G', proj2 / 'G')
+  assert identical_dirs(proj1 / 'G', proj2 / 'G'), ("G mode outputs differ: "
+                                                    f"{dcmp.report_full_closure()}")
+
+
 #@pytest.mark.dependency(depends=['test_T', 'test_G'])
 def test_S(basedir, script_runner):
   """ Compare two runs of S mode using the same seed. """
@@ -54,6 +73,21 @@ def test_S(basedir, script_runner):
   proj2 = basedir / 'proj2'
   assert (proj2 / 'G').exists(), 'Run test_G first!'
   script_runner.run(['zombi', 'S', f'-p {NUMTHREADS}', S_PARAMS, proj2])
+
+  dcmp = filecmp.dircmp(proj1 / 'S', proj2 / 'S')
+  assert identical_dirs(proj1 / 'S', proj2 / 'S'), ("S mode outputs differ: "
+                                                    f"{dcmp.report_full_closure()}")
+
+
+def test_Sf(basedir, script_runner):
+  """ Compare two runs of S mode using the same seed. """
+  proj1 = basedir / 'proj1'
+  assert (proj1 / 'G').exists(), 'Run test_G first!'
+  script_runner.run(['zombi', 'Sf', f'-p {NUMTHREADS}', S_PARAMS, proj1])
+
+  proj2 = basedir / 'proj2'
+  assert (proj2 / 'G').exists(), 'Run test_G first!'
+  script_runner.run(['zombi', 'Sf', f'-p {NUMTHREADS}', S_PARAMS, proj2])
 
   dcmp = filecmp.dircmp(proj1 / 'S', proj2 / 'S')
   assert identical_dirs(proj1 / 'S', proj2 / 'S'), ("S mode outputs differ: "

@@ -4,7 +4,7 @@ Old style unittests for testing the GenomeEvents and how they map coordinates.
 import unittest
 from pathlib import Path
 
-from zombi.Events import Origination, Transfer, Transposition, EventTwoCuts
+from zombi.Events import Origination, Transfer, Transposition, CoordEventTwoCuts
 from zombi.Events import INV, ORIG, POS, TDUP, FER
 from zombi.GenomeSimulator import GenomeSimulator
 from zombi.Genomes import T_DIR
@@ -19,7 +19,7 @@ TEST_GENOME = Path('tests/30_6.gff')
 class TestDivisions(unittest.TestCase):
 
   def setUp(self, genome_file=TEST_GENOME):
-    params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
+    params = af.prepare_genome_parameters(GENOME_PARAMS)
     events_file = TEST_FOLDER1 / 'T/Events.tsv'
 
     self.gss = GenomeSimulator(params, events_file, genome_file)
@@ -98,7 +98,7 @@ class TestDivisions(unittest.TestCase):
 class TestTranspositions(unittest.TestCase):
 
   def setUp(self, genome_file=TEST_GENOME):
-    params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
+    params = af.prepare_genome_parameters(GENOME_PARAMS)
     events_file = TEST_FOLDER1 / 'T/Events.tsv'
     self.gss = GenomeSimulator(params, events_file, genome_file)
 
@@ -107,7 +107,7 @@ class TestTranspositions(unittest.TestCase):
 class TestDuplications(unittest.TestCase):
 
   def setUp(self, genome_file=TEST_GENOME):
-    params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
+    params = af.prepare_genome_parameters(GENOME_PARAMS)
     events_file = TEST_FOLDER1 / 'T/Events.tsv'
     self.gss = GenomeSimulator(params, events_file, genome_file)
 
@@ -125,7 +125,7 @@ class TestDuplications(unittest.TestCase):
       #event7 = ("G", 1.346, INV, "n2", (15, 20, T_DIR.RIGHT))
 
 
-      params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
+      params = af.prepare_genome_parameters(GENOME_PARAMS)
       events_file = TEST_FOLDER1 / 'T/Events.tsv'
       
 
@@ -168,7 +168,7 @@ class TestDuplications(unittest.TestCase):
                   line.append(str((c1,c2,c3,recipient, donor)))
 
               else:
-                  assert isinstance(event, EventTwoCuts)
+                  assert isinstance(event, CoordEventTwoCuts)
                   c1, c2 = event.sbpL, event.sbpR
                   line.append(str((c1, c2)))
 

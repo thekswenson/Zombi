@@ -18,7 +18,7 @@ from zombi.SequenceSimulator import SequenceSimulator, write_whole_genome
 from zombi.Export import whole_genome_to_GFF
 from zombi.Random import seed_G_generators, seed_S_generators, seed_T_generators
 from zombi.Random import T_NPRNG
-from zombi.Filenames import BRANCHWISERATES, CATEGORIES, GENEFAMILYLENGTHS, COMPLETETREEsuffix, PRUNEDTREEsuffix
+from zombi.Filenames import BRANCHWISERATES, CATEGORIES, GENEFAMILYLENGTHS, TREEPARAMETERS, COMPLETETREEsuffix, PRUNEDTREEsuffix
 from zombi.Filenames import GTSUBSTITUTIONRATES, RATES, RATESTREE
 from zombi.Filenames import REDSCALEDEVENTS, REDSCALEDTREE, SCALEDEVENTS
 from zombi.Filenames import SHIFTEVENTS, SHIFTSCATEGORIES, STSUBSTITUTIONRATES
@@ -74,7 +74,7 @@ class Zombi():
 
             stg = SpeciesTreeGenerator(parameters)
 
-            shutil.copy(parameters_file, tree_folder)
+            shutil.copy(parameters_file, tree_folder / TREEPARAMETERS)
 
             run_counter = 0
             success = False
@@ -146,7 +146,13 @@ class Zombi():
         """
         Simulate Genomes
         """
-        parameters = af.prepare_genome_parameters(af.read_parameters(parameters_file))
+        parameters = af.prepare_genome_parameters(parameters_file)
+
+        tree_params = af.read_parameters(experiment_folder / "T" / TREEPARAMETERS)
+        if int(tree_params["SCALE_TREE"]) != parameters["SCALE_TREE"]:
+            sys.exit("ERROR: the G mode SCALE_TREE parameter must match "
+                     "the T mode SCALE_TREE setting "
+                     f"({tree_params['SCALE_TREE']} != {parameters['SCALE_TREE']})!")
 
         events_file = experiment_folder / "T" / TREEEVENTS
         scaled_file = experiment_folder / "T" / SCALEDEVENTS
@@ -220,11 +226,19 @@ class Zombi():
             profiles_folder = os.path.join(genome_folder, "Profiles")
             gss.write_profiles(profiles_folder)
                         
+        if parameters["GENEORDER_EVENTS_PER_BRANCH"] == 1:
+            scale = parameters["SCALE_TREE"]
+            print("Writing Events Per Branch")
+            folder = genome_folder / "Geneorder_events_per_branch"
+            gss.write_geneorder_events_per_branch(folder, scale, scaled_file,
+                                                  events_file)
+
         if parameters["EVENTS_PER_BRANCH"] == 1:
             scale = parameters["SCALE_TREE"]
             print("Writing Events Per Branch")
             events_per_branch_folder = genome_folder / "Events_per_branch"
-            gss.write_events_per_branch(events_per_branch_folder, scale, scaled_file, events_file)
+            gss.write_events_per_branch(events_per_branch_folder, scale,
+                                        scaled_file, events_file)
             
         if parameters["GENE_TREES"] == 1 and parameters["RECONCILED_TREES"] == 1:
             print("Writing Gene Trees")
@@ -241,9 +255,8 @@ class Zombi():
             gene_trees_folder = genome_folder / "Gene_trees"
             gss.write_gene_trees(gene_trees_folder, reconciliations=True, gene_trees=False)
 
-        print("Writing Divisions")
-
         if advanced_mode == "f":    
+            print("Writing Divisions")
             gss.obtain_divisions()            # This creates the divisions at the root,
             all_genomes = gss.obtain_events_for_divisions() # This reruns the simulation forward
             division_trees_folder = genome_folder / "Division_trees"
@@ -270,7 +283,7 @@ class Zombi():
             sys.exit(f'Directory "{genome_folder}" does not exist. '
                      f'Did you run G mode?')
 
-        parameters = af.prepare_sequence_parameters(af.read_parameters(parameters_file))
+        parameters = af.prepare_sequence_parameters(parameters_file)
         seed_S_generators(int(parameters["SEED"]))
 
         #Create the directories

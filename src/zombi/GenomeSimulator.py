@@ -1,4 +1,13 @@
-from collections import Counter
+"""
+Simulate gene order evolution.
+
+In the Gf mode, genes and intergenic regions are represented explicitly,
+knowing both their the intergene-specific coordinates, along with their
+"total" genome coordinates. Histories are computed in two steps:
+ 1. successive random events are applied to the gene/intergene order, and then
+ 2. the same event order is reconstructed on the resulting "pieces" (genes and
+    "divisions", which are subdivisions of intergenes).
+"""
 import sys
 import numpy
 import copy
@@ -9,21 +18,24 @@ import itertools
 
 from ete3.coretype.tree import TreeNode
 from Bio.SeqFeature import SeqFeature
-from typing import Any, Union
+from typing import Any, Iterable, Union
 from pathlib import Path
+from collections import Counter, defaultdict
 
 from . import AuxiliarFunctions as af
-from .Events import GenomeEvent, Loss, Origination, TandemDup, Inversion
-from .Events import Transfer, Transposition, MapPseudogeneError
+from .Events import GeneOrderEvent, Loss, Origination, TandemDup, Inversion
+from .Events import Transfer, Transposition, MapPseudogeneError, AFER, LFER
 from .Events import TDUP, DUP, FER, LOSS, INV, POS, ORIG, GenomeCoordEvent
+from .Events import EventOneBreakpoint, EventThreeBreakpoints, LFER_B, LFER_F
+from .Events import FORWARDS, BACKWARDS, EventTwoBreakpoints
 from .Genomes import Chromosome, CircularChromosome, CoordinateChoiceError
 from .Genomes import Gene, GeneFamily, Genome, DivisionFamily, Intergene
 from .Genomes import Division, T_DIR, Intergene, LinearChromosome
 from .Random import G_RNG, G_NPRNG
-from .Filenames import BRANCHEVENTSTABLE, COMPLETETREE, EVENTRATES, FAMILYRATES
+from .Filenames import BRANCHEVENTSTABLE, COMPLETETREE, EVENTRATES, FAMILYRATES, GENEORDEREVENTSSCALEDsuffix
 from .Filenames import GENEFAMILYGFF, BRANCHEVENTSSCALEDsuffix
 from .Filenames import BRANCHEVENTSsuffix, GENEFAMEVENTSsuffix, GENOMEsuffix
-from .Filenames import INTERACTOMEsuffix, TREELENGTHS   
+from .Filenames import INTERACTOMEsuffix, TREELENGTHS, GENEORDEREVENTSsuffix
 from .Filenames import PIECESsuffix, GENEFAMILYLENGTHS, PROFILES
 from .Filenames import DIVISIONLENGTHS, LENGTHSsuffix, INITIALGENOMEINFO
 from .Filenames import GENEFAMILYINFO, EXTENSIONRATES, TRANSFERRATES
@@ -58,6 +70,9 @@ class GenomeSimulator():
     initial_divisions: List[Tuple[int, int]]
         list of tuples (start, end) indicating the divisions in the initial
         genome. For debugging purposes.
+    geneorder_events: Dict[str, List[GeneOrderEvent]]
+        map lineage name to list of gene order events that have modified a
+        genome along that lineage.
     """
 
     def __init__(self, parameters: dict[str, Any], events_file: Path,
@@ -91,6 +106,7 @@ class GenomeSimulator():
 
         self.gene_families_counter = 0
         self.active_genomes: set[str] = set()
+        self.geneorder_events: dict[str, list[GeneOrderEvent]] = defaultdict(list)
 
         try:
             if self.parameters["RATE_FILE"] != "False":
@@ -131,7 +147,7 @@ class GenomeSimulator():
         genome_folder.mkdir(parents=True, exist_ok=True)
 
         if all_genomes:
-            assert self.save_all, "All genomes not saved during the simulation."
+            assert self.save_all, "All genomes not saved during the simulation!"
             genomes_to_write = self.all_genomes
 
         else:
@@ -150,7 +166,7 @@ class GenomeSimulator():
                         line = "\t".join(map(str,line)) +"\n"
                         f.write(line)
 
-            if intergenic_sequences == True:
+            if intergenic_sequences:
                 with open(os.path.join(genome_folder, genome_name + LENGTHSsuffix), "w") as f:
                     header = ["POSITION", "IDENTITY", "LENGTH"]
                     header = "\t".join(map(str, header)) + "\n"
@@ -357,8 +373,31 @@ class GenomeSimulator():
                     f.write(rec_tree)
 
 
-    def write_events_per_branch(self, events_per_branch_folder: Path, scale,
-                                scaled_file: Path, events_file: Path): ### THIS FUNCTION SHOULD BE CLEANED! THE INFO NOW IS REDUNDANT
+    def write_geneorder_events_per_branch(self, out_dir: Path, scale: float,
+                                          scaled_file: Path, events_file: Path):
+        """
+        Organize the gene order events per branch and write them to files.
+        Each branch will have a TSV file with columns:
+
+        TIME    EVENT   BREAKPOINTS  CHROMOSOME
+
+        where BREAKPOINTS are the gene-order positions affected by the event,
+        and CHROMOSOME is the name of the chromosome where the event happened.
+        """
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        for lineage, events in self.geneorder_events.items():
+            write_geneorder_events(out_dir / (lineage + GENEORDEREVENTSsuffix), events)
+        if scale:
+            for lineage, events in self.geneorder_events.items():
+                write_geneorder_events(out_dir / (lineage + GENEORDEREVENTSSCALEDsuffix),
+                                       events, scale, scaled_file, events_file)
+
+
+    def write_events_per_branch(self, events_per_branch_folder: Path,
+                                scale: float, scaled_file: Path,
+                                events_file: Path):
+        ### THIS FUNCTION SHOULD BE CLEANED! THE INFO NOW IS REDUNDANT
         
         def clever_writing():
             table = list()
@@ -393,6 +432,7 @@ class GenomeSimulator():
 
         clever_writing()
 
+        # Build events per branch
         events_per_branch = dict()
 
         for gene_family_name, gene_family in self.all_gene_families.items():
@@ -453,33 +493,9 @@ class GenomeSimulator():
                     line = "\t".join(line) + "\n"
                     f.write(line)
         
-            if scale != 0: # Only working if Species Tree has been scaled too the same distance!
+            if scale: # Only working if Species Tree has been scaled to the same distance!
 
-                # First I read where the root is:
-
-                with open(scaled_file) as f:
-                    f.readline()
-                    for l in f:
-                        t, event, nodes = l.strip().split("\t")
-                        if float(t) == 0:
-                            eroot = nodes.split(";")[0]
-
-
-                # Second, I read the total length of the tree
-
-                with open(events_file) as f:                
-                    for l in f:                    
-                        t, event, nodes = l.strip().split("\t")
-                        node1 = nodes.split(";")[0]
-                        if node1 == eroot:
-                            beginning_time = float(t)
-                        continue
-                    t, event, nodes = l.strip().split("\t")
-
-                    totaltime = float(t) - beginning_time
-
-                    mfactor = scale / totaltime
-
+                beginning_time, mfactor = get_scaling_factor(scaled_file, events_file, scale)
 
                 with open(events_per_branch_folder / (name + BRANCHEVENTSSCALEDsuffix), "w") as f:
 
@@ -706,12 +722,13 @@ class GenomeSimulator():
         initial_genome_size = self.parameters["INITIAL_GENOME_SIZE"].split(";")
         shape = "C"
 
-        for n_genes in initial_genome_size:
+        for chromnum, n_genes in enumerate(initial_genome_size):
 
-            if shape == LOSS:
-                chromosome = LinearChromosome(0)
+            if shape == "L":
+                raise(NotImplementedError("Linear chromosomes not implemented"))
+                chromosome = LinearChromosome(str(chromnum), 0)
             elif shape == "C":
-                chromosome = CircularChromosome()
+                chromosome = CircularChromosome(str(chromnum))
             else:
                 raise(Exception('unexpected chromosome shape'))
 
@@ -795,12 +812,13 @@ class GenomeSimulator():
 
             #Create a chromosome of the appropriate shape:
         shape = "C"
-        chromosome: Union[LinearChromosome, CircularChromosome]
-        if shape == LOSS:
-            chromosome = LinearChromosome(chrom_len)
+        chromosome: Chromosome
+        if shape == "L":
+            raise(NotImplementedError("Linear chromosomes not implemented"))
+            chromosome = LinearChromosome("0", chrom_len)
         else:
             assert shape == "C"
-            chromosome = CircularChromosome(num_nucleotides=chrom_len)
+            chromosome = CircularChromosome("0", chrom_len)
 
             #Create the genes:
         prev_feature = None     #previous feature used to make a gene
@@ -822,13 +840,13 @@ class GenomeSimulator():
         if intergenic_sequences:    #first intergene is after the first gene
             chromosome.has_intergenes = True
 
-            if shape == LOSS:        #before the first gene
+            if shape == "L":        #before the first gene
                 chromosome.intergenes.append(Intergene(chromosome.genes[0].start))
 
-            for gene1, gene2 in af.pairwise(chromosome.genes):
-                chromosome.intergenes.append(Intergene(gene2.start - gene1.end)) #type: ignore
+            for gene1, gene2 in itertools.pairwise(chromosome.genes):
+                chromosome.intergenes.append(Intergene(gene2.start - gene1.end))
 
-            if shape == LOSS:        #after the last gene
+            if shape == "L":        #after the last gene
                 intergene = Intergene(chrom_len - chromosome.genes[-1].end)
             elif shape == "C":      #betweeen the last and first genes
                 intergene = Intergene((chrom_len - chromosome.genes[-1].end) +
@@ -972,29 +990,20 @@ class GenomeSimulator():
                 current_time = time_of_next_species_tree_event
 
                 if event == "S":
-
                     sp,c1,c2 = nodes.split(";")
 
                     # First we keep track of the active and inactive genomes
-
-                    if self.save_all:
-                        self.add_genome_to_all_genomes(sp, True)
-
                     self.active_genomes.discard(sp)
                     self.active_genomes.add(c1)
                     self.active_genomes.add(c2)
 
                     # Second, we speciate the genomes
-
                     genome_c1, genome_c2 = self.make_speciation(sp, c1, c2, current_time)
 
                     self.node_genomes[c1] = genome_c1
                     self.node_genomes[c2] = genome_c2
 
                 elif event == "E":
-                    if self.save_all:
-                        self.add_genome_to_all_genomes(nodes, True)
-
                     self.make_extinction(nodes, current_time)
                     self.active_genomes.discard(nodes)
 
@@ -1003,7 +1012,6 @@ class GenomeSimulator():
                     break
 
             else:
-
                 current_time += time_to_next_genome_event
 
                 if info := self.evolve_genomes(d, u, t, l, i, c, o, current_time):
@@ -1068,13 +1076,9 @@ class GenomeSimulator():
                 current_time = time_of_next_species_tree_event
 
                 if event == "S":
-
                     sp,c1,c2 = nodes.split(";")
 
                     # First we keep track of the active and inactive genomes
-                    if self.save_all:
-                        self.add_genome_to_all_genomes(sp, True)
-
                     self.active_genomes.discard(sp)
                     self.active_genomes.add(c1)
                     self.active_genomes.add(c2)
@@ -1088,9 +1092,6 @@ class GenomeSimulator():
 
 
                 elif event == "E":
-                    if self.save_all:
-                        self.add_genome_to_all_genomes(nodes, True)
-
                     self.make_extinction(nodes, current_time)
                     self.active_genomes.discard(nodes)
 
@@ -1153,13 +1154,9 @@ class GenomeSimulator():
                 current_time = time_of_next_species_tree_event
 
                 if event == "S":
-
                     sp,c1,c2 = nodes.split(";")
 
                     # First we keep track of the active and inactive genomes
-                    if self.save_all:
-                        self.add_genome_to_all_genomes(sp, True)
-
                     self.active_genomes.discard(sp)
                     self.active_genomes.add(c1)
                     self.active_genomes.add(c2)
@@ -1173,9 +1170,6 @@ class GenomeSimulator():
 
 
                 elif event == "E":
-                    if self.save_all:
-                        self.add_genome_to_all_genomes(nodes, True)
-
                     self.make_extinction(nodes, current_time)
                     self.active_genomes.discard(nodes)
 
@@ -1226,11 +1220,7 @@ class GenomeSimulator():
                 current_species_tree_event += 1
                 current_time = time_of_next_species_tree_event
                 if event == "S":
-
                     sp, c1, c2 = nodes.split(";")
-
-                    if self.save_all:
-                        self.add_genome_to_all_genomes(sp, True)
 
                     # First we keep track of the active and inactive genomes
                     self.active_genomes.discard(sp)
@@ -1244,9 +1234,6 @@ class GenomeSimulator():
                     self.node_genomes[c2] = genome_c2
 
                 elif event == "E":
-                    if self.save_all:
-                        self.add_genome_to_all_genomes(nodes, True)
-
                     self.make_extinction(nodes, current_time)
                     self.active_genomes.discard(nodes)
 
@@ -1321,11 +1308,7 @@ class GenomeSimulator():
                 current_time = time_of_next_species_tree_event
 
                 if event == "S":
-
                     sp, c1, c2 = nodes.split(";")
-
-                    if self.save_all:
-                        self.add_genome_to_all_genomes(sp, True)
 
                     # First we keep track of the active and inactive genomes
 
@@ -1341,9 +1324,6 @@ class GenomeSimulator():
                     self.node_genomes[c2] = genome_c2
 
                 elif event == "E":
-                    if self.save_all:
-                        self.add_genome_to_all_genomes(nodes, True)
-
                     self.make_extinction(nodes, current_time)
                     self.active_genomes.discard(nodes)
 
@@ -1354,7 +1334,6 @@ class GenomeSimulator():
             else:
                 current_time += time_to_next_genome_event
                 if info := self.advanced_evolve_genomes_f(d, u, t, l, i, c, o, current_time):
-                    #print(f'  New event {info[0]} at time {current_time}')
                     if self.save_all and info:
                         self.add_genome_to_all_genomes(info[1])
 
@@ -1392,7 +1371,6 @@ class GenomeSimulator():
                 etype, time, event, nodes = item
 
                 if event == "S":
-
                     sp, c1, c2 = nodes.split(";")
 
                     # First we keep track of the active and inactive genomes
@@ -1438,7 +1416,7 @@ class GenomeSimulator():
                     ch = self.node_genomes[lineage].chromosomes[0] 
                     self.update_genome_indices(lineage)
 
-                    self.make_tandemdup_within_intergene(ch, c1, c2, d, lineage, time)
+                    self.make_tandemdup_intergenic(ch, c1, c2, d, lineage, time)
 
                 elif event == FER:
 
@@ -1520,8 +1498,6 @@ class GenomeSimulator():
             lineage = toadd.species
             genome = copy.deepcopy(toadd)
 
-        #if lineage == 'n48':
-        #    print(f'  Adding {lineage}-{self.lineage_counter[lineage]}? {checklineage}')
         if not checklineage or self.lineage_counter[lineage] == 0:
             self.all_genomes[f'{lineage}-{self.lineage_counter[lineage]}'] = genome
             self.lineage_counter[lineage] += 1
@@ -1714,8 +1690,12 @@ class GenomeSimulator():
             gene, _ = self.make_origination(lineage, time)
             chromosome = self.node_genomes[lineage].select_random_chromosome()
             position = chromosome.select_random_position()
-            segment = [gene]
-            chromosome.insert_segment(position, segment)
+
+            event = EventOneBreakpoint(position, 1, chromosome, ORIG, lineage, time)
+            #chromosome.geneorder_history.append(event)
+            self.geneorder_events[lineage].append(event)
+
+            chromosome.insert_segment(position, [gene])
             return ORIG, lineage
 
 
@@ -1738,7 +1718,7 @@ class GenomeSimulator():
 
         if event == TDUP:
 
-            self.make_duplication_interactome(d_e, lineage, time)
+            self.make_tandemdup_interactome(d_e, lineage, time)
             return TDUP, lineage
 
         elif event == FER:
@@ -1781,8 +1761,11 @@ class GenomeSimulator():
             gene, _ = self.make_origination(lineage, time)
             chromosome = self.node_genomes[lineage].select_random_chromosome()
             position = chromosome.select_random_position()
-            segment = [gene]
-            chromosome.insert_segment(position, segment)
+            chromosome.insert_segment(position, [gene])
+
+            event = EventOneBreakpoint(position, 1, chromosome, ORIG, lineage, time)
+            #chromosome.geneorder_history.append(event)
+            self.geneorder_events[lineage].append(event)
 
             # We need to insert the gene in the interactome too, with preferential attachment
 
@@ -1915,8 +1898,11 @@ class GenomeSimulator():
 
             chromosome = self.node_genomes[lineage].select_random_chromosome()
             position = chromosome.select_random_position()
-            segment = [gene]
-            chromosome.insert_segment(position, segment)
+            chromosome.insert_segment(position, [gene])
+
+            event = EventOneBreakpoint(position, 1, chromosome, ORIG, lineage, time)
+            #chromosome.geneorder_history.append(event)
+            self.geneorder_events[lineage].append(event)
 
             return ORIG, lineage
 
@@ -1977,8 +1963,11 @@ class GenomeSimulator():
 
             chromosome = self.node_genomes[lineage].select_random_chromosome()
             position = chromosome.select_random_position()
-            segment = [gene]
-            chromosome.insert_segment(position, segment)
+            chromosome.insert_segment(position, [gene])
+
+            event = EventOneBreakpoint(position, 1, chromosome, ORIG, lineage, time)
+            #chromosome.geneorder_history.append(event)
+            self.geneorder_events[lineage].append(event)
 
             return ORIG, lineage
 
@@ -2016,9 +2005,6 @@ class GenomeSimulator():
         event = self.choose_event(tandemdup, duplication, transfer, loss,
                                   inversion, transposition, origination)
 
-        #if lineage == 'n48':
-        #    print(f'Doing event {event} on {lineage}')
-
         self.update_genome_indices(lineage)
 
         try: 
@@ -2032,7 +2018,7 @@ class GenomeSimulator():
 
         if event == TDUP:
 
-            if self.make_tandemdup_within_intergene(ch, c1, c2, d, lineage, time):
+            if self.make_tandemdup_intergenic(ch, c1, c2, d, lineage, time):
                 return TDUP, lineage
             else:
                 return None
@@ -2109,11 +2095,9 @@ class GenomeSimulator():
                 
             ch = self.node_genomes[lineage].select_random_chromosome()
             intergene_coordinate = ch.select_random_coordinate_in_intergenic_regions()
-            if self.make_origination_intergenic(ch, intergene_coordinate,
-                                                lineage, time):
-                return ORIG, lineage
-            else:
-                return None
+            self.make_origination_intergenic(ch, intergene_coordinate,
+                                             lineage, time)
+            return ORIG, lineage
 
 
 #    def advanced_evolve_genomes_f_debug(self, duplication, transfer, loss, inversion, transposition, origination, time):
@@ -2321,18 +2305,32 @@ class GenomeSimulator():
         
         gene, _ = self.make_origination(lineage, time)
         
-        location = chromosome.return_location_by_coordinate(c, within_intergene=True)
+        location, gene_position = chromosome.get_location_from_coord(c, True)
         chromosome.insert_gene_within_intergene(c, location, gene)
  
+        #Nucleotide-level origination event
         orig = Origination(location, c, gene.length, gene.family, gene.orientation, lineage, time)
         chromosome.event_history.append(orig)
+
+        #Gene-order level origination event
+        event = EventOneBreakpoint(gene_position, 1, chromosome, ORIG, lineage, time)
+        #chromosome.geneorder_history.append(event)
+        self.geneorder_events[lineage].append(event)
 
         return gene
 
 
-    def make_speciation(self, sp, c1, c2, time, intergene=False):
+    def make_speciation(self, sp:str, c1:str, c2:str, time:float,
+                        intergene=False):
+        """
+        Make a speciation event at species node `sp`, generating two new
+        genomes for the child species `c1` and `c2`.
+        """
+        if self.save_all:
+            self.add_genome_to_all_genomes(sp, True)
 
-        # This function receives a genome and the names of the two branching lineages of the species node
+        if sp not in self.geneorder_events:
+            self.geneorder_events[sp] = []
 
         genome_sp = self.node_genomes[sp]
 
@@ -2351,13 +2349,14 @@ class GenomeSimulator():
             shape = chromosome.shape
 
             if shape == "C":
-                ch1 = CircularChromosome()
-                ch2 = CircularChromosome()
+                ch1 = CircularChromosome(chromosome.name)
+                ch2 = CircularChromosome(chromosome.name)
 
             else:
-                assert shape == LOSS
-                ch1 = LinearChromosome()
-                ch2 = LinearChromosome()
+                assert shape == "L"
+                raise(NotImplementedError("Linear chromosomes not implemented"))
+                ch1 = LinearChromosome(chromosome.name)
+                ch2 = LinearChromosome(chromosome.name)
 
             genome1.chromosomes.append(ch1)
             genome2.chromosomes.append(ch2)
@@ -2436,9 +2435,15 @@ class GenomeSimulator():
         return genome1, genome2
 
 
-    def make_extinction(self, sp, time):
+    def make_extinction(self, sp:str, time:float):
+        """
+        Deactivate the genome at species node `sp` due to extinction.
+        """
+        if self.save_all:
+            self.add_genome_to_all_genomes(sp, True)
 
-        # We have to deactivate all the genes
+        if sp not in self.geneorder_events:
+            self.geneorder_events[sp] = []
 
         genome = self.node_genomes[sp]
 
@@ -2463,11 +2468,32 @@ class GenomeSimulator():
             if self.save_all:
                 self.add_genome_to_all_genomes(genome_name, True)
 
+            if genome_name not in self.geneorder_events:
+                self.geneorder_events[genome_name] = []
+
 
     def make_tandemdup(self, p: float, lineage: str, time: float,
-                       family_mode = False):
+                       family_mode=False):
         """
-        Tandemly duplicate a segment of genes.
+        Tandemly duplicate a segment of genes.  This is always done to the right
+        of the original segment.
+        """
+        self.make_tandemdup_core(p, lineage, time, family_mode)
+
+
+    def make_tandemdup_core(self, p, lineage, time, family_mode=False) \
+        -> tuple[list[Gene], list[Gene], list[Gene]]:
+        """
+        Tandemly duplicate a segment of genes on the current lineage (i.e. on
+        'self.node_genomes').  This is always done to the right of the original
+        segment.
+
+        Returns
+        -------
+        tuple[list[Gene], list[Gene], list[Gene]]
+            (original segment, left_copy, right_copy)
+            Where original segment is the part that was duplicated, and replaced
+            with left_copy + right_copy.
         """
         chromosome = self.node_genomes[lineage].select_random_chromosome()
 
@@ -2476,6 +2502,9 @@ class GenomeSimulator():
         else:
             affected_indices = chromosome.obtain_affected_indices(p)
 
+        event = EventTwoBreakpoints(affected_indices, chromosome, TDUP, lineage, time)
+        #chromosome.geneorder_history.append(event)
+        self.geneorder_events[lineage].append(event)
         segment = chromosome.obtain_segment(affected_indices)
 
         # Now we create two segments
@@ -2483,13 +2512,11 @@ class GenomeSimulator():
         copied_segment1 = self.copy_segment(segment)
         copied_segment2 = self.copy_segment(segment)
 
-        # We insert the two new segments after the last position of the old segment
+        # Replace the original segment with the first of the copies
+        chromosome.replace_segment(affected_indices, copied_segment1)
 
-        chromosome.insert_segment(affected_indices[-1], copied_segment1 + copied_segment2)
-
-        # And we remove the old segment
-
-        chromosome.remove_segment(segment)
+        # Insert the two new segments after the last position of the old segment
+        chromosome.insert_segment(affected_indices[-1]+1, copied_segment2)
 
         # We have to register in the affected gene families that there has been a duplication
 
@@ -2511,6 +2538,8 @@ class GenomeSimulator():
             self.all_gene_families[gene_family].genes.append(copied_segment2[i])
             self.all_gene_families[gene_family].append_event(time, TDUP, ";".join(map(str, nodes)))
 
+        return segment, copied_segment1, copied_segment2
+
 
     def make_duplication(self, p: float, lineage: str, time: float,
                          family_mode = False):
@@ -2522,29 +2551,34 @@ class GenomeSimulator():
 
         if family_mode == True:
             raise(NotImplementedError("Family mode not implemented for duplication"))
-            affected_genes = chromosome.obtain_affected_genes_accounting_for_family_rates(p, self.all_gene_families, "TANDEMDUP")
+            affected_indices = chromosome.obtain_affected_genes_accounting_for_family_rates(p, self.all_gene_families, "TANDEMDUP")
         else:
-            affected_genes = chromosome.obtain_affected_indices(p)
-            while len(affected_genes) == len(chromosome.genes):
-                affected_genes = chromosome.obtain_affected_indices(p)
+            affected_indices = chromosome.obtain_affected_indices(p)
+            while len(affected_indices) == len(chromosome.genes):
+                affected_indices = chromosome.obtain_affected_indices(p)
 
-        segment = chromosome.obtain_segment(affected_genes)
+        segment = chromosome.obtain_segment(affected_indices)
 
         # Now we create two segments
         copied_segment1 = self.copy_segment(segment)
         copied_segment2 = self.copy_segment(segment)
 
         # Replace the segment with the first copy
-        chromosome.replace_segment(affected_genes, copied_segment1)
+        chromosome.replace_segment(affected_indices, copied_segment1)
 
-        if([g.family for g in segment] != \
-           [chromosome.genes[i].family for i in affected_genes]):
-            print(affected_genes[0], affected_genes[-1])
-            print(f'{segment} != {chromosome.genes[affected_genes[0]:affected_genes[-1]+1]}')
+        #if([g.family for g in segment] != \
+        #   [chromosome.genes[i].family for i in affected_indices]):
+        #    print(affected_indices[0], affected_indices[-1])
+        #    print(f'{segment} != {chromosome.genes[affected_indices[0]:affected_indices[-1]+1]}')
 
         # Insert the second segment at a random location.
-        insert_pos = chromosome.select_random_position(affected_genes)
+        insert_pos = chromosome.select_random_position(affected_indices)
         chromosome.insert_segment(insert_pos, copied_segment2)
+
+        event = EventThreeBreakpoints(affected_indices, insert_pos, chromosome,
+                                      DUP, lineage, time)
+        #chromosome.geneorder_history.append(event)
+        self.geneorder_events[lineage].append(event)
 
         # Register the duplication in the affected gene families
         for i, gene in enumerate(segment):
@@ -2565,62 +2599,27 @@ class GenomeSimulator():
             self.all_gene_families[gene_family].append_event(time, DUP, ";".join(map(str, nodes)))
 
 
-    def make_duplication_interactome(self, p, lineage, time):
+    def make_tandemdup_interactome(self, p, lineage, time, family_mode=False):
 
-        chromosome = self.node_genomes[lineage].select_random_chromosome()
-        affected_genes = chromosome.obtain_affected_indices(p)
-        segment = chromosome.obtain_segment(affected_genes)
-
-        # Now we create two segments
-
-        copied_segment1 = self.copy_segment(segment)
-        copied_segment2 = self.copy_segment(segment)
-
-        # We insert the two new segments after the last position of the old segment
-
-        chromosome.insert_segment(affected_genes[-1], copied_segment1 + copied_segment2)
-
-        # And we remove the old segment
-
-        chromosome.remove_segment(segment)
-
-        # We have to register in the affected gene families that there has been a duplication
+        segment, left_segment, right_segment = self.make_tandemdup_core(p, lineage, time, family_mode)
 
         # We need to create two dicts to change the names of the interactome
-
         new_genes_1 = dict()
 
+        interactome = self.node_genomes[lineage].interactome
         for i, gene in enumerate(segment):
-
-            nodes = [gene.species,
-                     gene.gene_id,
-                     copied_segment1[i].species,
-                     copied_segment1[i].gene_id,
-                     copied_segment2[i].species,
-                     copied_segment2[i].gene_id]
-
-            gene.active = False
-
-            gene_family = gene.family
-
-            self.all_gene_families[gene_family].genes.append(copied_segment1[i])
-            self.all_gene_families[gene_family].genes.append(copied_segment2[i])
-
-            self.all_gene_families[gene.family].append_event(time, TDUP, ";".join(map(str, nodes)))
-
             # We update the new gene name (which by default is going to be the copied_segment1)
 
-            gene1 = copied_segment1[i]
-            gene2 = copied_segment2[i]
+            gene1 = left_segment[i]
+            gene2 = right_segment[i]
 
             new_genes_1[str(gene)] = str(gene1)
 
-            self.node_genomes[lineage].interactome = nx.relabel_nodes(self.node_genomes[lineage].interactome,
-                                                                     new_genes_1)
+            interactome = nx.relabel_nodes(interactome, new_genes_1)
 
             # WE ADD THE NEW NODE
 
-            self.node_genomes[lineage].interactome.add_node(str(gene2))
+            interactome.add_node(str(gene2))
 
             # We distribute node depending on the parameter PROPORTION
 
@@ -2630,8 +2629,8 @@ class GenomeSimulator():
 
             PROPORTION = 0.5
 
-            n_edges_to_old_node = int(PROPORTION * len(self.node_genomes[lineage].interactome.edges(str(gene1))))
-            myedges = list(self.node_genomes[lineage].interactome.edges(str(gene1)))
+            n_edges_to_old_node = int(PROPORTION * len(interactome.edges(str(gene1))))
+            myedges = list(interactome.edges(str(gene1)))
             G_RNG().shuffle(myedges)
             edges_to_new_node = myedges[n_edges_to_old_node:]
             edges_to_add_to_new_node = [(str(gene2), x[1]) for x in edges_to_new_node]
@@ -2639,15 +2638,15 @@ class GenomeSimulator():
 
             # Now, I have to remove the edges
 
-            self.node_genomes[lineage].interactome.remove_edges_from(edges_to_remove_to_old_node)
-            self.node_genomes[lineage].interactome.add_edges_from(edges_to_add_to_new_node)
+            interactome.remove_edges_from(edges_to_remove_to_old_node)
+            interactome.add_edges_from(edges_to_add_to_new_node)
 
 
-    def make_tandemdup_within_intergene(self, chromosome: Chromosome,
-                                        c1: int, c2: int, d: T_DIR,
-                                        lineage: str, time: float):
+    def make_tandemdup_intergenic(self, chromosome: Chromosome,
+                                  c1: int, c2: int, d: T_DIR,
+                                  lineage: str, time: float):
         """
-        Do a duplication that acts on the given pair of intergene spcific
+        Do a duplication that acts on the given pair of intergene specific
         breakpoint coordinates. Consider intergene I and J such that c1 lands in
         intergene I and c2 lands in intergene J, with gene/intergene segment S
         between the two. Then we have sequence
@@ -2681,7 +2680,7 @@ class GenomeSimulator():
                                       ' implemented for linear chromosomes.')
 
         try:
-            r = chromosome.return_affected_region(c1, c2, d)
+            r = chromosome.get_affected_region(c1, c2, d)
         except CoordinateChoiceError:
             return False
 
@@ -2737,8 +2736,14 @@ class GenomeSimulator():
             int1, int2 = int2, int1
             c1, c2 = c2, c1
 
+        #Nucleotide-level tandem duplication event
         dup = TandemDup(int1, int2, c1, c2, len(new_intergene_segment_1),
                         specificlen, totallen, lineage, time)
+
+        #Gene-order level tandem duplication event
+        event = EventTwoBreakpoints(genepositions, chromosome, TDUP, lineage, time)
+        #chromosome.geneorder_history.append(event)
+        self.geneorder_events[lineage].append(event)
             
         scar1.length = leftlengths[1] + rightlengths[0]
         scar2.length = rightlengths[1] + rightlengths[0]
@@ -2867,8 +2872,26 @@ class GenomeSimulator():
 
         return draw
 
-    def make_transfer(self, p, donor, recipient, time, family_mode = False):
 
+    def make_transfer(self, p, donor, recipient, time, family_mode = False):
+        """ Do a transfer event from donor to recipient. """
+        self.make_transfer_core(p, donor, recipient, time, family_mode)
+
+
+    def make_transfer_core(self, p, donor, recipient, time, family_mode = False) \
+        -> tuple[list[Gene], list[Gene], list[tuple[Gene, Gene]]]:
+        """
+        Implement the core functionality for a transfer event from donor to
+        recipient (code reusability).
+
+        Returns
+        -------
+        (segment, replaced_genes) : tuple[list[Gene], list[tuple[Gene, Gene]]]
+            where `segment` is the list of genes that have been transferred and
+            `replaced_genes` is a list of tuples (lost_gene, gained_gene)
+            representing genes lost and gained in a replacement transfer; empty
+            list otherwise
+        """
         chromosome1 = self.node_genomes[donor].select_random_chromosome()
 
         if family_mode == True:
@@ -2882,94 +2905,102 @@ class GenomeSimulator():
 
         # Now we create two segments
 
-        copied_segment1 = self.copy_segment(segment)
-        copied_segment2 = self.copy_segment(segment)
+        donor_segment = self.copy_segment(segment)
+        recipient_segment = self.copy_segment(segment)
 
-        # We insert the first segment (leaving transfer) in the same position than the previous segment
+        # We insert the first segment (leaving transfer) in the same position
+        # than the previous segment
         # We do this just to change the identifiers of the numbers
 
-        chromosome1.insert_segment(affected_genes[0], copied_segment1)
+        chromosome1.insert_segment(affected_genes[0], donor_segment)
 
         # And we remove the old segment
 
         chromosome1.remove_segment(segment)
 
-        # Now we insert the transfer segment in the recipient genome in one of the homologous position.
-
+        # Now we insert the transfer segment in the recipient genome in one of
+        # the homologous position.
+        replaced_genes: list[tuple[Gene, Gene]] = []
         if G_NPRNG().uniform(0,1) <= self.parameters["REPLACEMENT_TRANSFER"]:
 
-            possible_positions: list[tuple[str, tuple, Chromosome]] = list()
+            possible_positions: list[tuple[str, Iterable[int], Chromosome]] = list()
 
             for chromosome in self.node_genomes[recipient]:
                 for direction, positions in chromosome.get_homologous_position(segment):
                     possible_positions.append((direction, positions, chromosome))
 
             if len(possible_positions) != 0:
-
                 direction, positions, chromosome2 = G_RNG().choice(sorted(possible_positions))
 
+                positions = list(positions)
+                assert isinstance(positions, Iterable), f"positions is {type(positions)}"
+                assert af.well_behaved_indices(positions), f"positions are {positions}"
+                loss = EventTwoBreakpoints(positions, chromosome2, LOSS, recipient, time)
+                transfer = EventOneBreakpoint(positions[0], len(positions),
+                                              chromosome2, AFER, recipient, time)
+                #chromosome2.geneorder_history.append(loss)
+                #chromosome2.geneorder_history.append(transfer)
+                self.geneorder_events[recipient].append(loss)
+                self.geneorder_events[recipient].append(transfer)
 
-                if direction == "F":
-
-                    # I replace gene by gene the segment
-
-                    i = 0
-
-                    for position in positions:
-
-                        # First I inactivate the gene
-
-                        gene = chromosome2.genes[position]
-                        gene.active = False
-                        self.all_gene_families[gene.family].append_event(time, LOSS, ";".join(
-                            map(str, [recipient, gene.gene_id])))
-
-                        # And then I replace
-
-                        chromosome2.genes[position] = copied_segment2[i]
-
-                        i += 1
-
-                elif direction == "B":
-                    # I invert the segment and I replace gene by gene the segment
+                if direction == BACKWARDS:
+                    # Invert the segment and change orientation of the genes
                     inverted = True
+                    recipient_segment = list(reversed(recipient_segment))
 
-                    copied_segment2 = list(reversed(copied_segment2))
+                    for gene in recipient_segment:
+                        gene.change_orientation()
+                else:
+                    assert direction == FORWARDS
 
-                    for gene in copied_segment2:
-                        gene.change_sense()
+                # Replace the segment gene by gene:
+                for i, position in enumerate(positions):
+                    # First deactivate the gene
+                    gene = chromosome2.genes[position]
+                    gene.active = False
+                    self.all_gene_families[gene.family].append_event(time, LOSS, ";".join(
+                        map(str, [recipient, gene.gene_id])))
 
-                    i = 0
-                    for position in positions:
-                        # First I inactivate the gene
-                        gene: Gene = chromosome2.genes[position]
-                        gene.active = False
-                        self.all_gene_families[gene.family].append_event(time, LOSS, ";".join(
-                            map(str, [recipient, gene.gene_id])))
+                    # And then replace
+                    chromosome2.genes[position] = recipient_segment[i]
+                    replaced_genes.append((gene, recipient_segment[i]))
 
-                        # And then I replace
-
-                        chromosome2.genes[position] = copied_segment2[i]
-
-
-                        i += 1
             else:
-
                 # Normal transfers
                 chromosome2 = self.node_genomes[recipient].select_random_chromosome()
                 position = chromosome2.select_random_position()
-                chromosome2.insert_segment(position, copied_segment2)
+                chromosome2.insert_segment(position, recipient_segment)
+
+                event = EventOneBreakpoint(position, len(recipient_segment),
+                                           chromosome2, AFER, recipient, time)
+                #chromosome2.geneorder_history.append(event)
+                self.geneorder_events[recipient].append(event)
         else:
             # Normal transfer
             chromosome2 = self.node_genomes[recipient].select_random_chromosome()
             position = chromosome2.select_random_position()
-            chromosome2.insert_segment(position, copied_segment2)
+            chromosome2.insert_segment(position, recipient_segment)
+
+            event = EventOneBreakpoint(position, len(recipient_segment), AFER,
+                                       chromosome2, recipient, time)
+            #chromosome2.geneorder_history.append(event)
+            self.geneorder_events[recipient].append(event)
+
+        # Register the gene-order event in the donor genome
+        eventcode = LFER
+        if replaced_genes:
+            eventcode = LFER_B if inverted else LFER_F
+        event = EventTwoBreakpoints(affected_genes, chromosome1, eventcode,
+                                    donor, time)
+
+        #chromosome1.geneorder_history.append(event)
+        self.geneorder_events[donor].append(event)
 
         # We have to register in the affected gene families that there has been a transfer event
 
         if inverted == True:
             # We invert again to store the event
-            copied_segment2 = list(reversed(copied_segment2))
+            recipient_segment = list(reversed(recipient_segment))
 
         for i, gene in enumerate(segment):
 
@@ -2982,204 +3013,99 @@ class GenomeSimulator():
             # 4. Branch of the species tree for the recipient genome
             # 5. Id of the new gene arriving
 
-            copied_segment1[i].species = donor
-            copied_segment2[i].species = recipient
+            donor_segment[i].species = donor
+            recipient_segment[i].species = recipient
 
             nodes = [gene.species,
                      gene.gene_id,
-                     copied_segment1[i].species,
-                     copied_segment1[i].gene_id,
-                     copied_segment2[i].species,
-                     copied_segment2[i].gene_id]
+                     donor_segment[i].species,
+                     donor_segment[i].gene_id,
+                     recipient_segment[i].species,
+                     recipient_segment[i].gene_id]
 
             self.all_gene_families[gene.family].append_event(time, FER, ";".join(map(str,nodes)))
 
-    def make_transfer_interactome(self, p, donor, recipient, time):
+        return donor_segment, recipient_segment, replaced_genes
+    
 
-        chromosome1 = self.node_genomes[donor].select_random_chromosome()
-        affected_genes = chromosome1.obtain_affected_indices(p)
-        segment = chromosome1.obtain_segment(affected_genes)
+    def make_transfer_interactome(self, p, donor, recipient, time, family_mode=False):
+        """
+        Do a transfer event from donor to recipient, updating the
+        interactome.
+        """
+        donor_segment, recipient_segment, replaced_genes = self.make_transfer_core(p, donor, recipient, time,
+                                                                                   family_mode)
 
-        inverted = False
-
-        is_replacement_transfer = False
-        replaced_genes = list()
-
-        # Now we create two segments
-
-        copied_segment1 = self.copy_segment(segment)
-        copied_segment2 = self.copy_segment(segment)
-
-        # We insert the first segment (leaving transfer) in the same position than the previous segment
-        # We do this just to change the identifiers of the numbers
-
-        chromosome1.insert_segment(affected_genes[0], copied_segment1)
-
-        # And we remove the old segment
-
-        chromosome1.remove_segment(segment)
-
-        # Now we insert the transfer segment in the recipient genome in one of the homologous position.
-
-        if G_NPRNG().uniform(0,1) <= self.parameters["REPLACEMENT_TRANSFER"]:
-
-            possible_positions: list[tuple[str, tuple, Chromosome]] = list()
-
-            for chromosome in self.node_genomes[recipient]:
-                for direction, positions in chromosome.get_homologous_position(segment):
-                    possible_positions.append((direction, positions, chromosome))
-
-            if len(possible_positions) != 0:
-
-                direction, positions, chromosome2 = G_RNG().choice(sorted(possible_positions))
-
-
-                if direction == "F":
-
-                    # I replace gene by gene the segment
-
-                    i = 0
-
-                    for position in positions:
-
-                        # First I inactivate the gene
-
-                        gene = chromosome2.genes[position]
-                        gene.active = False
-
-
-                        self.all_gene_families[gene.family].append_event(time, LOSS, ";".join(
-                            map(str, [recipient, gene.gene_id])))
-                        # And then I replace
-                        chromosome2.genes[position] = copied_segment2[i]
-                        i += 1
-                        is_replacement_transfer = True
-
-                        replaced_genes.append((gene, copied_segment2[i]))
-
-                elif direction == "B":
-                    # I invert the segment and I replace gene by gene the segment
-                    inverted = True
-                    copied_segment2 = list(reversed(copied_segment2))
-                    for gene in copied_segment2:
-                        gene.change_sense()
-
-                    i = 0
-                    for position in positions:
-                        # First I inactivate the gene
-                        gene = chromosome2.genes[position]
-                        gene.active = False
-
-                        replaced_genes.append(gene)
-
-                        self.all_gene_families[gene.family].append_event(time, LOSS, ";".join(
-                            map(str, [recipient, gene.gene_id])))
-                        # And then I replace
-                        chromosome2.genes[position] = copied_segment2[i]
-                        i += 1
-                        is_replacement_transfer = True
-
-                        replaced_genes.append((gene, copied_segment2[i]))
-
-            else:
-
-                # Normal transfers
-                chromosome2 = self.node_genomes[recipient].select_random_chromosome()
-                position = chromosome2.select_random_position()
-                chromosome2.insert_segment(position, copied_segment2)
-        else:
-            # Normal transfer
-            chromosome2 = self.node_genomes[recipient].select_random_chromosome()
-            position = chromosome2.select_random_position()
-            chromosome2.insert_segment(position, copied_segment2)
-
-        # We have to register in the affected gene families that there has been a transfer event
-
-        if inverted == True:
-            # We invert again to store the event
-            copied_segment2 = list(reversed(copied_segment2))
-
-
-        ## We register the event
-
-        new_names_1 = dict()
-        new_names_2 = dict()
-
-        for i, gene in enumerate(segment):
-
-            gene.active = False
-
-            # The code for the node is:
-            # 1. Branch of the species tree for the donor genome
-            # 2. Id of the gene that is transferred
-            # 3. Id of the gene that remains in the donor genome
-            # 4. Branch of the species tree for the recipient genome
-            # 5. Id of the new gene arriving
-
-            copied_segment1[i].species = donor
-            copied_segment2[i].species = recipient
-
-            nodes = [gene.species,
-                     gene.gene_id,
-                     copied_segment1[i].species,
-                     copied_segment1[i].gene_id,
-                     copied_segment2[i].species,
-                     copied_segment2[i].gene_id]
-
-            self.all_gene_families[gene.family].append_event(time, FER, ";".join(map(str,nodes)))
-
-            new_names_1[str(gene)] = str(copied_segment1[i])
-
+        donor_names = dict()
+        recipient_names = dict()
+        for i, gene in enumerate(recipient_segment):
             ## We update the interactome
+            donor_names[str(gene)] = str(donor_segment[i])
 
             # First we update the interactome in the donor lineage
-
-            self.node_genomes[donor].interactome = nx.relabel_nodes(self.node_genomes[donor].interactome, new_names_1)
+            self.node_genomes[donor].interactome = nx.relabel_nodes(self.node_genomes[donor].interactome, donor_names)
 
             # Second we update the interactome in the recipient lineage
-
-            if is_replacement_transfer == True:
-
+            if replaced_genes:
                 ## All links pass now to the new gene
                 ## The old gene gets no links
-
-                new_names_2 = {str(n1):str(n2) for n1,n2 in replaced_genes}
+                recipient_names = {str(n1):str(n2) for n1,n2 in replaced_genes}
                 #new_names_2[str(gene)] = str(copied_segment2[i])
-                self.node_genomes[recipient].interactome = nx.relabel_nodes(self.node_genomes[recipient].interactome, new_names_2)
-
+                self.node_genomes[recipient].interactome = nx.relabel_nodes(self.node_genomes[recipient].interactome, recipient_names)
 
             else:
-
                 # It is not a replacement transfer. Preferential attachment
-
                 node_degrees = [d + 1 for n, d in self.node_genomes[recipient].interactome.degree()]   #type: ignore
-                choice = G_NPRNG().choice(sorted(self.node_genomes[recipient].interactome.nodes),        #type: ignore
+                choice = G_NPRNG().choice(sorted(self.node_genomes[recipient].interactome.nodes),      #type: ignore
                                                  1, p=af.normalize(node_degrees))[0]
-                self.node_genomes[recipient].interactome.add_node(str(copied_segment2[i]))
-                self.node_genomes[recipient].interactome.add_edge(str(copied_segment2[i]), choice)
-
+                self.node_genomes[recipient].interactome.add_node(str(recipient_segment[i]))
+                self.node_genomes[recipient].interactome.add_edge(str(recipient_segment[i]), choice)
 
 
     def make_transfer_intergenic(self, donorchrom: Chromosome,
                                  c1: int, c2: int, d: T_DIR, donor: str,
                                  receptorchrom: Chromosome, c3: int,
                                  receptor: str, time: float):
+        """
+        Do a transfer that acts on the given pair of intergene specific
+        breakpoint coordinates.
 
+        Parameters
+        ----------
+        donorchrom : Chromosome
+            the donor chromosome
+        c1 : int
+            the first intergene specific breakpoint coordinate
+        c2 : int
+            the second intergene specific breakpoint coordinate
+        d : T_DIR
+            the direction, either RIGHT or LEFT, depending on whether the
+            region goes left or right from c1
+        donor : str
+            the donor lineage
+        receptorchrom : Chromosome
+            the receptor chromosome
+        c3 : int
+            the intergene specific breakpoint coordinate in the receptor
+        receptor : str
+            the receptor lineage
+        time : float
+            the time stamp of the event
+        """
         try:
-            r = donorchrom.return_affected_region(c1, c2, d)
+            r = donorchrom.get_affected_region(c1, c2, d)
         except CoordinateChoiceError:
             return False
 
         gpositions, igpositions, leftlengths, rightlengths, int1, int2 = r
         segment = donorchrom.obtain_segment(gpositions)
 
-            # Get lengths from last intergene.
+        # Get lengths from last intergene.
         specificlen = donorchrom.intergenes[-1].specific_flanking[1]
         totallen = donorchrom.intergenes[-1].total_flanking[1]
         numintergenes = len(donorchrom.intergenes)
-            
-        # Now we create two segments
 
+        # Now we create two segments
         copied_segment1 = self.copy_segment(segment)
         copied_segment2 = self.copy_segment(segment)
 
@@ -3200,7 +3126,7 @@ class GenomeSimulator():
 
         # Normal transfer
 
-        int3 = receptorchrom.return_location_by_coordinate(c3, True)
+        int3, gene_position = receptorchrom.get_location_from_coord(c3, True)
         position = int3.position + 1
 
         for i, gene in enumerate(copied_segment2):
@@ -3227,8 +3153,18 @@ class GenomeSimulator():
         tr_d = Transfer(int1, int2, c1, c2, specificlen, totallen, donor,
                         numintergenes, int3, c3, receptor, time)
 
+        #Nucleotide level origination event
         receptorchrom.event_history.append(tr)
         donorchrom.event_history.append(tr_d)
+
+        #Gene-order level origination event
+        event = EventTwoBreakpoints(gpositions, donorchrom, LFER, donor, time)
+        #donorchrom.geneorder_history.append(event)
+        self.geneorder_events[donor].append(event)
+        event = EventOneBreakpoint(gene_position, 1, receptorchrom, AFER,
+                                   receptor, time)
+        #receptorchrom.geneorder_history.append(event)
+        self.geneorder_events[receptor].append(event)
 
         tr.sister_event = tr_d
         tr_d.sister_event = tr
@@ -3268,34 +3204,45 @@ class GenomeSimulator():
 
 
     def make_loss(self, p, lineage, time, family_mode = False):
+        self.make_loss_core(p, lineage, time, family_mode)
 
+
+    def make_loss_core(self, p, lineage, time, family_mode = False,
+                       interactome=False) -> list[Gene]:
         chromosome = self.node_genomes[lineage].select_random_chromosome()
+        if interactome:
+            i = self.node_genomes[lineage].interactome
+            affected_indices = chromosome.obtain_affected_genes_accounting_for_connectedness(p, i)
         if family_mode == True:
-            affected_genes = chromosome.obtain_affected_indices_family_rates(p, self.all_gene_families, "LOSS")
+            affected_indices = chromosome.obtain_affected_indices_family_rates(p, self.all_gene_families, "LOSS")
         else:
-            affected_genes = chromosome.obtain_affected_indices(p)
-        segment = chromosome.obtain_segment(affected_genes)
+            affected_indices = chromosome.obtain_affected_indices(p)
+        segment = chromosome.obtain_segment(affected_indices)
 
         # Now we check we are not under the minimum size
+        if len(chromosome) - len(affected_indices) <= self.parameters["MIN_GENOME_SIZE"]:
+            return []
 
-        if len(chromosome) - len(affected_genes) <= self.parameters["MIN_GENOME_SIZE"]:
-            return 0
+        event = EventTwoBreakpoints(affected_indices, chromosome, LOSS, lineage, time)
+        #chromosome.geneorder_history.append(event)
+        self.geneorder_events[lineage].append(event)
 
         chromosome.remove_segment(segment)
 
         # We have to register in the affected gene families that there has been as loss
         # All genes affected must be returned
-
         for gene in segment:
             gene.active = False
             self.all_gene_families[gene.family].append_event(time, LOSS, ";".join(map(str,[lineage, gene.gene_id])))
+
+        return segment
 
 
     def make_loss_intergenic(self, chromosome: Chromosome, c1, c2, d: T_DIR,
                              lineage, time, pseudo=False):
 
         try:
-            r = chromosome.return_affected_region(c1, c2, d)
+            r = chromosome.get_affected_region(c1, c2, d)
         except CoordinateChoiceError:
             return False
 
@@ -3379,37 +3326,25 @@ class GenomeSimulator():
         return True
 
 
-    def make_loss_interactome(self, p, lineage, time):
-
+    def make_loss_interactome(self, p, lineage, time, family_mode=False):
         interactome = self.node_genomes[lineage].interactome
-        chromosome = self.node_genomes[lineage].select_random_chromosome()
+        segment = self.make_loss_core(p, lineage, time, family_mode, True)
 
-        affected_genes = chromosome.obtain_affected_genes_accounting_for_connectedness(p, interactome)
-        segment = chromosome.obtain_segment(affected_genes)
-
-        # Now we check we are not under the minimum size
-
-        if len(chromosome) - len(affected_genes) <= 0:
-            return 0
-
-        chromosome.remove_segment(segment)
-
-        # We have to register in the affected gene families that there has been as loss
-        # All genes affected must be returned
-
+        # Remove each from the connectome
         for gene in segment:
-            gene.active = False
-            self.all_gene_families[gene.family].append_event(time, LOSS, ";".join(map(str,[lineage, gene.gene_id])))
-            # We remove from the connectome
-
             interactome.remove_node(str(gene))
+
 
     def make_inversion(self, p, lineage, time):
 
         chromosome = self.node_genomes[lineage].select_random_chromosome()
-        affected_genes = chromosome.obtain_affected_indices(p)
-        segment = chromosome.obtain_segment(affected_genes)
-        chromosome.invert_segment(affected_genes)
+        affected_indices = chromosome.obtain_affected_indices(p)
+        segment = chromosome.obtain_segment(affected_indices)
+        chromosome.invert_segment(affected_indices)
+
+        event = EventTwoBreakpoints(affected_indices, chromosome, INV, lineage, time)
+        #chromosome.geneorder_history.append(event)
+        self.geneorder_events[lineage].append(event)
 
         for gene in segment:
             self.all_gene_families[gene.family].append_event(time, INV, ";".join(map(str,[lineage, gene.gene_id])))
@@ -3459,7 +3394,7 @@ class GenomeSimulator():
         assert isinstance(chromosome, CircularChromosome)
 
         try:
-            r = chromosome.return_affected_region(c1, c2, d)
+            r = chromosome.get_affected_region(c1, c2, d)
         except CoordinateChoiceError:
             return False
 
@@ -3482,7 +3417,13 @@ class GenomeSimulator():
         inv = Inversion(int1, int2, c1, c2, specificlen, totallen, sleftlen,
                         tleftlen, srightlen, trightlen, lineage, time)
 
+        #Nucleotide level inversion event
         chromosome.event_history.append(inv)
+
+        #Gene-order level inversion event
+        event = EventTwoBreakpoints(gpositions, chromosome, INV, lineage, time)
+        #chromosome.geneorder_history.append(event)
+        self.geneorder_events[lineage].append(event)
 
         segment = chromosome.obtain_segment(gpositions)
         chromosome.invert_segment(gpositions, igpositions)
@@ -3508,12 +3449,18 @@ class GenomeSimulator():
         location chosen uniformly at random.
         """
         chromosome = self.node_genomes[lineage].select_random_chromosome()
+        assert isinstance(chromosome, CircularChromosome)
         #Get a range of consecutive genome indices
-        affected_genes = chromosome.obtain_affected_indices(p)
+        affected_indices = chromosome.obtain_affected_indices(p)
         #Get the corresponding segment
-        segment = chromosome.obtain_segment(affected_genes)
+        segment = chromosome.obtain_segment(affected_indices)
         #Do the transposition
-        chromosome.cut_and_paste(segment)
+        old_pos, _ = chromosome.cut_and_paste(segment, affected_indices)
+
+        event = EventThreeBreakpoints(affected_indices, old_pos, chromosome,
+                                      POS, lineage, time)
+        #chromosome.geneorder_history.append(event)
+        self.geneorder_events[lineage].append(event)
 
         for gene in segment:
             self.all_gene_families[gene.family].append_event(time, POS, ";".join(map(str,[lineage, gene.gene_id])))
@@ -3526,7 +3473,7 @@ class GenomeSimulator():
                                       'implemented for linear chromosomes.')
 
         try:
-            r = chromosome.return_affected_region(c1, c2, d)
+            r = chromosome.get_affected_region(c1, c2, d)
         except CoordinateChoiceError:
             return False
 
@@ -3535,7 +3482,7 @@ class GenomeSimulator():
         segment = chromosome.obtain_segment(gpositions)
         intergene_segment = chromosome.obtain_intergenic_segment(igpositions[1:])
 
-        hereint = chromosome.return_location_by_coordinate(c3, True)
+        hereint, gene_position = chromosome.get_location_from_coord(c3, True)
 
         scar1 = chromosome.intergenes[igpositions[0]]    #stays put
         scar2 = chromosome.intergenes[hereint.position]  #left ig after transp
@@ -3613,7 +3560,14 @@ class GenomeSimulator():
         trans = Transposition(int1, int2, c1, c2, hereint, c3, numintergenes,
                               specificlen, totallen, lineage, time)
 
+        #Chromosome level origination event
         chromosome.event_history.append(trans)
+
+        #Gene-order level origination event
+        event = EventThreeBreakpoints(gpositions, gene_position, chromosome,
+                                      POS, lineage, time)
+        #chromosome.geneorder_history.append(event)
+        self.geneorder_events[lineage].append(event)
 
         assert len(trans.afterH) == scar1.length
         assert len(trans.afterL) == scar2.length
@@ -3628,6 +3582,7 @@ class GenomeSimulator():
     def make_rewiring_edge(self, lineage, time):
 
         chromosome = self.node_genomes[lineage].select_random_chromosome()
+        assert isinstance(chromosome, CircularChromosome)
         position = chromosome.select_random_position()
         interactome = self.node_genomes[lineage].interactome
         normalized_weights = af.normalize([d + 1 for n, d in interactome.degree()])  #type: ignore
@@ -3727,14 +3682,14 @@ class GenomeSimulator():
 
             if success:
 
-                l1 = chromosome.return_location_by_coordinate(sc1, True)
-                l2 = chromosome.return_location_by_coordinate(sc2, True)    #type: ignore
+                l1 = chromosome.get_location_from_coord(sc1, True)
+                l2 = chromosome.get_location_from_coord(sc2, True)
                 if l1 != l2:
                     return chromosome, sc1, sc2, d
 
                 # Verify that the event covers at least one gene
 
-                r = chromosome.return_affected_region(sc1, sc2, d)
+                r = chromosome.get_affected_region(sc1, sc2, d)
                 
                 if r == None:
                     success = False
@@ -3908,8 +3863,8 @@ class GenomeSimulator():
                     assert isinstance(p_event, Loss)
                     gene, cut_within_gene = p_event.returnPieceAndCut(propagated_cut)
 
-                    print("THIS SHOULDN'T WORK? the type of gene is Intergene")
-                    gene_name = gene.gene_family + "_" + gene.species + "_" + str(gene.gene_id) #TODO: the type of gene is Intergene?
+                    print(f"THIS SHOULDN'T WORK?! the type of gene is {type(gene)}")
+                    gene_name = gene.family + "_" + gene.species + "_" + str(gene.gene_id) #TODO: the type of gene is Intergene?
                     if gene_name not in self.gene2pseudogenecuts:
                         self.gene2pseudogenecuts[gene_name] = set()
                     self.gene2pseudogenecuts[gene_name].add(cut_within_gene)
@@ -4087,8 +4042,8 @@ class GenomeSimulator():
 
         for chromosome in genome_pn:
 
-            ch1 = CircularChromosome()
-            ch2 = CircularChromosome()
+            ch1 = CircularChromosome(chromosome.name)
+            ch2 = CircularChromosome(chromosome.name)
 
             genome1.chromosomes.append(ch1)
             genome2.chromosomes.append(ch2)
@@ -4554,10 +4509,10 @@ class GenomeSimulator():
         gene2index = {gene:index for index, gene in enumerate(genes)}
 
         pieces_to_invert = list(reversed(copy.deepcopy(pieces_to_invert)))
-        
+
         for index, replacement in zip(indexes_to_invert, pieces_to_invert):
             chromosome.pieces[index] = replacement
-            replacement.change_sense()
+            replacement.change_orientation()
 
         # Now we adjust the indexes if there has been a wrapping event
 
@@ -4652,3 +4607,61 @@ class GenomeSimulator():
         with open(division_tree_folder / DIVISIONLENGTHS, "w") as f:
             for division_family_name, division_family in self.all_division_families.items():
                 f.write("\t".join(list(map(str,[division_family_name, len(division_family)]))) + "\n")
+
+
+def get_scaling_factor(scaled_file, events_file, scale) -> tuple[float, float]:
+    """
+    Compute the scaling factor given the scaled file and the events file.
+
+    Returns
+    -------
+    tuple[float, float]
+        (beginning_time, scaling_factor) where `beginning_time` is the time of
+        the root speciation and `scaling_factor` is the factor to multiple the
+        times in the events by.
+    """
+    # First I read where the root is:
+
+    with open(scaled_file) as f:
+        f.readline()
+        for l in f:
+            t, _, nodes = l.strip().split("\t")
+            if float(t) == 0:
+                eroot = nodes.split(";")[0]
+
+    # Second, I read the total length of the tree
+    with open(events_file) as f:                
+        for l in f:                    
+            t, _, nodes = l.strip().split("\t")
+            node1 = nodes.split(";")[0]
+            if node1 == eroot:
+                beginning_time = float(t)
+            continue
+        t, _, nodes = l.strip().split("\t")
+
+        totaltime = float(t) - beginning_time
+
+    return beginning_time, scale / totaltime
+
+
+def write_geneorder_events(outfile: Path, events: list[GeneOrderEvent],
+                           scale=0.0, scaled_file: Path|None = None,
+                           events_file: Path|None = None):
+    header = "TIME\tEVENT\tBREAKPOINTS\tLENGTH\tCHROMOSOME\n"
+    if scaled_file:
+        beginning_time, mfactor = get_scaling_factor(scaled_file, events_file, scale)
+
+    with open(outfile, "w") as f:
+        f.write(header)
+        for event in sorted(events, key=lambda x: x.time):
+            etype, time, breakpoints, length, name = event.return_info()
+
+            if scale: # Only working if Species Tree has been scaled to the same distance!
+                time = (float(time) - beginning_time) * mfactor
+
+            line = [str(time), etype, breakpoints, str(length), name]
+            line = "\t".join(line) + "\n"
+            f.write(line)
+
+
+

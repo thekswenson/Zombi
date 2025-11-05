@@ -1,25 +1,46 @@
+"""
+Genomic events. These can be GeneOrderEvents (for G mode) which keep track of
+their gene-order indices, or GenomeCoordEvents (for Gf mode) which keep track
+of their genomic coordinates.
+
+Notes
+-----
+- These work currently with single chromosomes only.
+- Events are chromosome specific, so a transfer event, that effects
+  chromosomes, will be registered as two events, one in the donor lineage
+  and one in the receptor lineage.
+"""
 import copy
 import abc
+
 from typing import List, Tuple, TYPE_CHECKING
 
 
-from .Interval import Interval
+from .Interval import ITYPE, Interval
 if TYPE_CHECKING:                   #Avoid circular imports
-    from .Genomes import Intergene, Gene
+    from .Genomes import Intergene, Gene, Chromosome
 
 # Types:
 T_EVENT = str
+
+# Event directions:
+BACKWARDS = "B"
+FORWARDS = "F"
 
 # Event types:
 TDUP = "D"  #: Tandem Duplication
 DUP = "U"   #: dUplication
 FER = "T"   #: Transfer
+LFER = "LT" #: Leaving Transfer
+LFER_B = LFER + BACKWARDS  #: Backwards (currently only for replacements)
+LFER_F = LFER + FORWARDS   #: Forwards (currently only for replacements)
+AFER = "AT" #: Arriving Transfer
 LOSS = "L"  #: Loss
 INV = "I"   #: Inversion
 POS = "P"   #: Transposition
 ORIG = "O"  #: Origination
 
-class GenomeEvent:
+class GenomeEvent(abc.ABC):
     """
     An rearrangement event. Meant to be used as a base class.
 
@@ -38,6 +59,224 @@ class GenomeEvent:
         self.time: float = time
 
     @abc.abstractmethod
+    def return_info(self) -> tuple:
+        """
+        Return all the important info to register the event.
+        """
+        raise NotImplementedError
+
+
+## || ## || ## || ## || ## || ## || ## || ## || ## || ## || ## || ## || ## || ##
+# Events with gene-order indices
+
+
+class GeneOrderEvent(GenomeEvent, abc.ABC):
+    """
+    A genomic event that deals with gene-order indices (for G mode).
+    Meant to be used as a base class.
+    """
+    def __init__(self, chromosome: 'Chromosome', *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.chromosome: 'Chromosome' = chromosome
+        self.length: int
+
+    @abc.abstractmethod
+    def return_info(self) -> tuple[T_EVENT, float, str, int, str]:
+        """
+        Return (EVENT, TIME, BREAKPOINTS, LENGTH, CHROMOSOME), where BREAKPOINTS
+        is a comma-separated list of gene-order indices affected by the event.
+        """
+        raise NotImplementedError
+
+
+    def __str__(self) -> str:
+        return ', '.join(map(str, self.return_info()))
+
+
+class EventOneBreakpoint(GeneOrderEvent):
+    """
+    A single-breakpoint genomic event that deals with gene-order indices (for G
+    mode).
+
+    Attributes
+    ----------
+    position: int
+        the gene index before the event
+    length: int
+        the number of genes involved in the event
+    chromosome: Chromosome
+        the chromosome on which the event happened
+    etype: str
+        the type of event from {FER, ORIG}
+    lineage: str
+        the lineage on which the event happened (pendant node name)
+    time: float
+        the time at which it happened
+    """
+    def __init__(self, position: int, length: int, *args, **kwargs):
+        """
+        Parameters
+        ----------
+        position: int
+            the position of the gene involved in the event
+        length: int
+            the number of genes involved in the event
+        chromosome: Chromosome
+            the chromosome on which the event happened
+        etype: str
+            the type of event from {FER, ORIG}
+        lineage: str
+            the lineage on which the event happened (pendant node name)
+        time: float
+            the time at which it happened
+        """
+        super().__init__(*args, **kwargs)
+        assert self.etype in {AFER, ORIG}, (
+            f"{self.etype} not a one breakpoint event!")
+
+        self.position: int = position
+        self.length = length
+
+
+    def return_info(self) -> tuple[T_EVENT, float, str, int, str]:
+        """
+        Return (EVENT, TIME, BREAKPOINTS, LENGTH, CHROMOSOME), where BREAKPOINTS
+        is a comma-separated list of gene-order indices affected by the event.
+        """
+        return (self.etype, self.time, str(self.position),
+                self.length, str(self.chromosome.name))
+
+
+class EventTwoBreakpoints(GeneOrderEvent):
+    """
+    A two breakpoint genomic event that deals with two gene-order indices (for G
+    mode).
+    
+    Notes
+    -----
+        `pos1` is always considered to be the first of the breakpoints, so if
+        the event wraps around the index of `pos1` will be greater than
+        the index of `pos2`.
+
+    Attributes
+    ----------
+    pos1: int
+        the first gene index included in the event (before it's applied)
+    pos2: int
+        the last gene index included in the event (before it's applied)
+    """
+    def __init__(self, affected_indices: list[int], *args, **kwargs):
+        """
+        Parameters
+        ----------
+        affected_indices: list[int]
+            the indices of all the genes affected by the event (if it wraps
+            then we assume the larger indices come first)
+        chromosome: Chromosome
+            the chromosome on which the event happened
+        length: int
+            the number of genes involved in the event
+        etype: str
+            the type of event from {TDUP, FER, LOSS, INV}
+        lineage: str
+            the lineage on which the event happened (pendant node name)
+        time: float
+            the time at which it happened
+        """
+        super().__init__(*args, **kwargs)
+        assert self.etype in {TDUP, LOSS, INV, POS, LFER, LFER_F, LFER_B}, (
+            f"{self.etype} not a two breakpoint event!")
+
+        self.pos1 = affected_indices[0]
+        self.pos2 = affected_indices[-1]
+        self.length = len(affected_indices)
+
+
+    def return_info(self) -> tuple[T_EVENT, float, str, int, str]:
+        """
+        Return (EVENT, TIME, BREAKPOINTS, LENGTH, CHROMOSOME), where BREAKPOINTS
+        is a comma-separated list of gene-order indices affected by the event.
+        """
+        return (self.etype, self.time, str(self.pos1) + "," + str(self.pos2),
+                self.length, str(self.chromosome.name))
+
+
+class EventThreeBreakpoints(GeneOrderEvent):
+    """
+    A three breakpoint genomic event that deals with three gene-order indices
+    (for G mode).
+
+    Notes
+    -----
+        `pos1` is always considered to be the first of the breakpoints, so if
+        the event wraps around the index of `pos1` will be greater than
+        the index of `pos2`.
+
+    Attributes
+    ----------
+    pos1: int
+        the first gene index included in the event (before it's applied)
+    pos2: int
+        the second gene index included in the event (before it's applied)
+    here: int
+        put the sequence here
+    """
+    def __init__(self, affected_indices: list[int], position: int,
+                 *args, **kwargs):
+        """
+        affected_indices: list[int]
+            the indices of all the genes affected by the event (if it wraps
+            then we assume the larger indices come first)
+        position: int
+            the position of the third breakpoint (to put the segment)
+        length: int
+            the number of genes involved in the event
+        chromosome: Chromosome
+            the chromosome on which the event happened
+        etype: str
+            the type of event from {POS, DUP}
+        lineage: str
+            the lineage on which the event happened (pendant node name)
+        time: float
+            the time at which it happened
+        """
+        super().__init__(*args, **kwargs)
+        assert self.etype in {POS, DUP}, f"{self.etype} not a three breakpoint event!"
+
+        self.here: int = position
+        self.pos1 = affected_indices[0]
+        self.pos2 = affected_indices[-1]
+        self.length = len(affected_indices)
+
+
+    def return_info(self) -> tuple[T_EVENT, float, str, int, str]:
+        """
+        Return (EVENT, TIME, BREAKPOINTS, LENGTH, CHROMOSOME), where BREAKPOINTS
+        is a comma-separated list of gene-order indices affected by the event.
+        """
+        return (self.etype, self.time,
+                str(self.pos1) + "," + str(self.pos2) + "," + str(self.here),
+                self.length, str(self.chromosome.name))
+
+
+## || ## || ## || ## || ## || ## || ## || ## || ## || ## || ## || ## || ## || ##
+# Events with nucleotide Coordinates
+
+class GenomeCoordEvent(GenomeEvent, abc.ABC):
+    """
+    A genomic event that deals with specific and total coordinates (for Gf
+    mode - when Intergenes and Divisions are involved).
+    Meant to be used as a base class.
+
+    Attributes
+    ----------
+    after: int
+        the coordinate after the event
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    @abc.abstractmethod
     def afterToBeforeS(self, sc: int) -> int:
         """
         Given a specific breakpoint coordinate after this event, return the
@@ -54,18 +293,18 @@ class GenomeEvent:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def return_info(self):
+    def return_info(self) -> tuple[T_EVENT, float, str]:
         """
         Return all the important info to register the event.
         """
         raise NotImplementedError
 
 
-class EventOneCut(GenomeEvent):
+class CoordEventOneCut(GenomeCoordEvent, abc.ABC):
     """
     An event with one cut. Meant to be used as a base class.
 
-    ATTRIBUTES
+    Attributes
     ----------
     before: Interval
         the intergenic interval to be cut
@@ -76,7 +315,7 @@ class EventOneCut(GenomeEvent):
         self.before: Interval = interval
         self.sbp: int = sbp
             
-    def return_info(self):
+    def return_info(self) -> tuple[T_EVENT, float, str]:
         """
         Return all the important info to register the event
         """
@@ -86,17 +325,17 @@ class EventOneCut(GenomeEvent):
         return f"{self.etype} on {self.lineage}:{self.before.tc1}..{self.before.tc2}"#:{self.sbp}"
 
 
-class EventTwoCuts(GenomeEvent):
+class CoordEventTwoCuts(GenomeCoordEvent, abc.ABC):
     """
     An event with two cuts. Meant to be used as a base class.
 
-    NOTES
+    Notes
     -----
-        `before1` and 'sbp1' are always considered to be to the left of
-        `before2` and `sbp2`, so if the event wraps around the indices of
-        `before1` will be greater than the indices of `before2`.
+        `beforeL` and 'sbpL' are always considered to come before
+        `beforeR` and `sbpR`, so if the event wraps around the indices of
+        `beforeL` will be greater than the indices of `beforeR`.
 
-    ATTRIBUTES
+    Attributes
     ----------
     beforeL: Interval
         the first intergenic interval to be cut (Leftmost unless wraps). This
@@ -133,9 +372,8 @@ class EventTwoCuts(GenomeEvent):
 
     def wraps(self) -> bool:
         """
-        Does this event wrap around to the right (`before1` occurs after
-                print(f"Event: {event} at time {time} of type {etype}")
-        `before2`)?
+        Does this event wrap around to the right (`beforeL` occurs after
+        `beforeR`)?
 
         NOTES
         -----
@@ -157,9 +395,9 @@ class EventTwoCuts(GenomeEvent):
         """
         assert 0 <= tc <= self.twraplen
         return tc
-    
-    
-    def return_info(self):
+
+
+    def return_info(self) -> tuple[T_EVENT, float, str]:
         """
         Return all the important info to register the event
         """
@@ -172,7 +410,7 @@ class EventTwoCuts(GenomeEvent):
                 f",{self.beforeR.tc1}..{self.beforeR.tc2}")#:{self.sbpR}")
 
 #-- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - --
-class Origination(EventOneCut):
+class Origination(CoordEventOneCut):
     """
     An origination, where a new gene in placed within an intergene.
 
@@ -232,12 +470,12 @@ class Origination(EventOneCut):
         lenI1 = self.before.sc2 - self.sbp
         self.afterL = Interval(self.before.tc1, self.before.tc1 + lenI0,
                                self.before.sc1, self.sbp,
-                               self.before.position, 'I')
+                               self.before.position, ITYPE.INTERGENE)
 
         tstart = (self.before.t_bp - lenI1) + self.genelen + 1
         self.afterR = Interval(tstart, tstart + lenI1,
                                self.sbp+1, self.sbp+1 + lenI1,
-                               self.before.position+1, 'I')
+                               self.before.position+1, ITYPE.INTERGENE)
 
     def afterToBeforeS(self, sc: int) -> int:
         """
@@ -268,7 +506,7 @@ class Origination(EventOneCut):
         return tc
 
 #-- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - --
-class Transfer(EventTwoCuts):
+class Transfer(CoordEventTwoCuts):
     """
     A transfer, where a new segment is transferred from a donor chromosome to
     a location in a receptor chromosome.
@@ -368,7 +606,7 @@ class Transfer(EventTwoCuts):
                                self.receptorint.tc1 + lenK0 + self.lenI1,
                                self.receptorint.sc1,
                                self.receptorint.sc1 + lenK0 + self.lenI1,
-                               self.receptorint.position, 'I',
+                               self.receptorint.position, ITYPE.INTERGENE,
                                self.receptorint.tc1 + lenK0,
                                self.receptorint.sc1 + lenK0)
 
@@ -387,7 +625,7 @@ class Transfer(EventTwoCuts):
         tstart = self.receptorint.tc1 + lenK0 + self.lenSt - self.lenJ0 + 1
         self.afterR = Interval(tstart, tstart + self.lenJ0 + lenK1,
                                sstart, sstart + self.lenJ0 + lenK1,
-                               position, 'I',
+                               position, ITYPE.INTERGENE,
                                tstart + self.lenJ0, sstart + self.lenJ0)
         
     def afterToBeforeS(self, sc: int) -> int:
@@ -396,7 +634,7 @@ class Transfer(EventTwoCuts):
         This function cannot be defined on Transfer since the lineage is not
         implicit. See `afterToBeforeT_lineage`.
         """
-        raise(NotImplementedError)  #Use afterToBeforeT_lineage()!
+        raise(NotImplementedError("Use afterToBeforeS_lineage()!"))
         
 
     def afterToBeforeS_lineage(self, sc: int) -> Tuple[str, int]:
@@ -406,6 +644,11 @@ class Transfer(EventTwoCuts):
 
             ... K ...       became
             ... K0 I1 S J0 K1 ...
+
+        Returns
+        -------
+        Tuple[str, int]
+            The lineage and the breakpoint coordinate before the transfer.
         """
         if self.wraps():
             if sc <= self.afterL.s_bp:      #before transfered region
@@ -433,7 +676,7 @@ class Transfer(EventTwoCuts):
         This function cannot be defined on Transfer since the lineage is not
         implicit. See `afterToBeforeT_lineage`.
         """
-        raise(NotImplementedError)  #Use afterToBeforeT_lineage()!
+        raise(NotImplementedError("Use afterToBeforeT_lineage()!"))
 
     def afterToBeforeT_lineage(self, tc: int) -> Tuple[str, int]:
         """
@@ -444,28 +687,28 @@ class Transfer(EventTwoCuts):
             ... K0 I1 S J0 K1 ...
         """
         if self.wraps():
-            if tc <= self.afterL.t_bp:      #before transfered region
+            if tc <= self.afterL.t_bp:          #before transfered region
                 return (self.receptorlineage, tc)
-            elif tc >= self.afterR.t_bp:    #after transfered region
+            elif tc >= self.afterR.t_bp:        #after transfered region
                 return (self.receptorlineage, tc - (self.lenSt + 1))
-            else:                           #inside transfered region
+            else:                               #inside transfered region
                 if tc - self.afterL.t_bp <= self.twraplen - self.tbpL:
-                    return (self.lineage,   #in part that didn't wrap
+                    return (self.donorlineage,  #in part that didn't wrap
                             self.beforeL.t_bp + (tc - self.afterL.t_bp))
-                else:                       #in part that wrapped
-                    return (self.lineage,
+                else:                           #in part that wrapped
+                    return (self.donorlineage,
                             (tc - self.afterL.t_bp) -
                             (self.twraplen - self.beforeL.t_bp))
         else:
-            if tc <= self.afterL.t_bp:      #before transfered region
+            if tc <= self.afterL.t_bp:          #before transfered region
                 return (self.receptorlineage, tc)
-            elif tc >= self.afterR.t_bp:    #after transfered region
+            elif tc >= self.afterR.t_bp:        #after transfered region
                 return (self.receptorlineage, tc - self.lenSt - 1)
-            else:                           #inside transfered region
-                return (self.lineage, self.tbpL + (tc - self.afterL.t_bp))
+            else:                               #inside transfered region
+                return (self.donorlineage, self.tbpL + (tc - self.afterL.t_bp))
 
 #-- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - --
-class Loss(EventTwoCuts):
+class Loss(CoordEventTwoCuts):
     """
     A loss event.
 
@@ -555,7 +798,7 @@ class Loss(EventTwoCuts):
         """
         Compute the resulting intergenic interval after the cut.
 
-        Consider intergenic regions I = `before1` and J = `before2` on either
+        Consider intergenic regions I = `beforeL` and J = `beforeR` on either
         side of segment S:
 
             I S J
@@ -617,7 +860,7 @@ class Loss(EventTwoCuts):
             tend = tstart + lenI0 + lenJ1
 
         self.after = Interval(tstart, tend, sstart, send,
-                              position, 'I', newtbp, newsbp)
+                              position, ITYPE.INTERGENE, newtbp, newsbp)
 
     def afterToBeforeS(self, sc: int) -> int:
         """
@@ -860,11 +1103,16 @@ class MapOriginError(Exception):
     pass
 
 #-- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - --
-class Transposition(EventTwoCuts):
+class Transposition(CoordEventTwoCuts):
     """
     A transposition genome event.
 
-    ATTRIBUTES
+    Notes
+    -----
+    This extends the CoordEventTwoCuts, which where there is a cut one and two,
+    but adds a third cut "H", for "here".
+
+    Attributes
     ----------
     beforeH: Interval
         the copied segment will be place here, in this intergenic region
@@ -933,7 +1181,7 @@ class Transposition(EventTwoCuts):
     def setAfter(self):
         """
         Set the three intergenic regions that exist after the Transposition.
-        Consider intergenic regions I = `before1` and J = `before2` on either
+        Consider intergenic regions I = `beforeL` and J = `beforeR` on either
         side of segment S and K = `before3` where the transposed region will
         land.
 
@@ -1103,11 +1351,11 @@ class Transposition(EventTwoCuts):
         tbreakH = t_herestart + lenI0
 
         self.afterH = Interval(t_herestart, t_hereend, s_herestart, s_hereend,
-                               hereposition, 'I', tbreakH, sbreakH)
+                               hereposition, ITYPE.INTERGENE, tbreakH, sbreakH)
         self.afterL = Interval(t_leftstart, t_leftend, s_leftstart, s_leftend,
-                               leftposition, 'I', tbreakL, sbreakL)
+                               leftposition, ITYPE.INTERGENE, tbreakL, sbreakL)
         self.afterR = Interval(t_rightstart, t_rightend, s_rightstart, s_rightend,
-                               rightposition, 'I', tbreakR, sbreakR)
+                               rightposition, ITYPE.INTERGENE, tbreakR, sbreakR)
 
 
     def afterToBeforeS(self, sc: int) -> int:
@@ -1240,11 +1488,11 @@ class Transposition(EventTwoCuts):
         tbreakL = t_leftstart + lenI0 + lenJ1l
 
         self.afterH = Interval(t_herestart, t_hereend, s_herestart, s_hereend,
-                               hereposition, 'I', tbreakH, sbreakH)
+                               hereposition, ITYPE.INTERGENE, tbreakH, sbreakH)
         self.afterL = Interval(t_leftstart, t_leftend, s_leftstart, s_leftend,
-                               leftposition, 'I', tbreakL, sbreakL)
+                               leftposition, ITYPE.INTERGENE, tbreakL, sbreakL)
         self.afterR = Interval(t_rightstart, t_rightend, s_rightstart, s_rightend,
-                               rightposition, 'I', tbreakR, sbreakR)
+                               rightposition, ITYPE.INTERGENE, tbreakR, sbreakR)
 
 
     def setAfter_S1_J0_J1__I0l_I0r_I1_S0(self, lenI1, lenJ0, lenJ1,
@@ -1286,11 +1534,11 @@ class Transposition(EventTwoCuts):
         tbreakH = t_herestart + lenJ0 + lenI0r
         
         self.afterH = Interval(t_herestart, t_hereend, s_herestart, s_hereend,
-                               hereposition, 'I', tbreakH, sbreakH)
+                               hereposition, ITYPE.INTERGENE, tbreakH, sbreakH)
         self.afterL = Interval(t_leftstart, t_leftend, s_leftstart, s_leftend,
-                               leftposition, 'I', tbreakL, sbreakL)
+                               leftposition, ITYPE.INTERGENE, tbreakL, sbreakL)
         self.afterR = Interval(t_rightstart, t_rightend, s_rightstart, s_rightend,
-                               rightposition, 'I', tbreakR, sbreakR)
+                               rightposition, ITYPE.INTERGENE, tbreakR, sbreakR)
 
 
     def setAfter_I0_I1_S_J0_J1l_J1r(self, lenI0, lenI1, lenJ0):
@@ -1326,11 +1574,11 @@ class Transposition(EventTwoCuts):
         hereposition = self.beforeH.position
 
         self.afterH = Interval(t_herestart, t_hereend, s_herestart, s_hereend,
-                               hereposition, 'I', tbreakH, sbreakH)
+                               hereposition, ITYPE.INTERGENE, tbreakH, sbreakH)
         self.afterL = Interval(t_leftstart, t_leftend, s_leftstart, s_leftend,
-                               leftposition, 'I', tbreakL, sbreakL)
+                               leftposition, ITYPE.INTERGENE, tbreakL, sbreakL)
         self.afterR = Interval(t_rightstart, t_rightend, s_rightstart, s_rightend,
-                               rightposition, 'I', tbreakR, sbreakR)
+                               rightposition, ITYPE.INTERGENE, tbreakR, sbreakR)
 
 
     def setAfter_I0l_I0r_I1_S_J0_J1(self, lenJ0):
@@ -1366,19 +1614,19 @@ class Transposition(EventTwoCuts):
         hereposition = self.beforeH.position
 
         self.afterH = Interval(t_herestart, t_hereend, s_herestart, s_hereend,
-                               hereposition, 'I', tbreakH, sbreakH)
+                               hereposition, ITYPE.INTERGENE, tbreakH, sbreakH)
         self.afterL = Interval(t_leftstart, t_leftend, s_leftstart, s_leftend,
-                               leftposition, 'I', tbreakL, sbreakL)
+                               leftposition, ITYPE.INTERGENE, tbreakL, sbreakL)
         self.afterR = Interval(t_rightstart, t_rightend, s_rightstart, s_rightend,
-                               rightposition, 'I', tbreakR, sbreakR)
+                               rightposition, ITYPE.INTERGENE, tbreakR, sbreakR)
 
 
 #-- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - --
-class Inversion(EventTwoCuts):
+class Inversion(CoordEventTwoCuts):
     """
     An Inversion event.
 
-    ATTRIBUTES
+    Attributes
     ----------
     afterL: Interval
         the first intergenic interval after the event (I0 -J0, see `setAfter()`)
@@ -1441,7 +1689,7 @@ class Inversion(EventTwoCuts):
     def setAfter(self):
         """
         Set the two intergenic regions that exist after the inversion.
-        Consider intergenic regions I = `before1` and J = `before2` on either
+        Consider intergenic regions I = `beforeL` and J = `beforeR` on either
         side of segment S:
 
             I S J
@@ -1506,9 +1754,9 @@ class Inversion(EventTwoCuts):
             tbreakR = self.tbpR
 
         self.afterL = Interval(tleftstart, tleftend, sleftstart, sleftend,
-                               self.beforeL.position, 'I', tbreakL, sbreakL)
+                               self.beforeL.position, ITYPE.INTERGENE, tbreakL, sbreakL)
         self.afterR = Interval(trightstart, trightend, srightstart, srightend,
-                               self.beforeR.position, 'I', tbreakR, sbreakR)
+                               self.beforeR.position, ITYPE.INTERGENE, tbreakR, sbreakR)
 
     def afterToBeforeS(self, sc: int) -> int:
         """
@@ -1585,11 +1833,11 @@ class Inversion(EventTwoCuts):
                 return self.assertT(self.tbpL + (self.tbpR - tc))
 
 #-- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - --
-class TandemDup(EventTwoCuts):
+class TandemDup(CoordEventTwoCuts):
     """
     A tandem duplication event. See the description of `setAfter()` for details.
     
-    ATTRIBUTES
+    Attributes
     ----------
     afterL: Interval
         the first intergenic interval after the event (I0 I1, see `setAfter()`)
@@ -1646,7 +1894,7 @@ class TandemDup(EventTwoCuts):
         """
         Set the three intergenic regions that exist after the tandem
         duplication.
-        Consider intergenic regions I = `before1` and J = `before2`. I and J
+        Consider intergenic regions I = `beforeL` and J = `beforeR`. I and J
         are on either side of segment S composed of genes and intergenes:
 
             I S J
@@ -1694,11 +1942,11 @@ class TandemDup(EventTwoCuts):
     
         position = self.beforeL.position + self.numintergenes + 1
         self.afterC = Interval(tcenterstart, tcenterend,
-                               scenterstart, scenterend, position, 'I',
+                               scenterstart, scenterend, position, ITYPE.INTERGENE,
                                tcenterbreak, scenterbreak)
         position += self.numintergenes + 1
         self.afterR = Interval(trightstart, trightend,
-                               srightstart, srightend, position, 'I')
+                               srightstart, srightend, position, ITYPE.INTERGENE)
 
     def afterToBeforeS(self, sc: int) -> int:
         """

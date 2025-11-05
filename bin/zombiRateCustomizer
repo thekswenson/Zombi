@@ -207,7 +207,7 @@ def main():
     args = parser.parse_args()
 
     mode, parameters_file, experiment_folder = args.mode, args.parameters, args.output
-    parameters = af.prepare_genome_parameters(af.read_parameters(parameters_file))
+    parameters = af.prepare_genome_parameters(parameters_file)
 
     rates_folder = os.path.join(experiment_folder,"CustomRates")
 

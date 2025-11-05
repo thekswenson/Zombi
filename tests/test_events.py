@@ -14,13 +14,17 @@ from zombi.Genomes import T_DIR
 import zombi.AuxiliarFunctions as af
 
 
-GENOME_PARAMS = 'Parameters/GenomeParameters.tsv'
+GENOME_PARAMS = Path('Parameters/GenomeParameters.tsv')
 TEST_DIVISIONS = Path('tests/TestDivisions1/')
 TEST_GENOME_30_10 = Path('tests/30_10.gff')  #30 bases, 3 * length-5 genomic/intergenomic pairs
 TEST_GENOME_30_6 = Path('tests/30_6.gff')  #30 bases, 5 * length-3 genomic/intergenomic pairs
 TEST_GENOME_30_6_MOD = Path('tests/30_6_mod.gff')  #A modified version of 30_6
 TEST_GENOME_18_6 = Path('tests/18_6.gff')  #18 bases, 3 * length-3 genomic/intergenomic pairs
+TEST_GENOME_100_10 = Path('tests/100_10.gff')  #10 bases, 10 * length-5 genomic/intergenomic pairs
 
+
+#This is a cludge to get the temporary path fixture from pytest to work with
+# a unittest.TestCase
 @pytest.fixture(autouse=True)
 def _inject_tmp_path_factory(request, tmp_path_factory):
     if hasattr(request, "cls") and request.cls is not None:
@@ -31,7 +35,7 @@ def _inject_tmp_path_factory(request, tmp_path_factory):
 class TestEvent(unittest.TestCase):
 
   def setUp(self, genome_file=TEST_GENOME_30_6):
-    params = af.prepare_genome_parameters(af.read_parameters(GENOME_PARAMS))
+    params = af.prepare_genome_parameters(GENOME_PARAMS)
     test_folder = self.tmp_path_factory.mktemp('session')   #type: ignore
 
     shutil.copytree(TEST_DIVISIONS / 'T', test_folder / 'T')
@@ -255,6 +259,11 @@ class TestEvent(unittest.TestCase):
     self.gss.make_inversion_intergenic(ch, 13, 8, T_DIR.RIGHT, lineage, 0.0)
     inversion = ch.event_history[0]
     assert isinstance(inversion, Inversion)
+
+    #print(f'gene order: {[f"{g.orientation}{g}" for g in ch.genes]}')
+    # NOTE: Two genes are mixed here!  It's not clear which gene should get
+    # which family name.
+    assert [g.family for g in ch.genes] == ['2','1','5','4','3']
 
     self.assertEqual(ch.intergenes[2].length, 5,
                      'first intergene length mismatch after inversion')
@@ -758,7 +767,7 @@ class TestEvent(unittest.TestCase):
   def test_tandemdup_1(self):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
-    self.gss.make_tandemdup_within_intergene(ch, 3, 9, T_DIR.RIGHT, lineage, 0.0)
+    self.gss.make_tandemdup_intergenic(ch, 3, 9, T_DIR.RIGHT, lineage, 0.0)
     tdup = ch.event_history[0]
     assert isinstance(tdup, TandemDup)
 
@@ -791,7 +800,7 @@ class TestEvent(unittest.TestCase):
 
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
-    self.gss.make_tandemdup_within_intergene(ch, 9, 2, T_DIR.RIGHT, lineage, 0.0)
+    self.gss.make_tandemdup_intergenic(ch, 9, 2, T_DIR.RIGHT, lineage, 0.0)
     tdup = ch.event_history[0]
     assert isinstance(tdup, TandemDup)
 
@@ -844,7 +853,7 @@ class TestEvent(unittest.TestCase):
 
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
-    self.gss.make_tandemdup_within_intergene(ch, 2, 9, T_DIR.LEFT, lineage, 0.0)
+    self.gss.make_tandemdup_intergenic(ch, 2, 9, T_DIR.LEFT, lineage, 0.0)
     tdup = ch.event_history[0]
     assert isinstance(tdup, TandemDup)
 
@@ -880,7 +889,7 @@ class TestEvent(unittest.TestCase):
   def test_tandemdup_3(self):
     ch = self.genome.chromosomes[0]
     lineage = self.genome.species
-    self.gss.make_tandemdup_within_intergene(ch, 13, 8, T_DIR.RIGHT, lineage, 0.0)
+    self.gss.make_tandemdup_intergenic(ch, 13, 8, T_DIR.RIGHT, lineage, 0.0)
     tdup = ch.event_history[0]
     assert isinstance(tdup, TandemDup)
 
