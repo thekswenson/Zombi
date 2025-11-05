@@ -17,11 +17,11 @@ from zombi.Events import LFER_F, TDUP, DUP, LFER, AFER, LOSS, INV, POS, ORIG
 from zombi.Events import LFER_B 
 
 
-#T_PARAMS = Path('Parameters/SpeciesTreeParameters.tsv')
-#G_PARAMS = Path('Parameters/GenomeParameters.tsv')
+T_PARAMS = Path('Parameters/SpeciesTreeParameters.tsv')
+G_PARAMS = Path('Parameters/GenomeParameters.tsv')
 #S_PARAMS = Path('Parameters/SequenceParameters.tsv')
-T_PARAMS = Path('tests/SpeciesTreeParameters.tsv') #With Seed set
-G_PARAMS = Path('tests/GenomeParameters.tsv')      #With Seed set
+#T_PARAMS = Path('tests/SpeciesTreeParameters.tsv') #With Seed set
+#G_PARAMS = Path('tests/GenomeParameters.tsv')      #With Seed set
 #S_PARAMS = Path('tests/SequenceParameters.tsv')    #With Seed set
 T_SMALL_PARAMS = Path('tests/SpeciesTreeParameters_small.tsv')
 Gm_PARAMS = Path('tests/GenomeParameters.tsv')

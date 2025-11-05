@@ -2981,8 +2981,8 @@ class GenomeSimulator():
             position = chromosome2.select_random_position()
             chromosome2.insert_segment(position, recipient_segment)
 
-            event = EventOneBreakpoint(position, len(recipient_segment), AFER,
-                                       chromosome2, recipient, time)
+            event = EventOneBreakpoint(position, len(recipient_segment),
+                                       chromosome2, AFER, recipient, time)
             #chromosome2.geneorder_history.append(event)
             self.geneorder_events[recipient].append(event)
 
