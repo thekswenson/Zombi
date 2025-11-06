@@ -628,43 +628,57 @@ def main():
     parent.add_argument('-f', '--force', action='store_true',
                         help='Overwrite existing files in PROJECT_DIR')
 
-    p_T = subparsers.add_parser('T', parents=[parent],
-                                help='Species Tree simulation')
-    p_Ti = subparsers.add_parser('Ti', parents=[parent],
-                                 help='Species Tree simulation from input tree '
-                                      '(PARAMS is a newick tree file rather than a parameters file)')
-    p_Tb = subparsers.add_parser('Tb', parents=[parent],
-                                 help='Species Tree simulation with branch-wise rates')
-    p_Tp = subparsers.add_parser('Tp', parents=[parent],
-                                 help='Species Tree simulation with lineage profiling')
-    p_Tm = subparsers.add_parser('Tm', parents=[parent],
-                                 help='Species Tree simulation with mass extinctions')
-    p_Ts = subparsers.add_parser('Ts', parents=[parent],
-                                 help='Species Tree simulation with a birth-death-shift process')
+    Tdesc = 'Species Tree simulation'
+    p_T = subparsers.add_parser('T', parents=[parent], description=Tdesc,
+                                help=Tdesc)
+    Tidesc = ('Species Tree simulation from input tree (PARAMS is a newick tree'
+              'file rather than a parameters file)')
+    p_Ti = subparsers.add_parser('Ti', parents=[parent], description=Tidesc,
+                                 help=Tidesc)
+    Tbdesc = 'Species Tree simulation with branch-wise rates'
+    p_Tb = subparsers.add_parser('Tb', parents=[parent], description=Tbdesc,
+                                 help=Tbdesc)
+    Tpdesc = 'Species Tree simulation with lineage profiling'
+    p_Tp = subparsers.add_parser('Tp', parents=[parent], description=Tpdesc,
+                                 help=Tpdesc)
+    Tmdesc = 'Species Tree simulation with mass extinctions'
+    p_Tm = subparsers.add_parser('Tm', parents=[parent], description=Tmdesc,
+                                 help=Tmdesc)
+    Tsdesc = 'Species Tree simulation with a birth-death-shift process'
+    p_Ts = subparsers.add_parser('Ts', parents=[parent], description=Tsdesc,
+                                 help=Tsdesc)
     
     Gparent = argparse.ArgumentParser(add_help=False)
     Gparent.add_argument('-a', '--all-genomes', action='store_true',
                          help='Save all intermediate genomes')
+    Gdesc = 'Genome simulation'
     p_G = subparsers.add_parser('G', parents=[parent, Gparent],
-                                help='Genome simulation')
+                                description=Gdesc, help=Gdesc)
+    Gudesc = 'Genome simulation with user-defined rates'
     p_Gu = subparsers.add_parser('Gu', parents=[parent, Gparent],
-                                 help='Genome simulation with user-defined rates')
+                                 description=Gudesc, help=Gudesc)
+    Gfdesc = 'Genome simulation with intergenic sequences'
     p_Gf = subparsers.add_parser('Gf', parents=[parent, Gparent],
-                                 help='Genome simulation with intergenic sequences')
+                                 description=Gfdesc, help=Gfdesc)
+    Gmdesc = 'Genome simulation with gene family-wise rates'
     p_Gm = subparsers.add_parser('Gm', parents=[parent, Gparent],
-                                 help='Genome simulation with gene family-wise rates')
-    
+                                 description=Gmdesc, help=Gmdesc)
+
     Sparent = argparse.ArgumentParser(add_help=False)
     Sparent.add_argument('-p', '--parallel', metavar='NUM_THREADS', type=int, default=1,
                          help='Use this many threads to simulated sequences')
+    Sdesc = 'Sequence simulation'
     p_S = subparsers.add_parser('S', parents=[parent, Sparent],
-                                help='Sequence simulation')
+                                description=Sdesc, help=Sdesc)
+    Sudesc = 'Sequence simulation with user-defined rates'
     p_Su = subparsers.add_parser('Su', parents=[parent, Sparent],
-                                 help='Sequence simulation with user-defined rates')
+                                 description=Sudesc, help=Sudesc)
+    Sfdesc = 'Sequence simulation with intergenic sequence mutation'
     p_Sf = subparsers.add_parser('Sf', parents=[parent, Sparent],
-                                 help='Sequence simulation with intergenic sequence mutation')
+                                 description=Sfdesc, help=Sfdesc)
+    Ssdesc = 'Sequence simulation with shifting substitution rates'
     p_Ss = subparsers.add_parser('Ss', parents=[parent, Sparent],
-                                 help='Sequence simulation with shifting substitution rates')
+                                 description=Ssdesc, help=Ssdesc)
 
 
     p_Gf.add_argument('-g', '--genome-root', metavar='GFF_FILE', type=Path,

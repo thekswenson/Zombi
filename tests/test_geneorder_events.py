@@ -16,6 +16,7 @@ from zombi.Filenames import GENEORDEREVENTSsuffix, GENOMEsuffix
 from zombi.Events import LFER_F, TDUP, DUP, LFER, AFER, LOSS, INV, POS, ORIG
 from zombi.Events import LFER_B 
 
+REPS = 10
 
 T_PARAMS = Path('Parameters/SpeciesTreeParameters.tsv')
 G_PARAMS = Path('Parameters/GenomeParameters.tsv')
@@ -60,6 +61,7 @@ def test_T(run_T):
   assert (run_T / TREELENGTHS).exists()
 
 
+@pytest.mark.repeat(REPS)
 def test_G(projdir, script_runner, run_T):
   """ Test the G mode of Zombi. """
   assert (run_T).exists(), 'There was a problem with run_T!'
@@ -71,6 +73,51 @@ def test_G(projdir, script_runner, run_T):
   assert eventsdir.exists()
   genomesdir = outdir / 'All_genomes'
   checkEventsAgainstGenomes(run_T / COMPLETETREE, eventsdir, genomesdir)
+
+
+@pytest.mark.repeat(REPS)
+def test_Gf(projdir, script_runner, run_T):
+  """ Test the G mode of Zombi. """
+  assert (run_T).exists(), 'There was a problem with run_T!'
+
+  script_runner.run(['zombi', 'Gf', '-a', G_PARAMS, projdir])
+
+  outdir = projdir / 'G'
+  eventsdir = outdir / 'Geneorder_events_per_branch'
+  assert eventsdir.exists()
+  genomesdir = outdir / 'All_genomes'
+  checkEventsAgainstGenomes(run_T / COMPLETETREE, eventsdir, genomesdir)
+
+
+@pytest.mark.repeat(REPS)
+def test_Gm(projdir, script_runner, run_T):
+  """ Test the G mode of Zombi. """
+  assert (run_T).exists(), 'There was a problem with run_T!'
+
+  script_runner.run(['zombi', 'Gm', '-a', G_PARAMS, projdir])
+
+  outdir = projdir / 'G'
+  eventsdir = outdir / 'Geneorder_events_per_branch'
+  assert eventsdir.exists()
+  genomesdir = outdir / 'All_genomes'
+  checkEventsAgainstGenomes(run_T / COMPLETETREE, eventsdir, genomesdir)
+
+
+@pytest.mark.repeat(REPS)
+def test_Gu(projdir, script_runner, run_T):
+  """ Test the G mode of Zombi. """
+  assert (run_T).exists(), 'There was a problem with run_T!'
+
+  script_runner.run(['zombi', 'Gu', '-a', G_PARAMS, projdir])
+
+  outdir = projdir / 'G'
+  eventsdir = outdir / 'Geneorder_events_per_branch'
+  assert eventsdir.exists()
+  genomesdir = outdir / 'All_genomes'
+  checkEventsAgainstGenomes(run_T / COMPLETETREE, eventsdir, genomesdir)
+
+
+
 
 
 

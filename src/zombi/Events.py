@@ -1,14 +1,17 @@
 """
 Genomic events. These can be GeneOrderEvents (for G mode) which keep track of
-their gene-order indices, or GenomeCoordEvents (for Gf mode) which keep track
-of their genomic coordinates.
+the gene-order positions of the breakpoints, or GenomeCoordEvents (for Gf mode)
+which keep track of the genomic coordinates of the breakpoints.
 
 Notes
 -----
-- These work currently with single chromosomes only.
-- Events are chromosome specific, so a transfer event, that effects
+- These work currently with single chromosomes only!
+- Events are chromosome-centric, so a transfer event, that effects two
   chromosomes, will be registered as two events, one in the donor lineage
   and one in the receptor lineage.
+- A "replacement" transfer is modelled as two events, where a transfer arriving
+  in a chromosome will first have a loss of the region being replaced, followed
+  by an arrival event.
 """
 import copy
 import abc
