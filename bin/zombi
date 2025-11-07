@@ -4,6 +4,7 @@ import os
 import sys
 import multiprocessing
 import shutil
+import random
 
 from concurrent.futures import Future, ProcessPoolExecutor
 from Bio.SeqRecord import SeqRecord
@@ -18,7 +19,8 @@ from zombi.SequenceSimulator import SequenceSimulator, write_whole_genome
 from zombi.Export import whole_genome_to_GFF
 from zombi.Random import seed_G_generators, seed_S_generators, seed_T_generators
 from zombi.Random import T_NPRNG
-from zombi.Filenames import BRANCHWISERATES, CATEGORIES, GENEFAMILYLENGTHS, TREEPARAMETERS, COMPLETETREEsuffix, PRUNEDTREEsuffix
+from zombi.Filenames import BRANCHWISERATES, CATEGORIES, GENEFAMILYLENGTHS
+from zombi.Filenames import COMPLETETREEsuffix, PRUNEDTREEsuffix
 from zombi.Filenames import GTSUBSTITUTIONRATES, RATES, RATESTREE
 from zombi.Filenames import REDSCALEDEVENTS, REDSCALEDTREE, SCALEDEVENTS
 from zombi.Filenames import SHIFTEVENTS, SHIFTSCATEGORIES, STSUBSTITUTIONRATES
@@ -69,7 +71,13 @@ class Zombi():
 
         else:
             paramdict = af.read_parameters(parameters_file)
-            seed_T_generators(int(paramdict["SEED"]))
+
+            seed = int(paramdict["SEED"])
+            if seed == 0:
+                seed = random.randint(0, sys.maxsize)
+            print(f"Using seed {seed}")
+            seed_T_generators(seed)
+
             parameters = af.prepare_species_tree_parameters(paramdict, T_NPRNG())
 
             stg = SpeciesTreeGenerator(parameters)
@@ -169,7 +177,12 @@ class Zombi():
         genomes_folder = genome_folder / "Genomes"
         gene_families_folder = genome_folder / "Gene_families"
 
-        seed_G_generators(int(parameters["SEED"]))
+        seed = int(parameters["SEED"])
+        if seed == 0:
+            seed = random.randint(0, sys.maxsize)
+        print(f"Using seed {seed}")
+        seed_G_generators(seed)
+
         gss = GenomeSimulator(parameters, events_file, root_genome, all_genomes)
 
         if advanced_mode == "0":
@@ -285,7 +298,12 @@ class Zombi():
                      f'Did you run G mode?')
 
         parameters = af.prepare_sequence_parameters(parameters_file)
-        seed_S_generators(int(parameters["SEED"]))
+
+        seed = int(parameters["SEED"])
+        if seed == 0:
+            seed = random.randint(0, sys.maxsize)
+        print(f"Using seed {seed}")
+        seed_S_generators(seed)
 
         #Create the directories
         gene_trees_folder = genome_folder / "Gene_trees"
