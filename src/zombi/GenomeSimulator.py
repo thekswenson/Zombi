@@ -3290,9 +3290,13 @@ class GenomeSimulator():
             pseudo_intergenes = intergene_segment
             pseudo_genes = segment
 
+        # Nucleotide-level loss event
         loss = Loss(int1, int2, c1, c2, specificlen, totallen, lineage, time,
                     pseudo, pseudo_intergenes, pseudo_genes, adjustment_factor)
         chromosome.event_history.append(loss)
+        # Gene-order level loss event
+        event = EventTwoBreakpoints(gpositions, chromosome, LOSS, lineage, time)
+        self.geneorder_events[lineage].append(event)
 
         if pseudo:
 
