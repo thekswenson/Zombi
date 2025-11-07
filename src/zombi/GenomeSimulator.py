@@ -2471,7 +2471,7 @@ class GenomeSimulator():
         self.make_tandemdup_core(p, lineage, time, family_mode)
 
 
-    def make_tandemdup_core(self, p, lineage, time, family_mode=False) \
+    def make_tandemdup_core(self, p: float, lineage, time, family_mode=False) \
         -> tuple[list[Gene], list[Gene], list[Gene]]:
         """
         Tandemly duplicate a segment of genes on the current lineage (i.e. on

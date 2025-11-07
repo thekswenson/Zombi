@@ -15,9 +15,11 @@ gene/division tree (i.e. there exactly one occurrence of "2" in the family).
 """
 import abc
 import itertools
+import sys
 import ete3
-
 import networkx as nx
+import numpy as np
+
 from functools import reduce
 from typing import Iterable, Union, cast
 from enum import Enum, auto
@@ -72,7 +74,7 @@ class GeneFamily:
 
         self.length = 0
 
-        self.rates = dict() # Only in Gm mode
+        self.rates = dict()           # Only in Gm mode
         self.initial_orientation = "" # The initial orientation of the family
 
 
@@ -1856,8 +1858,9 @@ class CircularChromosome(Chromosome):
         return affected_genes
 
 
-    def obtain_affected_indices_family_rates(self, p_extension, gene_families,
-                                             mrate) -> list[int]:
+    def obtain_affected_indices_family_rates(self, p_extension: float,
+                                             gene_families: dict[str, GeneFamily],
+                                             mrate: str) -> list[int]:
 
         # In this first version, length is 1. For a more advanced version,
         # I should extent the interactome model
@@ -1889,9 +1892,7 @@ class CircularChromosome(Chromosome):
 
                 # If the extension is shorter than the whole genome length
 
-                for each_start, gene in enumerate(self.genes):
-
-                    position = each_start
+                for position in range(len(self.genes)):
                     affected_genes = list()
 
                     for i in range(position, position + length):
@@ -1900,8 +1901,12 @@ class CircularChromosome(Chromosome):
                         else:
                             affected_genes.append(i)
 
-                    all_weights.append(reduce(lambda x, y: x * y, [gene2rate[self.genes[x]] for x in affected_genes]))
-                #print(all_weights)
+                    product = np.prod([gene2rate[self.genes[x]] for x in affected_genes])
+                    if product == 0.0:
+                        all_weights.append(sys.float_info.min)
+                    else:
+                        all_weights.append(product)
+
                 position = G_NPRNG().choice(range(len(self.genes)), 1,
                                             p=af.normalize(all_weights))[0]
                 affected_genes = list()

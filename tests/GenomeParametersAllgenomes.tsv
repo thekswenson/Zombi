@@ -91,4 +91,4 @@ RATE_FILE Tutorials/Tutorial2/CyanoRates.tsv
 SCALE_RATES False
 #
 ## SEED : If 0, the SEED is chosen randomly
-SEED 10
+SEED 0
