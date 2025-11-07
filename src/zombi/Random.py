@@ -28,7 +28,6 @@ def seed_T_generators(seed: int):
     """
     global T_RNGvar, T_NPRNGvar
     if seed != 0 and seed is not None:
-        print("Seeding T generators with seed", seed)
         T_RNGvar = random.Random(seed)
         T_NPRNGvar = np.random.default_rng(seed)
 

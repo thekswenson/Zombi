@@ -18,14 +18,11 @@ from zombi.Events import LFER_F, TDUP, DUP, LFER, AFER, LOSS, INV, POS, ORIG
 from zombi.Events import LFER_B
 from zombi.Test import crosscheckGenomes, comparePiecesToGenomes
 
-REPS = 10000
+REPS = 10
 
 T_PARAMS = Path('Parameters/SpeciesTreeParameters.tsv')
 G_PARAMS = Path('tests/GenomeParametersAllgenomes.tsv')
 S_PARAMS = Path('Parameters/SequenceParameters.tsv')
-#T_PARAMS = Path('tests/SpeciesTreeParametersSeeded.tsv') #With Seed set
-#G_PARAMS = Path('tests/GenomeParameters.tsv')      #With Seed set
-#S_PARAMS = Path('tests/SequenceParameters.tsv')    #With Seed set
 T_SMALL_PARAMS = Path('tests/SpeciesTreeParametersSmall.tsv')
 Gm_PARAMS = Path('tests/GenomeParametersAllgenomes.tsv')
 

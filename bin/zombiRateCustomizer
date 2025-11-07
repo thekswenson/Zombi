@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-import zombi.AuxiliarFunctions as af
+import random
+import sys
 import argparse
 import os
 import ete3
+
+import zombi.AuxiliarFunctions as af
 
 from zombi.Filenames import COMPLETETREE, EVENTRATES, EXTENSIONRATES
 from zombi.Filenames import GENEFAMILYRATES, GENOMEPARAMETERS
@@ -217,7 +220,11 @@ def main():
     rc = RateCustomizer(mode, parameters, experiment_folder)
 
     if mode == "G":
-        seed_G_generators(parameters["SEED"])
+        seed = int(parameters["SEED"])
+        if seed == 0:
+            seed = random.randint(1, sys.maxsize)
+        print(f"Using seed {seed}")
+        seed_G_generators(seed)
 
         rc.generate_transfers_file()
         rc.generate_events_file()

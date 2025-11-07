@@ -13,7 +13,7 @@ from zombi.Test import crosscheckGenomes, comparePiecesToGenomes, Filetype
 
 T_PARAMS = Path('Parameters/SpeciesTreeParameters.tsv')
 G_PARAMS = Path('Parameters/GenomeParameters.tsv')
-#S_PARAMS = Path('Parameters/SequenceParameters.tsv')
+S_PARAMS = Path('Parameters/SequenceParameters.tsv')
 #T_PARAMS = Path('tests/SpeciesTreeParametersSeeded.tsv') #With Seed set
 #G_PARAMS = Path('tests/GenomeParametersSeeded.tsv')      #With Seed set
 #S_PARAMS = Path('tests/SequenceParametersSeeded.tsv')    #With Seed set

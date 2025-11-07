@@ -74,7 +74,7 @@ class Zombi():
 
             seed = int(paramdict["SEED"])
             if seed == 0:
-                seed = random.randint(0, sys.maxsize)
+                seed = random.randint(1, sys.maxsize)
             print(f"Using seed {seed}")
             seed_T_generators(seed)
 
@@ -179,7 +179,7 @@ class Zombi():
 
         seed = int(parameters["SEED"])
         if seed == 0:
-            seed = random.randint(0, sys.maxsize)
+            seed = random.randint(1, sys.maxsize)
         print(f"Using seed {seed}")
         seed_G_generators(seed)
 
@@ -301,7 +301,7 @@ class Zombi():
 
         seed = int(parameters["SEED"])
         if seed == 0:
-            seed = random.randint(0, sys.maxsize)
+            seed = random.randint(1, sys.maxsize)
         print(f"Using seed {seed}")
         seed_S_generators(seed)
 
