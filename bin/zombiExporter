@@ -4,23 +4,28 @@ Export information from a Zombi simulation to other formats, including the
 calculation of broken adjacencies on edges, and scenarios of events between
 pairs of genomes.
 """
-
-from collections import namedtuple
-from collections import defaultdict as ddict
 import json
 import sys
 import argparse
+import networkx as nx
+import pandas as pd
 
 from pathlib import Path
-from Bio import SeqIO
+from Bio import SeqIO, Phylo
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
-import networkx as nx
+from collections import namedtuple
+from collections import defaultdict as ddict
 
+from zombi.AuxiliarFunctions import get_genome, get_last_genome
+from zombi.AuxiliarFunctions import organize_genomes_by_branch
+from zombi.Events import LFER, LFER_B, LFER_F, ONE_BP_EVENTS, POS, TDUP
+from zombi.Events import TWO_BP_EVENTS, DUP
 from zombi.Export import get_genes, get_leaf_names, random_seq
 from zombi.Export import whole_genome_to_GFF
-from zombi.Filenames import GENEFAMEVENTSsuffix, GENOMEsuffix, COMPLETEsuffix
-from zombi.Filenames import PIECESsuffix
+from zombi.Filenames import GENEFAMEVENTSsuffix, GENEORDEREVENTSsuffix
+from zombi.Filenames import PIECESsuffix, GENOMEsuffix, COMPLETEsuffix
+from zombi.Filenames import COMPLETETREE
     
     
 # Constants
@@ -203,6 +208,85 @@ def processGeneFamilies(fam2id2genome2rec: dict[str, dict[str, dict[str, SeqReco
     return fam2recid2pos
 
 
+def getEventLines(eventfile: Path, genomesdir: Path,
+                  parent: str, child: str) -> list[str]:
+    """
+    Return the lines describing the broken adjacencies for the given event file.
+
+    Parameters
+    ----------
+    eventfile : Path
+        The path to the gene order events file for a branch.
+    genomesdir : Path
+        The directory containing the genome files.
+    parent : str
+        The parent node on the branch.
+    child : str
+        The child node on the branch for which we're getting broken adjacencies.
+    """
+    retlist = []
+    genome = get_last_genome(f'{genomesdir}/{parent}-')
+
+    df = pd.read_csv(eventfile, sep='\t')
+    for i, time, event, bps, _, chrom in df.itertuples():
+        #chrom is not currently used since it doesn't exist in the
+        #genome files!
+        if isinstance(bps, int):
+            bps = [bps]
+        else:
+            bps = list(map(int, bps.split(',')))
+
+        if event in ONE_BP_EVENTS:
+            print(f'bkps {bps} length genome {len(genome)}')
+            gene1, gene2 = genome[bps[0]-1], genome[bps[0]]
+            retlist.append(f'{child}\t{time}\t{event}\t{gene1}|{gene2}')
+
+        elif event == TDUP:
+            gene1, gene2 = genome[bps[1]], genome[(bps[1]+1) % len(genome)]
+            retlist.append(f'{child}\t{time}\t{event}\t{gene1}|{gene2}')
+
+        elif event == LFER or event == LFER_F or event == LFER_B:
+            pass
+
+        elif event in TWO_BP_EVENTS:
+            gene1, gene2 = genome[bps[0]-1], genome[bps[0]]
+            gene3, gene4 = genome[bps[1]], genome[(bps[1]+1) % len(genome)]
+            retlist.append(f'{child}\t{time}\t{event}\t{gene1}|{gene2},{gene3}|{gene4}')
+
+        elif event == POS:
+            if bps[2] != bps[0]:   #didn't put it back in the same place
+                gene1, gene2 = genome[bps[0]-1], genome[bps[0]]
+                gene3, gene4 = genome[bps[1]], genome[(bps[1]+1) % len(genome)]
+                gene5, gene6 = genome[bps[2]-1], genome[bps[2]]
+                retlist.append(f'{child}\t{time}\t{event}\t'
+                               f'{gene1}|{gene2},{gene3}|{gene4},{gene5}|{gene6}')
+
+        elif event == DUP:
+            gene1, gene2 = genome[bps[2]-1], genome[bps[2]]
+            retlist.append(f'{child}\t{time}\t{event}\t{gene1}|{gene2}')
+
+        else:
+            raise ValueError(f'Unknown event type "{event}" in file '
+                             f'"{eventfile}".')
+
+        genome = get_genome(genomesdir / f'{child}-{i}{GENOMEsuffix}')
+
+    return retlist
+
+    
+def getDirectedTree(treefile: Path) -> nx.DiGraph:
+    """
+    Return the tree as a directed graph, where the nodes are the names of the
+    nodes in the given newick file (rather than biopython Clade objects).
+    """
+    t = Phylo.to_networkx(Phylo.read(treefile, "newick", rooted=True)) #type: ignore
+    tree = nx.DiGraph()
+    for u, v in t.edges():
+        tree.add_edge(u.name, v.name)
+
+    return tree
+
+
 # _____________________________________________________________________________
 
 
@@ -215,23 +299,34 @@ def main():
     parent.add_argument('PROJ_DIR', type=Path,
                         help='project directory')
 
+    outdir_p = argparse.ArgumentParser(add_help=False)
+    outdir_p.add_argument('OUT_DIR', type=Path,
+                           help='output files to this directory')
+
+    gfhelp = 'Export the gene orders as a single GFF file.'
     p_gf = subparsers.add_parser('gff', aliases=['gf'],
                                  parents=[parent],
-                                 help='Export the whole genomes as a single '
-                                      'GFF file.')
+                                 description=gfhelp, help=gfhelp)
+    pohelp = 'Export the positional ortholog sets.'
     p_po = subparsers.add_parser('posortho', aliases=['po'],
                                  parents=[parent],
-                                 help='Export the positional ortholog sets.')
-    p_ff = subparsers.add_parser('ffgc', aliases=['ff'], parents=[parent],
-                                 help='Export extant leaf genomes and '
-                                      'sequences for use with FFGC.')
-    p_bd = subparsers.add_parser('bed', aliases=['bd'], parents=[parent],
-                                 help='Export the blocks as a BED file and '
-                                      'FASTA files.')
+                                 description=pohelp, help=pohelp)
+    ffhelp = 'Export extant leaf genomes and sequences for use with FFGC.'
+    p_ff = subparsers.add_parser('ffgc', aliases=['ff'],
+                                 parents=[parent, outdir_p],
+                                 description=ffhelp, help=ffhelp)
+    bdhelp = 'Export the blocks as a BED file and FASTA files.'
+    p_bd = subparsers.add_parser('bed', aliases=['bd'],
+                                 parents=[parent, outdir_p],
+                                 description=bdhelp, help=bdhelp)
+    duhelp = 'Make a TSV file mapping family id to number of duplications.'
     p_du = subparsers.add_parser('dupinfo', aliases=['du'], parents=[parent],
-                                 help='Make a TSV file mapping family id to '
-                                      'number of duplications.')
- 
+                                 description=duhelp, help=duhelp)
+    bphelp = 'Export the adjacencies broken for each edge.'
+    p_bp = subparsers.add_parser('breakpoints', aliases=['bp'],
+                                 parents=[parent],
+                                 description=bphelp, help=bphelp)
+
     p_gf.add_argument('OUT_FILE', type=Path,
                       help='output file')
     p_gf.add_argument('-p', '--pieces', action='store_true',
@@ -242,22 +337,21 @@ def main():
     p_po.add_argument('-n', '--no-family', action='store_true',
                       help='exclude family id from the gene name')
 
-    p_ff.add_argument('OUT_DIR', type=Path,
-                      help='output files to this directory')
-
-    p_bd.add_argument('OUT_DIR', type=Path,
-                      help='output files to this directory')
     p_bd.add_argument('-p', '--pieces', action='store_true',
                       help=f'use {PIECESsuffix} files instead {GENOMEsuffix} files')
 
     p_du.add_argument('OUT_FILE', type=Path,
                       help='output TSV file')
  
+    p_bp.add_argument('OUT_FILE', type=Path,
+                      help='the TSV file')
+ 
     p_gf.set_defaults(func=export_GFF)
     p_po.set_defaults(func=export_PositionalOrthologs)
     p_ff.set_defaults(func=export_FFGC)
     p_bd.set_defaults(func=export_BED)
     p_du.set_defaults(func=export_DupInfo)
+    p_bp.set_defaults(func=export_Breakpoints)
 
     args = parser.parse_args()
     
@@ -444,6 +538,57 @@ def export_DupInfo(args):
         f.write('FAMILY_ID\tTOTAL_DUPS\tDUPS\tTANDEM_DUPS\n')
         for fam, (dups, tandemdups) in fam2dups.items():
             f.write(f'{fam}\t{dups+tandemdups}\t{dups}\t{tandemdups}\n')
+
+
+def export_Breakpoints(args):
+    """
+    Export the adjacencies broken for each edge as a TSV file.
+    The columns are:
+        BRANCH TIME EVENT BROKEN_ADJACENCIES
+
+    where EVENT is the event type, BRANCH is the pendant node name, and
+    BROKEN_ADJACENCIES is a comma-separated list of adjacencies each having
+    the format "gene1|gene2", where gene1 and gene2 are the family identifiers.
+    """
+    proj_dir: Path = args.PROJ_DIR
+    out_file: Path = args.OUT_FILE
+    
+    gdir = proj_dir / 'G'
+    genomesdir = gdir / 'All_genomes'
+    message = ('Run "zombi G" with "ALL_GENOMES" and'
+               '"GENEORDER_EVENTS_PER_BRANCH" activated.')
+    if not genomesdir.exists():
+        sys.exit(f'ERROR: {genomesdir} does not exist. {message}')
+    
+    eventsdir = gdir / 'Geneorder_events_per_branch'
+    if not eventsdir.exists():
+        sys.exit(f'ERROR: {eventsdir} does not exist. {message}')
+
+    #Organize the genome files by branch (node name)
+    #node2files = organize_genomes_by_branch(genomesdir, True)
+
+    treefile = proj_dir / 'T' / COMPLETETREE
+    tree = getDirectedTree(treefile)
+
+    #For each branch, read the events file and calculate the broken adjacencies:
+    branch2lines = {}
+    for eventfile in eventsdir.iterdir():
+        branch = eventfile.name.replace(GENEORDEREVENTSsuffix, '')
+        if branch == 'Initial':
+            continue
+        elif branch == 'Root':
+            parent = 'Initial'
+        else:
+            parent = list(tree.predecessors(branch))[0]
+
+        branch2lines[branch] = getEventLines(eventfile, genomesdir, parent, branch)
+
+    #Write the output file
+    with open(out_file, 'w') as f:
+        f.write('BRANCH\tTIME\tEVENT\tBROKEN_ADJACENCIES\n')
+        for branch, lines in branch2lines.items():
+            for line in lines:
+                f.write(line + '\n')
 
 
 if __name__ == "__main__":

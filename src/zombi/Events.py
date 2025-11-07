@@ -43,6 +43,10 @@ INV = "I"   #: Inversion
 POS = "P"   #: Transposition
 ORIG = "O"  #: Origination
 
+ONE_BP_EVENTS = {AFER, ORIG}
+TWO_BP_EVENTS = {TDUP, LOSS, INV, LFER, LFER_F, LFER_B}
+THREE_BP_EVENTS = {POS, DUP}
+
 class GenomeEvent(abc.ABC):
     """
     An rearrangement event. Meant to be used as a base class.
@@ -134,7 +138,7 @@ class EventOneBreakpoint(GeneOrderEvent):
             the time at which it happened
         """
         super().__init__(*args, **kwargs)
-        assert self.etype in {AFER, ORIG}, (
+        assert self.etype in ONE_BP_EVENTS, (
             f"{self.etype} not a one breakpoint event!")
 
         self.position: int = position
@@ -185,7 +189,7 @@ class EventTwoBreakpoints(GeneOrderEvent):
             the time at which it happened
         """
         super().__init__(*args, **kwargs)
-        assert self.etype in {TDUP, LOSS, INV, POS, LFER, LFER_F, LFER_B}, (
+        assert self.etype in TWO_BP_EVENTS, (
             f"{self.etype} not a two breakpoint event!")
 
         self.pos1 = affected_indices[0]
@@ -242,7 +246,8 @@ class EventThreeBreakpoints(GeneOrderEvent):
             the time at which it happened
         """
         super().__init__(*args, **kwargs)
-        assert self.etype in {POS, DUP}, f"{self.etype} not a three breakpoint event!"
+        assert self.etype in THREE_BP_EVENTS, (
+            f"{self.etype} not a three breakpoint event!")
 
         self.here: int = position
         self.pos1 = affected_indices[0]

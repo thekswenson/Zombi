@@ -2,7 +2,6 @@
 Test that the gene-order events written to the files are correct.
 """
 import pytest
-import glob
 import networkx as nx
 import pandas as pd
 
@@ -11,6 +10,7 @@ from pathlib import Path
 from Bio import Phylo
 from collections import defaultdict
 
+from zombi.AuxiliarFunctions import get_last_genome, get_genome
 from zombi.Filenames import COMPLETETREE, EVENTRATES, EXTENSIONRATES
 from zombi.Filenames import TRANSFERRATES, TREEEVENTS, TREELENGTHS, EXTANTTREE
 from zombi.Filenames import GENEORDEREVENTSsuffix, GENOMEsuffix
@@ -161,7 +161,7 @@ def checkEventsAgainstGenomes(treefile: Path, eventsdir: Path, genomesdir: Path)
   for parent, child in tree.edges():
     eventfile = eventsdir / f'{child}{GENEORDEREVENTSsuffix}'
 
-    genome = getLastGenome(f'{genomesdir}/{parent}-')
+    genome = get_last_genome(f'{genomesdir}/{parent}-')
     df = pd.read_csv(eventfile, sep='\t')
     #Organize events by time:
     events = defaultdict(list)
@@ -199,7 +199,7 @@ def checkEventsAgainstGenomes(treefile: Path, eventsdir: Path, genomesdir: Path)
         raise ValueError(f'Unknown event type {event} in {eventfile}!')
 
       genomefile = genomesdir / f'{child}-{i}{GENOMEsuffix}'
-      expected_genome = getGenome(genomefile)
+      expected_genome = get_genome(genomefile)
 
       assert len(genome) == len(expected_genome), (f'Genome length mismatch '
         f'after event {event} at time {time} in {eventfile}, compared to '
@@ -213,34 +213,6 @@ def checkEventsAgainstGenomes(treefile: Path, eventsdir: Path, genomesdir: Path)
         assert gene == egene, (f'Genome mismatch at time {time} in {eventfile},'
                                f' following event {event} at breakpoints '
                                f'{breakpoints}, compared to {genomefile}.')
-
-
-def getLastGenome(fileprefix: str) -> list[str]:
-  """
-  Get the genome from the filename with with the highest sequence number for the
-  given path prefix.
-  """
-  files = glob.glob(f'{fileprefix}*{GENOMEsuffix}')
-  num2file = {}
-  for file in files:
-    suffix = file.replace(fileprefix, '')
-    num = int(suffix.replace(GENOMEsuffix, ''))
-    num2file[num] = file
-
-  return getGenome(num2file[max(num2file.keys())])
-
-
-def getGenome(tsvfile: Path) -> list[str]:
-  """
-  Get the genome from the given filename.
-  """
-  #Use pandas to read the TSV file
-  df = pd.read_csv(tsvfile, sep='\t')
-
-  assert 'GENE_FAMILY' in df.columns, f'No GENE_FAMILY column in {tsvfile}!'
-  assert 'ORIENTATION' in df.columns, f'No ORIENTATION column in {tsvfile}!'
-  return [f'{sign}{gene}'
-          for gene, sign in zip(df['GENE_FAMILY'], df['ORIENTATION'])]
 
 
 def doTandemDup(genome: list[str], breakpoints: str) -> list[str]:
@@ -405,7 +377,7 @@ def getGenomeAtTime(genomesdir: Path, eventfile: Path, time: float) -> list[str]
 
   name = eventfile.name.replace(GENEORDEREVENTSsuffix, '')
   #Get the genome from the corresponding genome file
-  return getGenome(genomesdir / f'{name}-{count}{GENOMEsuffix}')
+  return get_genome(genomesdir / f'{name}-{count}{GENOMEsuffix}')
 
   
 def getSegment(genome: list[str], start: int, end: int) -> list[str]:

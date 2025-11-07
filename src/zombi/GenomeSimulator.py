@@ -422,7 +422,7 @@ class GenomeSimulator():
             
             with open(events_per_branch_folder / BRANCHEVENTSTABLE, "w") as f:
                 
-                header = "\t".join(["Branch", "Time", "Event", "Breakpoints"]) + "\n"
+                header = "\t".join(["BRANCH", "TIME", "EVENT", "BREAKPOINTS"]) + "\n"
                 f.write(header)
                 
                 for e in table:

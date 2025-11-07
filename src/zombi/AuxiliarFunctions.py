@@ -1,11 +1,15 @@
+import glob
+import re
 import ete3
 import numpy
 import sys
 import scipy
 import scipy.stats as ss
+import pandas as pd
 
+from collections import defaultdict
 from itertools import pairwise
-from typing import Any, Dict, Iterable, List, Set, Tuple, Optional
+from typing import Any
 from pathlib import Path
 from numpy.random import Generator as npGenerator
 from BCBio import GFF
@@ -14,7 +18,7 @@ from Bio.SeqRecord import SeqRecord
 from Bio import SeqIO
 
 from .Events import FER, LOSS, ORIG, TDUP
-from .Filenames import COMPLETEsuffix, SUBSTITUTIONSCALEDsuffix
+from .Filenames import COMPLETEsuffix, GENOMEsuffix, SUBSTITUTIONSCALEDsuffix
 from .Filenames import PRUNEDsuffix, SAMPLEDsuffix, INITIALGENOMEINFO
 from .Filenames import GENEFAMILYINFO
 
@@ -125,6 +129,7 @@ def read_empirical_rates(rates_file: str, scale_rates = 1.0):
             empirical_rates.append((float(d), float(t), float(l)))
 
     return empirical_rates
+
 
 def obtain_value(value, nprngen: npGenerator) -> float:
 
@@ -793,7 +798,7 @@ def write_sampled_sequences(tree_file: str, infasta_folder: Path, outfasta_folde
     fasta_writer(outfasta_folder / f"{file_name}{SAMPLEDsuffix}", clean_entries)
 
 
-def parse_GFF(gff_file: Path, sort=True) -> Tuple[int, List[SeqFeature]]:
+def parse_GFF(gff_file: Path, sort=True) -> tuple[int, list[SeqFeature]]:
     """
     Extract the chromosome length and the genes from the given GFF file.
     Genes are in Biopython SeqFeature format:
@@ -809,7 +814,7 @@ def parse_GFF(gff_file: Path, sort=True) -> Tuple[int, List[SeqFeature]]:
 
     Returns
     -------
-    Tuple[int, List[SeqFeature]]
+    tuple[int, list[SeqFeature]]
         the chromosome length along with Biopython SeqFeatures for all of the
         genes. The indices for seqfeatures are pythonic (zero indexed, end not
         inclusive).
@@ -817,7 +822,7 @@ def parse_GFF(gff_file: Path, sort=True) -> Tuple[int, List[SeqFeature]]:
             #Get the CDSs and genome length:
     #import pprint; pprint.pprint(examiner.available_limits(gff_file))
     genome_len = 0
-    genes: List[SeqFeature] = []
+    genes: list[SeqFeature] = []
     try:
         for rec in GFF.parse(gff_file, target_lines=1000,
                              limit_info={'gff_type': ['CDS']}):
@@ -862,7 +867,7 @@ class MissingInfoFileError(Exception):
 def read_nucleotide_sequences(fasta: Path, genome_folder: Path,
                               #gene_family_info = GENEFAMILYINFO,
                               initial_genome_info = INITIALGENOMEINFO) \
-    -> Tuple[Dict[str, SeqRecord], Dict[str, SeqRecord]]:
+    -> tuple[dict[str, SeqRecord], dict[str, SeqRecord]]:
     """
     Return a dictionary mapping the gene id to its SeqRecord.
     The file `gene_family_info` contains coordinates for the genes in the root
@@ -883,11 +888,11 @@ def read_nucleotide_sequences(fasta: Path, genome_folder: Path,
 
     Returns
     -------
-    Tuple[Dict[str, SeqRecord], Dict[str, SeqRecord]]
+    tuple[dict[str, SeqRecord], dict[str, SeqRecord]]
         map genome id (not GFF ID) to SeqRecord for the gene
         map intergene division id to SeqRecord for the gene
     """
-    sequence: Optional[SeqRecord] = None
+    sequence: SeqRecord|None = None
     for i, seq_record in enumerate(SeqIO.parse(fasta, "fasta")):
         if i:
             print(f'Warning: using only the first of several entries in "{fasta}".')
@@ -898,7 +903,7 @@ def read_nucleotide_sequences(fasta: Path, genome_folder: Path,
     if not sequence:
         raise(Exception(f'No sequence in "{fasta}".'))
 
-    gidTOseq: Dict[str, SeqRecord] = {}
+    gidTOseq: dict[str, SeqRecord] = {}
     #gene_family_p = Path(genome_folder, gene_family_info)
     #if not gene_family_p.exists():
     #    raise MissingInfoFileError(gene_family_p)
@@ -916,7 +921,7 @@ def read_nucleotide_sequences(fasta: Path, genome_folder: Path,
         raise MissingInfoFileError(init_genome_p)
 
         #Get info about the intergene divisions:
-    didTOseq: Dict[str, SeqRecord] = {}
+    didTOseq: dict[str, SeqRecord] = {}
     with open(init_genome_p) as f:
         f.readline()
         for line in f:
@@ -940,7 +945,7 @@ def read_nucleotide_sequences(fasta: Path, genome_folder: Path,
 
 
 def read_protein_sequences(gff_file: str, genome_folder: Path,
-                           gene_family_info = GENEFAMILYINFO) -> Dict[str, str]:
+                           gene_family_info = GENEFAMILYINFO) -> dict[str, str]:
     """
     Return a dictionary mapping the gene id to its sequence.
     The file `gene_family_info` contains a the GFF IDs necessary to find
@@ -957,10 +962,10 @@ def read_protein_sequences(gff_file: str, genome_folder: Path,
 
     Returns
     -------
-    Dict[str, SeqRecord]
+    dict[str, SeqRecord]
         map genome id (not GFF ID) to SeqRecord for the gene
     """
-    gffidTOseq: Dict[str, str] = {}
+    gffidTOseq: dict[str, str] = {}
     try:
         for rec in GFF.parse(gff_file, target_lines=1000):
             for feature in rec.features:
@@ -975,7 +980,7 @@ def read_protein_sequences(gff_file: str, genome_folder: Path,
     except TypeError as e:
         sys.exit(f'Problem opening GFF file (remove ##FASTA lines?):\n{e}')
 
-    gidTOseq: Dict[str, str] = {}
+    gidTOseq: dict[str, str] = {}
     with open(genome_folder / gene_family_info) as f:
         f.readline()
         for line in f:
@@ -985,7 +990,7 @@ def read_protein_sequences(gff_file: str, genome_folder: Path,
     return gidTOseq
 
 
-def get_leaves_from_file(leavesfile: Path) -> Set[str]:
+def get_leaves_from_file(leavesfile: Path) -> set[str]:
     leaves = set()
     with open(leavesfile) as f:
         f.readline()    #Burn the opening line
@@ -1025,3 +1030,65 @@ def well_behaved_indices(affected_indices: list[int]) -> bool:
        return True
 
     return affected_indices[0] > affected_indices[-1]
+
+
+def organize_genomes_by_branch(dir: Path, allgenomes: bool = False) \
+    -> dict[str, list[tuple[int|str, Path]]]:
+    """
+    Given a directory holding genome files, return a mapping from branch
+    (node) names to a list of tuples (sortkey, genome file).
+    Depending on whether we are checking the "All_genomes" folder or the
+    regular "Genomes" folder, the sortkey will be the sequence number, or just
+    the GENOMEsuffix (every list will have length 1 in this case so the sortkey
+    is not necessary).
+    """
+    if allgenomes:
+        nodere = re.compile(rf'(\w+)-(\d+){GENOMEsuffix}$')
+    else:
+        nodere = re.compile(rf'(\w+)({GENOMEsuffix})$')
+
+    node2files: dict[str, list[tuple[int|str, Path]]] = defaultdict(list)
+    numfiles = 0
+    for genomefile in dir.glob(f'*{GENOMEsuffix}'):
+        numfiles += 1
+        if m := nodere.match(genomefile.name):
+            node, sortkey = m.groups()
+            if sortkey != GENOMEsuffix:
+                sortkey = int(sortkey)
+
+            node2files[node].append((sortkey, genomefile))
+        else:
+            raise AssertionError(f'Unexpected genome file name: {genomefile.name}')
+
+    assert numfiles, f'No GENOME files found in {dir}!'
+
+    return node2files
+
+
+def get_last_genome(fileprefix: str) -> list[str]:
+  """
+  Get the genome from the filename with with the highest sequence number for the
+  given path prefix.
+  """
+  files = glob.glob(f'{fileprefix}*{GENOMEsuffix}')
+  num2file = {}
+  for file in files:
+    suffix = file.replace(fileprefix, '')
+    num = int(suffix.replace(GENOMEsuffix, ''))
+    num2file[num] = file
+
+  return get_genome(num2file[max(num2file.keys())])
+
+
+def get_genome(tsvfile: Path) -> list[str]:
+  """
+  Get the genome from the given filename.
+  """
+  #Use pandas to read the TSV file
+  df = pd.read_csv(tsvfile, sep='\t')
+
+  assert 'GENE_FAMILY' in df.columns, f'No GENE_FAMILY column in {tsvfile}!'
+  assert 'ORIENTATION' in df.columns, f'No ORIENTATION column in {tsvfile}!'
+  return [f'{sign}{gene}'
+          for gene, sign in zip(df['GENE_FAMILY'], df['ORIENTATION'])]
+
