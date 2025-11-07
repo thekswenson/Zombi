@@ -11,15 +11,15 @@ from zombi.Filenames import COMPLETETREE, TREEEVENTS, TREELENGTHS, EXTANTTREE
 from zombi.Filenames import TRANSFERRATES, EVENTRATES, EXTENSIONRATES
 from zombi.Test import crosscheckGenomes, comparePiecesToGenomes, Filetype
 
-#T_PARAMS = Path('Parameters/SpeciesTreeParameters.tsv')
+T_PARAMS = Path('Parameters/SpeciesTreeParameters.tsv')
 G_PARAMS = Path('Parameters/GenomeParameters.tsv')
 #S_PARAMS = Path('Parameters/SequenceParameters.tsv')
-T_PARAMS = Path('tests/SpeciesTreeParametersSeeded.tsv') #With Seed set
+#T_PARAMS = Path('tests/SpeciesTreeParametersSeeded.tsv') #With Seed set
 #G_PARAMS = Path('tests/GenomeParametersSeeded.tsv')      #With Seed set
 #S_PARAMS = Path('tests/SequenceParametersSeeded.tsv')    #With Seed set
 G_PARAMS_ALL = Path('tests/GenomeParametersAllgenomes.tsv')
-T_SMALL_PARAMS = Path('tests/SpeciesTreeParameters_small.tsv')
-Gm_PARAMS = Path('tests/GenomeParameters.tsv')
+T_SMALL_PARAMS = Path('tests/SpeciesTreeParametersSmall.tsv')
+Gm_PARAMS = Path('tests/GenomeParametersAllgenomes.tsv')
 
 @pytest.fixture(scope='session')
 def projdir(tmp_path_factory) -> Path:
@@ -28,7 +28,8 @@ def projdir(tmp_path_factory) -> Path:
 @pytest.fixture
 def run_T(projdir, script_runner):
   """ Test the T mode of Zombi. """
-  script_runner.run(['zombi', 'T', T_PARAMS, projdir])
+  result = script_runner.run(['zombi', 'T', '-f', T_PARAMS, projdir])
+  assert result.success
   return projdir / 'T'
 
 @pytest.fixture(scope='session')
@@ -60,7 +61,7 @@ def test_G(projdir, script_runner, run_T):
   """ Test the G mode of Zombi. """
   assert (run_T).exists(), 'There was a problem with run_T!'
 
-  result = script_runner.run(['zombi', 'G', G_PARAMS, projdir])
+  result = script_runner.run(['zombi', 'G', '-f', G_PARAMS_ALL, projdir])
   assert result.success
 
   outdir = projdir / 'G'
@@ -100,7 +101,7 @@ def test_Gu(projdir, script_runner, run_T, run_RateCustomizer):
   assert run_RateCustomizer, 'There was a problem with run_RateCustomizer!'
   assert (run_T).exists(), 'There was a problem with run_T!'
 
-  result = script_runner.run(['zombi', 'Gu', '-f', G_PARAMS, projdir])
+  result = script_runner.run(['zombi', 'Gu', '-f', G_PARAMS_ALL, projdir])
   assert result.success
 
   outdir = projdir / 'G'

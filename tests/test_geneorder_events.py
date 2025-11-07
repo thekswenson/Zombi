@@ -1,31 +1,32 @@
 """
 Test that the gene-order events written to the files are correct.
 """
-from itertools import chain
 import pytest
 import glob
 import networkx as nx
 import pandas as pd
 
+from itertools import chain
 from pathlib import Path
 from Bio import Phylo
 from collections import defaultdict
 
-from zombi.Filenames import COMPLETETREE, TREEEVENTS, TREELENGTHS, EXTANTTREE
+from zombi.Filenames import COMPLETETREE, EVENTRATES, EXTENSIONRATES
+from zombi.Filenames import TRANSFERRATES, TREEEVENTS, TREELENGTHS, EXTANTTREE
 from zombi.Filenames import GENEORDEREVENTSsuffix, GENOMEsuffix
 from zombi.Events import LFER_F, TDUP, DUP, LFER, AFER, LOSS, INV, POS, ORIG
 from zombi.Events import LFER_B
 from zombi.Test import crosscheckGenomes, comparePiecesToGenomes
 
-REPS = 1
+REPS = 10000
 
-#T_PARAMS = Path('Parameters/SpeciesTreeParameters.tsv')
+T_PARAMS = Path('Parameters/SpeciesTreeParameters.tsv')
 G_PARAMS = Path('tests/GenomeParametersAllgenomes.tsv')
 S_PARAMS = Path('Parameters/SequenceParameters.tsv')
-T_PARAMS = Path('tests/SpeciesTreeParametersSeeded.tsv') #With Seed set
+#T_PARAMS = Path('tests/SpeciesTreeParametersSeeded.tsv') #With Seed set
 #G_PARAMS = Path('tests/GenomeParameters.tsv')      #With Seed set
 #S_PARAMS = Path('tests/SequenceParameters.tsv')    #With Seed set
-T_SMALL_PARAMS = Path('tests/SpeciesTreeParameters_small.tsv')
+T_SMALL_PARAMS = Path('tests/SpeciesTreeParametersSmall.tsv')
 Gm_PARAMS = Path('tests/GenomeParametersAllgenomes.tsv')
 
 @pytest.fixture(scope='session')
@@ -35,7 +36,8 @@ def projdir(tmp_path_factory) -> Path:
 @pytest.fixture
 def run_T(projdir, script_runner):
   """ Test the T mode of Zombi. """
-  script_runner.run(['zombi', 'T', T_PARAMS, projdir])
+  result = script_runner.run(['zombi', 'T', '-f', T_PARAMS, projdir])
+  assert result.success
   return projdir / 'T'
 
 @pytest.fixture(scope='session')
@@ -48,11 +50,15 @@ def small_T(smallprojdir, script_runner):
   completetree = smallprojdir / 'T' / COMPLETETREE
 
   while True:
-    script_runner.run(['zombi', 'T', '-f', T_SMALL_PARAMS, smallprojdir])
+    result = script_runner.run(['zombi', 'T', '-f', T_SMALL_PARAMS, smallprojdir])
+    assert result.success
     assert completetree.exists()
 
     if completetree.stat().st_size > 20:
       return smallprojdir / 'T'
+    else:
+      print(f'INFO: Tree too small ({completetree.stat().st_size} bytes), '
+            'rerunning...')
 
 
 def test_T(run_T):
@@ -96,29 +102,45 @@ def test_Gf(projdir, script_runner, run_T):
 
 
 @pytest.mark.repeat(REPS)
-def test_Gm(projdir, script_runner, run_T):
+def test_Gm(smallprojdir, script_runner, small_T):
   """ Test the G mode of Zombi. """
-  assert (run_T).exists(), 'There was a problem with run_T!'
+  assert (small_T).exists(), 'There was a problem with small_T!'
 
-  result = script_runner.run(['zombi', 'Gm', '-f', Gm_PARAMS, projdir])
+  result = script_runner.run(['zombi', 'Gm', '-f', Gm_PARAMS, smallprojdir])
   assert result.success
 
-  outdir = projdir / 'G'
+  outdir = smallprojdir / 'G'
   eventsdir = outdir / 'Geneorder_events_per_branch'
   assert eventsdir.exists()
   genomesdir = outdir / 'All_genomes'
-  checkEventsAgainstGenomes(run_T / COMPLETETREE, eventsdir, genomesdir)
+  checkEventsAgainstGenomes(small_T / COMPLETETREE, eventsdir, genomesdir)
+
+
+@pytest.fixture
+def run_RateCustomizer(projdir, script_runner):
+  """ Test the RateCustomizer mode of Zombi. """
+  result = script_runner.run(['zombiRateCustomizer', 'G', G_PARAMS, projdir])
+  assert result.success
+
+  customrates = projdir / 'CustomRates'
+  assert (customrates / TRANSFERRATES).exists()
+  assert (customrates / EVENTRATES).exists()
+  assert (customrates / EXTENSIONRATES).exists()
+  return True
 
 
 @pytest.mark.repeat(REPS)
-def test_Gu(projdir, script_runner, run_T):
-  """ Test the G mode of Zombi. """
+def test_Gu(projdir, script_runner, run_T, run_RateCustomizer):
+  """ Test the Gu mode of Zombi. """
+  assert run_RateCustomizer, 'There was a problem with run_RateCustomizer!'
   assert (run_T).exists(), 'There was a problem with run_T!'
 
   result = script_runner.run(['zombi', 'Gu', '-f', G_PARAMS, projdir])
   assert result.success
 
   outdir = projdir / 'G'
+  crosscheckGenomes(outdir)
+
   eventsdir = outdir / 'Geneorder_events_per_branch'
   assert eventsdir.exists()
   genomesdir = outdir / 'All_genomes'
