@@ -50,6 +50,7 @@ MIN_GENOME_SIZE	10
 #
 ## Output related parameters. Use SCALE_TREE != 0 only if you used that too in the Species Tree mode. Use the same number
 #
+ALL_GENOMES 0
 EVENTS_PER_BRANCH 1
 GENEORDER_EVENTS_PER_BRANCH 1
 PROFILES 1

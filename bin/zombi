@@ -142,11 +142,12 @@ class Zombi():
             
 
     def G(self, parameters_file: Path, experiment_folder: Path, advanced_mode,
-          root_genome: Path|None, all_genomes=False):
+          root_genome: Path|None):
         """
         Simulate Genomes
         """
         parameters = af.prepare_genome_parameters(parameters_file)
+        all_genomes = bool(parameters["ALL_GENOMES"])
 
         tree_params = af.read_parameters(experiment_folder / "T" / TREEPARAMETERS)
         if int(tree_params["SCALE_TREE"]) != parameters["SCALE_TREE"]:
@@ -257,8 +258,8 @@ class Zombi():
 
         if advanced_mode == "f":    
             print("Writing Divisions")
-            gss.obtain_divisions()            # This creates the divisions at the root,
-            all_genomes = gss.obtain_events_for_divisions() # This reruns the simulation forward
+            gss.init_divisions()            # This creates the divisions at the root,
+            all_genomes = gss.redo_events_for_divisions() # This reruns the simulation forward
             division_trees_folder = genome_folder / "Division_trees"
             gss.write_division_trees(division_trees_folder)
             gss.write_pieces_coordinates(genomes_folder)
@@ -649,8 +650,6 @@ def main():
                                  help=Tsdesc)
     
     Gparent = argparse.ArgumentParser(add_help=False)
-    Gparent.add_argument('-a', '--all-genomes', action='store_true',
-                         help='Save all intermediate genomes')
     Gdesc = 'Genome simulation'
     p_G = subparsers.add_parser('G', parents=[parent, Gparent],
                                 description=Gdesc, help=Gdesc)
@@ -726,7 +725,6 @@ def G_mode(args):
     parameters_file = args.PARAMS
     experiment_folder = args.PROJECT_DIR
     force_overwrite = args.force
-    all_genomes = args.all_genomes
     advanced_mode = setAdvancedMode(args)
 
     root_gff = args.genome_root if hasattr(args, 'genome_root') else None
@@ -734,7 +732,7 @@ def G_mode(args):
 
     genome_folder = experiment_folder / "G"
     clear_directory(genome_folder, force_overwrite)
-    Z.G(parameters_file, experiment_folder, advanced_mode, root_gff, all_genomes)
+    Z.G(parameters_file, experiment_folder, advanced_mode, root_gff)
 
 
 def S_mode(args):

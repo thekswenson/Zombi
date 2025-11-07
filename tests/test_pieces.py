@@ -135,8 +135,8 @@ class TestDuplications(unittest.TestCase):
       #self.gss.run_f_debug([event1, event2, event3, event4, event5, event6, event7]) 
       self.gss.run_f_debug([event1,event2, ]) 
       #
-      self.gss.obtain_divisions() 
-      self.gss.obtain_events_for_divisions()
+      self.gss.init_divisions() 
+      self.gss.redo_events_for_divisions()
      
       for _ in range(10000):
 
@@ -144,11 +144,11 @@ class TestDuplications(unittest.TestCase):
         self.gss.run_f() 
          
         events = self.gss.return_all_events()
-        self.gss.obtain_divisions() 
+        self.gss.init_divisions() 
         
         
         try:
-          self.gss.obtain_events_for_divisions()
+          self.gss.redo_events_for_divisions()
 
         except:
           with open("./TempEvents.txt", "w") as f:

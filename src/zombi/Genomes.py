@@ -884,7 +884,6 @@ class Chromosome(abc.ABC):
         self.intergenes: list[Intergene] = list()
         self.genes: list[Gene] = list()
         self.shape = ""
-        self.length = 0                          # length in genes? (see __len__())
         self._num_nucleotides = num_nucleotides  # length in nucleotides
 
         self.map_of_locations: list[Interval] = []
@@ -957,6 +956,7 @@ class Chromosome(abc.ABC):
                 assert isinstance(piece, Division)
                 print(piece.ptype, piece.total_flanking, piece.length, piece.orientation, piece.family, piece.specific_flanking, piece.initial_sequence) 
 
+
     def update_coordinates(self):
 
         """
@@ -967,6 +967,9 @@ class Chromosome(abc.ABC):
         for piece in self.pieces[1:]:
             piece.total_flanking = (right_bp, right_bp + len(piece))
             right_bp =  right_bp + len(piece)
+
+        self.update_specific_coordinates()
+
 
     def update_specific_coordinates(self):
         """
@@ -1015,7 +1018,7 @@ class Chromosome(abc.ABC):
         
         
 
-    def obtain_flankings(self):
+    def update_flankings(self):
         """
         Set the "flanking" breakpoint intervals for each of the genes and
         intergenes based on their lengths.
@@ -1052,14 +1055,14 @@ class Chromosome(abc.ABC):
             #self.intergenes[i].total_flanking = (ub, 0)
             
 
-    def obtain_locations(self):
+    def update_locations(self):
         """
         Setup the `map_of_locations` list which will contain all of the genes
         and intergenes interleaved, in the order in which they appear in the
         genome. In the process, set the "flanking" endpoints for each of the
         genes and intergenes (based on their length).
         """
-        self.obtain_flankings()
+        self.update_flankings()
         self.map_of_locations = list()
 
         for i in range(len(self.genes)):
@@ -1433,12 +1436,8 @@ class Chromosome(abc.ABC):
         return len(self.intergenes)
 
     def __len__(self):
-
-        # Watch out!! This is probably no the safest thing to do
-        if not self.has_intergenes:
-            return len(self.genes)
-        else:
-            return self.length
+        """ Length of the chromosome in genes. """
+        return len(self.genes)
 
     def __str__(self):
 
@@ -2183,6 +2182,18 @@ class Genome:
 
         self.interactome = nx.relabel_nodes(self.interactome, {i:str(n) for i,n in enumerate(randomly_ordered_genes)})
 
+
+    def update_locations(self):
+        """ Update the gene and intergene locations in all chromosomes. """
+        for ch in self.chromosomes:
+            ch.update_locations()
+
+
+    def init_pieces(self):
+        """ Initialize the pieces for all chromosomes. """
+        for ch in self.chromosomes:
+            ch.fill_pieces()
+            ch.update_coordinates()
 
     #def iter_geneorder_events(self) -> Iterable[GeneOrderEvent]:
     #    """ Get the events from all chromosomes in this genome. """

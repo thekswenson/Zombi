@@ -308,7 +308,7 @@ def prepare_genome_parameters(parameters_file: Path):
            parameter == "GENE_TREES" or parameter == "PRUNE_TREES" or
            parameter == "TRANSFER_PREFERENCE" or
            parameter == "RECONCILED_TREES" or parameter == "VERBOSE" or
-           parameter == "MIN_GENOME_SIZE" or
+           parameter == "MIN_GENOME_SIZE" or parameter == "ALL_GENOMES" or
            parameter == "EXTENSION_MULTIPLIER" or
            parameter == "SEED" or parameter == "GENEORDER_EVENTS_PER_BRANCH"):
 

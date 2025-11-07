@@ -414,7 +414,7 @@ class TestEvent(unittest.TestCase):
                      'intergene breakpoint mismap')
 
       #Do second inversion:
-    ch.obtain_locations()
+    ch.update_locations()
     self.gss.make_inversion_intergenic(ch, 1, 11, T_DIR.RIGHT, lineage, 0.0)
     inversion2 = ch.event_history[1]
     assert isinstance(inversion2, Inversion)
@@ -505,7 +505,7 @@ class TestEvent(unittest.TestCase):
                      'intergene breakpoint mismap')
 
       #Do second inversion:
-    ch.obtain_locations()
+    ch.update_locations()
     self.gss.make_inversion_intergenic(ch, 10, 3, T_DIR.RIGHT, lineage, 0.0)
     inversion2 = ch.event_history[1]
     assert isinstance(inversion2, Inversion)
@@ -599,7 +599,7 @@ class TestEvent(unittest.TestCase):
                      'fifth intergene length mismatch after inversion')
 
       #Do second inversion:
-    ch.obtain_locations()
+    ch.update_locations()
     self.gss.make_inversion_intergenic(ch, 15, 6, T_DIR.RIGHT, lineage, 0.0)
     inv2 = ch.event_history[1]
     assert isinstance(inv2, Inversion)
@@ -642,7 +642,7 @@ class TestEvent(unittest.TestCase):
                      'intergene breakpoint mismap')
 
       #Do third inversion:
-    ch.obtain_locations()
+    ch.update_locations()
     self.gss.make_inversion_intergenic(ch, 11, 1, T_DIR.RIGHT, lineage, 0.0)
     inv3 = ch.event_history[2]
     assert isinstance(inv3, Inversion)
@@ -722,7 +722,7 @@ class TestEvent(unittest.TestCase):
                      'intergene breakpoint mismap')
 
       #Do second inversion:
-    ch.obtain_locations()
+    ch.update_locations()
     self.gss.make_inversion_intergenic(ch, 19, 5, T_DIR.RIGHT, lineage, 0.0)
     inversion2 = ch.event_history[1]
     assert isinstance(inversion2, Inversion)
@@ -1322,8 +1322,8 @@ class TestEvent(unittest.TestCase):
     donor = g1.chromosomes[0]
     receptor = g2.chromosomes[0]
 
-    donor.obtain_locations()
-    receptor.obtain_locations()
+    donor.update_locations()
+    receptor.update_locations()
 
     return donor, donorlineage, receptor, receptorlineage
 

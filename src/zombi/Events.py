@@ -177,8 +177,6 @@ class EventTwoBreakpoints(GeneOrderEvent):
             then we assume the larger indices come first)
         chromosome: Chromosome
             the chromosome on which the event happened
-        length: int
-            the number of genes involved in the event
         etype: str
             the type of event from {TDUP, FER, LOSS, INV}
         lineage: str

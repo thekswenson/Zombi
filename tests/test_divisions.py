@@ -27,7 +27,7 @@ class TestDivisions1(unittest.TestCase):
   
   def test_divisions(self):
       self.gss.run_f_debug([])
-      self.gss.obtain_divisions() # This obtain the divisions at the root
+      self.gss.init_divisions() # This obtain the divisions at the root
       self.assertEqual(self.gss.natural_cuts,
                        [(0,3),(4,7),(8,11),(12,15),(16,19)])
 
@@ -40,7 +40,7 @@ class TestDivisions1(unittest.TestCase):
     # 4. Tuple with the details of the event
     
     self.gss.run_f_debug([event1])
-    self.gss.obtain_divisions() # This obtain the divisions at the root
+    self.gss.init_divisions() # This obtain the divisions at the root
     self.assertEqual(self.gss.initial_divisions,
                      [(0,2),(2,3),(4,6),(6,7),(8,11),(12,15),(16,19)])
     
@@ -48,7 +48,7 @@ class TestDivisions1(unittest.TestCase):
     event1 = ("G", 1.3, INV, "n2", (6, 2, T_DIR.LEFT))
 
     self.gss.run_f_debug([event1])
-    self.gss.obtain_divisions() 
+    self.gss.init_divisions() 
     self.assertEqual(self.gss.initial_divisions,
                      [(0,2),(2,3),(4,6),(6,7),(8,11),(12,15),(16,19)])
 
@@ -56,7 +56,7 @@ class TestDivisions1(unittest.TestCase):
     event1 = ("G", 1.3, INV, "n2", (2, 6, T_DIR.LEFT))
 
     self.gss.run_f_debug([event1])
-    self.gss.obtain_divisions() 
+    self.gss.init_divisions() 
     self.assertEqual(self.gss.initial_divisions,
                      [(0,2),(2,3),(4,6),(6,7),(8,11),(12,15),(16,19)])
 
@@ -65,7 +65,7 @@ class TestDivisions1(unittest.TestCase):
     event2 = ("G", 1.31, INV, "n2", (4, 10, T_DIR.RIGHT))
 
     self.gss.run_f_debug([event1, event2])
-    self.gss.obtain_divisions() 
+    self.gss.init_divisions() 
     self.assertEqual(self.gss.initial_divisions,
                      [(0,2),(2,3),(4,5),(5,6),(6,7),(8,11),(12,15),(16,17),
                       (17,19)])
@@ -76,7 +76,7 @@ class TestDivisions1(unittest.TestCase):
     event3 = ("G", 1.32, INV, "n2", (8, 17, T_DIR.RIGHT))
 
     self.gss.run_f_debug([event1, event2, event3])
-    self.gss.obtain_divisions() 
+    self.gss.init_divisions() 
     self.assertEqual(self.gss.initial_divisions,
                      [(0,1),(1,2),(2,3),(4,5),(5,6),(6,7),(8,10),(10,11),
                       (12,15),(16,17),(17,19)])
@@ -96,7 +96,7 @@ class TestDivisions2(unittest.TestCase): # In a slightly more compex tree
     event2 = ("G", 1.073, INV, "n1", (15, 5, T_DIR.LEFT))
 
     self.gss.run_f_debug([event1, event2])
-    self.gss.obtain_divisions() 
+    self.gss.init_divisions() 
     self.assertEqual(self.gss.initial_divisions,
                      [(0,1),(1,3),(4,6),(6,7),(8,11),(12,15),(16,19)])
   
@@ -123,8 +123,8 @@ class TestDivisions2(unittest.TestCase): # In a slightly more compex tree
     #  
 
     self.gss.run_f()
-    self.gss.obtain_divisions() 
-    self.gss.obtain_events_for_divisions() 
+    self.gss.init_divisions() 
+    self.gss.redo_events_for_divisions() 
   
     for ch in self.gss.node_genomes_pieces["n1"]:
          for intergene in ch.iter_intergenes():

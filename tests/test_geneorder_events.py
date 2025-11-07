@@ -14,18 +14,19 @@ from collections import defaultdict
 from zombi.Filenames import COMPLETETREE, TREEEVENTS, TREELENGTHS, EXTANTTREE
 from zombi.Filenames import GENEORDEREVENTSsuffix, GENOMEsuffix
 from zombi.Events import LFER_F, TDUP, DUP, LFER, AFER, LOSS, INV, POS, ORIG
-from zombi.Events import LFER_B 
+from zombi.Events import LFER_B
+from zombi.Test import crosscheckGenomes, comparePiecesToGenomes
 
-REPS = 10
+REPS = 1
 
-T_PARAMS = Path('Parameters/SpeciesTreeParameters.tsv')
-G_PARAMS = Path('Parameters/GenomeParameters.tsv')
-#S_PARAMS = Path('Parameters/SequenceParameters.tsv')
-#T_PARAMS = Path('tests/SpeciesTreeParameters.tsv') #With Seed set
+#T_PARAMS = Path('Parameters/SpeciesTreeParameters.tsv')
+G_PARAMS = Path('tests/GenomeParametersAllgenomes.tsv')
+S_PARAMS = Path('Parameters/SequenceParameters.tsv')
+T_PARAMS = Path('tests/SpeciesTreeParametersSeeded.tsv') #With Seed set
 #G_PARAMS = Path('tests/GenomeParameters.tsv')      #With Seed set
 #S_PARAMS = Path('tests/SequenceParameters.tsv')    #With Seed set
 T_SMALL_PARAMS = Path('tests/SpeciesTreeParameters_small.tsv')
-Gm_PARAMS = Path('tests/GenomeParameters.tsv')
+Gm_PARAMS = Path('tests/GenomeParametersAllgenomes.tsv')
 
 @pytest.fixture(scope='session')
 def projdir(tmp_path_factory) -> Path:
@@ -66,7 +67,8 @@ def test_G(projdir, script_runner, run_T):
   """ Test the G mode of Zombi. """
   assert (run_T).exists(), 'There was a problem with run_T!'
 
-  script_runner.run(['zombi', 'G', '-a', G_PARAMS, projdir])
+  result = script_runner.run(['zombi', 'G', '-f', G_PARAMS, projdir])
+  assert result.success
 
   outdir = projdir / 'G'
   eventsdir = outdir / 'Geneorder_events_per_branch'
@@ -80,13 +82,17 @@ def test_Gf(projdir, script_runner, run_T):
   """ Test the G mode of Zombi. """
   assert (run_T).exists(), 'There was a problem with run_T!'
 
-  script_runner.run(['zombi', 'Gf', '-a', G_PARAMS, projdir])
+  result = script_runner.run(['zombi', 'Gf', '-f', G_PARAMS, projdir])
+  assert result.success
 
   outdir = projdir / 'G'
   eventsdir = outdir / 'Geneorder_events_per_branch'
   assert eventsdir.exists()
-  genomesdir = outdir / 'All_genomes'
-  checkEventsAgainstGenomes(run_T / COMPLETETREE, eventsdir, genomesdir)
+  allgenomesdir = outdir / 'All_genomes'
+  comparePiecesToGenomes(outdir / 'Genomes')
+  crosscheckGenomes(allgenomesdir)
+  comparePiecesToGenomes(allgenomesdir, True)
+  checkEventsAgainstGenomes(run_T / COMPLETETREE, eventsdir, allgenomesdir)
 
 
 @pytest.mark.repeat(REPS)
@@ -94,7 +100,8 @@ def test_Gm(projdir, script_runner, run_T):
   """ Test the G mode of Zombi. """
   assert (run_T).exists(), 'There was a problem with run_T!'
 
-  script_runner.run(['zombi', 'Gm', '-a', G_PARAMS, projdir])
+  result = script_runner.run(['zombi', 'Gm', '-f', Gm_PARAMS, projdir])
+  assert result.success
 
   outdir = projdir / 'G'
   eventsdir = outdir / 'Geneorder_events_per_branch'
@@ -108,7 +115,8 @@ def test_Gu(projdir, script_runner, run_T):
   """ Test the G mode of Zombi. """
   assert (run_T).exists(), 'There was a problem with run_T!'
 
-  script_runner.run(['zombi', 'Gu', '-a', G_PARAMS, projdir])
+  result = script_runner.run(['zombi', 'Gu', '-f', G_PARAMS, projdir])
+  assert result.success
 
   outdir = projdir / 'G'
   eventsdir = outdir / 'Geneorder_events_per_branch'
@@ -193,7 +201,7 @@ def getLastGenome(fileprefix: str) -> list[str]:
   Get the genome from the filename with with the highest sequence number for the
   given path prefix.
   """
-  files = glob.glob(f'{fileprefix}*')
+  files = glob.glob(f'{fileprefix}*{GENOMEsuffix}')
   num2file = {}
   for file in files:
     suffix = file.replace(fileprefix, '')

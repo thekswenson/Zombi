@@ -769,7 +769,7 @@ class GenomeSimulator():
                     gene.length = int(af.obtain_value(self.parameters["GENE_LENGTH"], G_NPRNG()))
 
             if intergenic_sequences == True:
-                chromosome.obtain_locations()
+                chromosome.update_locations()
 
             genome.chromosomes.append(chromosome)
 
@@ -856,7 +856,7 @@ class GenomeSimulator():
             chromosome.intergenes.append(intergene)
 
                                 #NOTE: this is called in run_f as well!
-            chromosome.obtain_locations()
+            chromosome.update_locations()
 
         genome.chromosomes.append(chromosome)
 
@@ -1528,19 +1528,9 @@ class GenomeSimulator():
         every rearrangement (NOTE: why is it not called within the rearrangement
         code?).
         """
-        for ch in self.node_genomes[lineage]:
-            ch.obtain_locations()
+        self.node_genomes[lineage].update_locations()
     
-    def update_genome_indices_second(self, lineage):
-        """
-        Update the indices for genes and intergenes. This should be called after
-        every rearrangement (NOTE: why is it not called within the rearrangement
-        code?). This is to be used in the second forward simulation
-        """
-        for ch in self.node_genomes_pieces[lineage]:
-            ch.obtain_flankings()
-            ch.obtain_locations()
-    
+
     def generate_new_rates(self):
 
         d = af.obtain_value(self.parameters["DUPLICATION"], G_NPRNG())
@@ -2048,7 +2038,7 @@ class GenomeSimulator():
 
                 chreceptor = self.node_genomes[recipient].select_random_chromosome()
                 assert isinstance(chreceptor, CircularChromosome)
-                chreceptor.obtain_locations()
+                chreceptor.update_locations()
                 c3 = chreceptor.select_random_coordinate_in_intergenic_regions()
 
                 if self.make_transfer_intergenic(ch, c1, c2, d, donor, chreceptor,
@@ -2792,7 +2782,7 @@ class GenomeSimulator():
             the chromosome that was modified
         """
         first, second = ileft.specific_flanking
-        chromosome.obtain_flankings()
+        chromosome.update_flankings()
 
             #Specific coordinate asserts:
         assert ileft.specific_flanking[0] == dup.afterL.sc1, \
@@ -3254,7 +3244,6 @@ class GenomeSimulator():
         # Before continuing, we need to verify that the event does not make the 
         # genome smaller than the minimum size allowed FIX --> This should be a parameter
         
-    
         if len(chromosome.genes) <= len(segment):
             # The event does not occur
             return False
@@ -3267,7 +3256,6 @@ class GenomeSimulator():
             
             adjustment_factor = chromosome.genes[gpositions[-1] + 1].total_flanking[0]
             # The coordinate of the first gene not affected by the event
-            
             
         else:
             adjustment_factor = None
@@ -3822,7 +3810,7 @@ class GenomeSimulator():
                 
             genome = self.node_genomes[node.name]                        
             chromosome = genome.chromosomes[0]
-            chromosome.obtain_flankings()
+            chromosome.update_flankings()
             
             all_events += chromosome.event_history
         
@@ -3831,9 +3819,9 @@ class GenomeSimulator():
         return all_events
         
 
-    def obtain_divisions(self):
+    def init_divisions(self):
         """
-        Obtain the divisions at the root
+        Initialize the divisions at the root
         """
         # First, we create a list with all the events ordered by time
         
@@ -3903,7 +3891,7 @@ class GenomeSimulator():
         self.initial_divisions: list[tuple[int, int]] = list()  # For debugging purposes
 
         for initial_specific_flanking in initial_specific_flankings:
-            # inital_specific_flanking is a tuple (c1, c2)
+            # initial_specific_flanking is a tuple (c1, c2)
             # We need to ignore the cuts where c1 is the right most extreme of
             # an intergene and c2 is the left most extreme of the next intergene
             if initial_specific_flanking in cuts_to_ignore:
@@ -3922,34 +3910,25 @@ class GenomeSimulator():
             self.all_division_families[self.division_fam_id] = division_family
 
 
-    def obtain_events_for_divisions(self) -> dict[str, Genome]:
+    def redo_events_for_divisions(self) -> dict[str, Genome]:
         """
-        Assign to every division the corresponding events.
+        Rerun the events on the tree, creating the pieces accordingly.
         """
         self.node_genomes_pieces: dict[str, Genome] = {} #:Pieces for genomes at each node
         all_genomes_pieces: dict[str, Genome] = {}       #:Pieces for all genomes
         lineage_counter = Counter()         #Number of active lineages per species
 
         self.gene_families_second = self.initial_gene_families
+        self.initial_genome.init_pieces()
         self.node_genomes_pieces["Initial"] = self.initial_genome
         self.node_genomes_pieces["Root"] = copy.deepcopy(self.initial_genome)
         if self.save_all:
             all_genomes_pieces["Initial-0"] = self.initial_genome
-            self.add_pieces("Root", all_genomes_pieces, lineage_counter)
-
-        # Now we need to add the genes and divisions in the right order to the initial genome
-
-        assert len(self.node_genomes_pieces["Root"].chromosomes) == 1
-        root_chromosome = self.node_genomes_pieces["Root"].chromosomes[0]
-        root_chromosome.fill_pieces()
-        root_chromosome.update_coordinates()
-        root_chromosome.update_specific_coordinates()
-        #root_chromosome.print_pieces()
 
         # We create a list of all the events (T and G) that we will order by time
 
         all_events: list[tuple[str, tuple[float, str|GenomeCoordEvent, str|Chromosome]]] = \
-            [(FER, x) for x in self.tree_events]
+            [("T", x) for x in self.tree_events]
 
         for node in self.complete_tree.traverse():          #type: ignore
            genome = self.node_genomes[node.name]           
@@ -3966,7 +3945,7 @@ class GenomeSimulator():
             
             # We unpack the events
 
-            if items[0] == FER: # Tree event
+            if items[0] == "T": # Tree event
                 time, etype, lineages = items[1] # In the case that it is a species level event
                 assert(isinstance(lineages, str))
 
@@ -3996,7 +3975,7 @@ class GenomeSimulator():
  
 
             else:               # Genome event
-                time, event, chromosome = items[1]
+                time, event, _ = items[1]
                 assert isinstance(event, GenomeCoordEvent)
                 etype = event.etype
             
@@ -4128,9 +4107,7 @@ class GenomeSimulator():
                     ch2.pieces.append(division2)
         
         ch1.update_coordinates()   
-        ch1.update_specific_coordinates()
         ch2.update_coordinates()   
-        ch2.update_specific_coordinates()
  
 
     def make_extinction_divisions(self, time, lineage):
@@ -4180,18 +4157,16 @@ class GenomeSimulator():
         if tcL == chromosome.pieces[-1].total_flanking[1]:
             tcL = 0
             wrapping = True
-        
+
         if tcR == 0:
             tcR = chromosome.pieces[-1].total_flanking[1]
             wrapping = True
-        
+
         # Cycle through the pieces twice in case the event wraps around
         for index, piece in enumerate(itertools.cycle(chromosome.pieces)):               
-           
+
             pfL, pfR = piece.total_flanking
 
-            #print(piece.total_flanking, tcL, tcR, piece.ptype, index, len(chromosome.pieces))
-            
             if pfL == tcL:
                 start = True
             if start == True:
@@ -4205,7 +4180,7 @@ class GenomeSimulator():
                 end = True
             if end == True:
                 break
-            
+
             if index >= 2 * len(chromosome.pieces) + 1: # FIX This is here just for debugging purposes
                 raise(Exception(f'Piece index cannot be found "{tcL, tcR}"'))
 
@@ -4267,7 +4242,6 @@ class GenomeSimulator():
 
 
         chromosome.pieces = chromosome.pieces[0:insert_index] + pieces_duplicated + chromosome.pieces[insert_index:] 
-        chromosome.update_specific_coordinates()
         chromosome.update_coordinates()
 
         return lineage
@@ -4351,7 +4325,6 @@ class GenomeSimulator():
         recipient_chromosome.pieces = recipient_chromosome.pieces[0:insert_index] + pieces_transferred + recipient_chromosome.pieces[insert_index:]
 
         #recipient_chromosome.print_pieces()
-        recipient_chromosome.update_specific_coordinates()
         recipient_chromosome.update_coordinates()
 
         return donor_lineage, recipient_lineage
@@ -4372,7 +4345,7 @@ class GenomeSimulator():
             tcL = event.tc1
             tcR = event.tc2
 
-        pieces_to_lose, indexes_to_lose, wrapping = self.select_pieces(chromosome, tcL, tcR)
+        pieces_to_lose, indices_to_lose, wrapping = self.select_pieces(chromosome, tcL, tcR)
 
         if not pseudo:
             
@@ -4384,7 +4357,7 @@ class GenomeSimulator():
 
             replacements = dict()
 
-            for index, piece in zip(indexes_to_lose, pieces_to_lose):
+            for index, piece in zip(indices_to_lose, pieces_to_lose):
                 if isinstance(piece, Gene):
 
                     replacements[piece] = list()
@@ -4439,7 +4412,6 @@ class GenomeSimulator():
                 piece = (chromosome.pieces).pop(0)
                 (chromosome.pieces).append(piece)
             
-        chromosome.update_specific_coordinates()
         chromosome.update_coordinates()
 
         #chromosome.print_pieces()
@@ -4489,7 +4461,6 @@ class GenomeSimulator():
                 (chromosome.pieces).append(piece)
         
 
-        chromosome.update_specific_coordinates()
         chromosome.update_coordinates()
 
         return lineage
@@ -4539,7 +4510,6 @@ class GenomeSimulator():
                 piece = (chromosome.pieces).pop(0)
                 (chromosome.pieces).append(piece)
 
-        chromosome.update_specific_coordinates()
         chromosome.update_coordinates()
 
         return lineage
@@ -4550,11 +4520,9 @@ class GenomeSimulator():
         lineage = event.lineage        
         chromosome = [x for x in self.node_genomes_pieces[lineage]][0] 
         
-        gene = Gene()
-        
-        tc = event.sbp
-
         tc = event.interval.specificToTotal(event.sbp)
+
+        gene = Gene()
         gene.species = lineage
         gene.length = event.genelen
         gene_family_id = event.gene_family
@@ -4564,7 +4532,7 @@ class GenomeSimulator():
 
         for piece in itertools.cycle(chromosome.pieces):
             _, pfR = piece.total_flanking
-            if pfR == tc: 
+            if pfR == tc:
                 insert_after_this_piece = piece
                 break
 
@@ -4575,13 +4543,12 @@ class GenomeSimulator():
 
         self.gene_families_second[gene_family_id] = gene_family
         self.gene_families_second[gene.family].append_event(time, ORIG, lineage)
-        
+
         # We insert the pieces
 
         assert isinstance(insert_after_this_piece, (Gene, Division))
         insert_index = chromosome.pieces.index(insert_after_this_piece) + 1 
         chromosome.pieces.insert(insert_index, gene)
-        chromosome.update_specific_coordinates()
         chromosome.update_coordinates()
 
         return lineage
