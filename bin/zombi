@@ -74,7 +74,7 @@ class Zombi():
 
             stg = SpeciesTreeGenerator(parameters)
 
-            shutil.copy(parameters_file, tree_folder / TREEPARAMETERS)
+            shutil.copy(parameters_file, tree_folder)
 
             run_counter = 0
             success = False
@@ -149,11 +149,11 @@ class Zombi():
         parameters = af.prepare_genome_parameters(parameters_file)
         all_genomes = bool(parameters["ALL_GENOMES"])
 
-        tree_params = af.read_parameters(experiment_folder / "T" / TREEPARAMETERS)
-        if int(tree_params["SCALE_TREE"]) != parameters["SCALE_TREE"]:
+        scaled_tree_file = experiment_folder / "T" / REDSCALEDTREE
+        if(scaled_tree_file.exists() and parameters["SCALE_TREE"] == 0 or
+           not scaled_tree_file.exists() and parameters["SCALE_TREE"] != 0):
             sys.exit("ERROR: the G mode SCALE_TREE parameter must match "
-                     "the T mode SCALE_TREE setting "
-                     f"({tree_params['SCALE_TREE']} != {parameters['SCALE_TREE']})!")
+                     "the T mode SCALE_TREE setting!")
 
         events_file = experiment_folder / "T" / TREEEVENTS
         scaled_file = experiment_folder / "T" / SCALEDEVENTS
