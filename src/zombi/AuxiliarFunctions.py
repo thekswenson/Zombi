@@ -1033,7 +1033,7 @@ def well_behaved_indices(affected_indices: list[int]) -> bool:
 
 
 def organize_genomes_by_branch(dir: Path, allgenomes: bool = False) \
-    -> dict[str, list[tuple[int|str, Path]]]:
+    -> tuple[dict[str, list[tuple[int|str, Path]]], int]:
     """
     Given a directory holding genome files, return a mapping from branch
     (node) names to a list of tuples (sortkey, genome file).
@@ -1062,7 +1062,7 @@ def organize_genomes_by_branch(dir: Path, allgenomes: bool = False) \
 
     assert numfiles, f'No GENOME files found in {dir}!'
 
-    return node2files
+    return node2files, numfiles
 
 
 def get_last_genome(fileprefix: str) -> list[str]:

@@ -7,9 +7,9 @@ import pytest
 
 from pathlib import Path
 
-T_PARAMS = Path('tests/SpeciesTreeParameters.tsv')
-G_PARAMS = Path('tests/GenomeParameters.tsv')
-S_PARAMS = Path('tests/SequenceParameters.tsv')
+T_PARAMS = Path('tests/SpeciesTreeParametersSeeded.tsv')
+G_PARAMS = Path('tests/GenomeParametersSeeded.tsv')
+S_PARAMS = Path('tests/SequenceParametersSeeded.tsv')
 
 NUMTHREADS = 28
 
@@ -19,6 +19,7 @@ def basedir(tmp_path_factory) -> Path:
 
 
 #@pytest.mark.dependency()
+@pytest.fixture
 def test_T(basedir, script_runner):
   """ Compare two runs of T mode using the same seed. """
   proj1 = basedir / 'proj1'
@@ -31,47 +32,55 @@ def test_T(basedir, script_runner):
   assert identical_dirs(proj1 / 'T', proj2 / 'T'), ("T mode outputs differ: "
                                                     f"{dcmp.report_full_closure()}")
 
+  return proj1 / 'T', proj2 / 'T'
+
 
 #@pytest.mark.dependency(depends=['test_T'])
-def test_G(basedir, script_runner):
+@pytest.fixture
+def test_G(basedir, script_runner, test_T):
   """ Compare two runs of G mode using the same seed. """
   proj1 = basedir / 'proj1'
-  assert (proj1 / 'T').exists(), 'Run test_T first!'
-  script_runner.run(['zombi', 'G', '-a', G_PARAMS, proj1])
+  assert (test_T[0]).exists(), 'Run test_T first!'
+  script_runner.run(['zombi', 'G', G_PARAMS, proj1])
 
   proj2 = basedir / 'proj2'
-  assert (proj2 / 'T').exists(), 'Run test_T first!'
-  script_runner.run(['zombi', 'G', '-a', G_PARAMS, proj2])
+  assert (test_T[1]).exists(), 'Run test_T first!'
+  script_runner.run(['zombi', 'G', G_PARAMS, proj2])
 
   dcmp = filecmp.dircmp(proj1 / 'G', proj2 / 'G')
   assert identical_dirs(proj1 / 'G', proj2 / 'G'), ("G mode outputs differ: "
                                                     f"{dcmp.report_full_closure()}")
 
+  return proj1 / 'G', proj2 / 'G'
 
-def test_Gf(basedir, script_runner):
+
+@pytest.fixture
+def test_Gf(basedir, script_runner, test_T):
   """ Compare two runs of G mode using the same seed. """
   proj1 = basedir / 'proj1'
-  assert (proj1 / 'T').exists(), 'Run test_T first!'
-  script_runner.run(['zombi', 'Gf', '-a', G_PARAMS, proj1])
+  assert (test_T[0]).exists(), 'Run test_T first!'
+  script_runner.run(['zombi', 'Gf', G_PARAMS, proj1])
 
   proj2 = basedir / 'proj2'
-  assert (proj2 / 'T').exists(), 'Run test_T first!'
-  script_runner.run(['zombi', 'Gf', '-a', G_PARAMS, proj2])
+  assert (test_T[1]).exists(), 'Run test_T first!'
+  script_runner.run(['zombi', 'Gf', G_PARAMS, proj2])
 
   dcmp = filecmp.dircmp(proj1 / 'G', proj2 / 'G')
   assert identical_dirs(proj1 / 'G', proj2 / 'G'), ("G mode outputs differ: "
                                                     f"{dcmp.report_full_closure()}")
+
+  return proj1 / 'G', proj2 / 'G'
 
 
 #@pytest.mark.dependency(depends=['test_T', 'test_G'])
-def test_S(basedir, script_runner):
+def test_S(basedir, script_runner, test_G):
   """ Compare two runs of S mode using the same seed. """
   proj1 = basedir / 'proj1'
-  assert (proj1 / 'G').exists(), 'Run test_G first!'
+  assert (test_G[0]).exists(), 'Run test_G first!'
   script_runner.run(['zombi', 'S', f'-p {NUMTHREADS}', S_PARAMS, proj1])
 
   proj2 = basedir / 'proj2'
-  assert (proj2 / 'G').exists(), 'Run test_G first!'
+  assert (test_G[1]).exists(), 'Run test_G first!'
   script_runner.run(['zombi', 'S', f'-p {NUMTHREADS}', S_PARAMS, proj2])
 
   dcmp = filecmp.dircmp(proj1 / 'S', proj2 / 'S')
@@ -79,14 +88,14 @@ def test_S(basedir, script_runner):
                                                     f"{dcmp.report_full_closure()}")
 
 
-def test_Sf(basedir, script_runner):
+def test_Sf(basedir, script_runner, test_Gf):
   """ Compare two runs of S mode using the same seed. """
   proj1 = basedir / 'proj1'
-  assert (proj1 / 'G').exists(), 'Run test_G first!'
+  assert (test_Gf[0]).exists(), 'Run test_G first!'
   script_runner.run(['zombi', 'Sf', f'-p {NUMTHREADS}', S_PARAMS, proj1])
 
   proj2 = basedir / 'proj2'
-  assert (proj2 / 'G').exists(), 'Run test_G first!'
+  assert (test_Gf[1]).exists(), 'Run test_G first!'
   script_runner.run(['zombi', 'Sf', f'-p {NUMTHREADS}', S_PARAMS, proj2])
 
   dcmp = filecmp.dircmp(proj1 / 'S', proj2 / 'S')
