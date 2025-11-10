@@ -229,7 +229,7 @@ def getEventLines(eventfile: Path, genomesdir: Path,
 
     df = pd.read_csv(eventfile, sep='\t')
     for i, time, event, bps, _, chrom in df.itertuples():
-        #chrom is not currently used since it doesn't exist in the
+        #`chrom` is not currently used since it doesn't exist in the
         #genome files!
         if isinstance(bps, int):
             bps = [bps]

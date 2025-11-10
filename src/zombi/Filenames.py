@@ -10,6 +10,7 @@ SEQUENCEPARAMETERS = "SequenceParameters.tsv"
 
 
 #Filenames and suffixed for T:
+TSEED = "TreeSeed.txt"
 TREEEVENTS = "Events.tsv"
 COMPLETETREE = "CompleteTree.nwk"
 EXTANTTREE = "ExtantTree.nwk"
@@ -29,6 +30,7 @@ RATESTREE = "RatesTree.nwk"
 
 
 #Filenames and suffixed for G:
+GSEED = "GenomeSeed.txt"
 GENOMEsuffix = "_GENOME.tsv"
 LENGTHSsuffix = "_LENGTHS.tsv"
 PIECESsuffix = "_PIECES.tsv"
@@ -56,6 +58,7 @@ GENEFAMILYGFF = "GeneFamily_GFF_ids.tsv"
 
 
 #Filenames and suffixed for S:
+SSEED = "SequenceSeed.txt"
 LEAFGENOMES = "LeafGenomes.gff"
 GENOMES = "Genomes.gff"
 WHOLEGENOMEsuffix = "_Wholegenome.fasta"

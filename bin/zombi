@@ -8,7 +8,7 @@ import random
 
 from concurrent.futures import Future, ProcessPoolExecutor
 from Bio.SeqRecord import SeqRecord
-from typing import Dict, Optional
+from typing import Callable, Optional
 from pathlib import Path
 from collections import defaultdict
 
@@ -26,7 +26,7 @@ from zombi.Filenames import REDSCALEDEVENTS, REDSCALEDTREE, SCALEDEVENTS
 from zombi.Filenames import SHIFTEVENTS, SHIFTSCATEGORIES, STSUBSTITUTIONRATES
 from zombi.Filenames import SUBSTITUTIONSCALEDCOMPLETETREE
 from zombi.Filenames import SUBSTITUTIONSCALEDEXTANTTREE, GENEFAMEVENTSsuffix
-from zombi.Filenames import TREEEVENTS, PIECESsuffix
+from zombi.Filenames import TREEEVENTS, PIECESsuffix, TSEED, GSEED, SSEED
 from zombi.Filenames import SUBSTITUTIONSCALEDTREEsuffix
 from zombi.Filenames import DIVISIONLENGTHS, COMPLETETREE, EXTANTTREE
 from zombi.Filenames import COLLAPSEDNODES, TREELENGTHS, LEAVES, GENOMES
@@ -72,11 +72,8 @@ class Zombi():
         else:
             paramdict = af.read_parameters(parameters_file)
 
-            seed = int(paramdict["SEED"])
-            if seed == 0:
-                seed = random.randint(1, sys.maxsize)
-            print(f"Using seed {seed}")
-            seed_T_generators(seed)
+            seed_generators(paramdict["SEED"], tree_folder / TSEED,
+                            seed_T_generators)
 
             parameters = af.prepare_species_tree_parameters(paramdict, T_NPRNG())
 
@@ -177,11 +174,8 @@ class Zombi():
         genomes_folder = genome_folder / "Genomes"
         gene_families_folder = genome_folder / "Gene_families"
 
-        seed = int(parameters["SEED"])
-        if seed == 0:
-            seed = random.randint(1, sys.maxsize)
-        print(f"Using seed {seed}")
-        seed_G_generators(seed)
+        seed_generators(parameters["SEED"], genome_folder / GSEED,
+                        seed_G_generators)
 
         gss = GenomeSimulator(parameters, events_file, root_genome, all_genomes)
 
@@ -299,16 +293,13 @@ class Zombi():
 
         parameters = af.prepare_sequence_parameters(parameters_file)
 
-        seed = int(parameters["SEED"])
-        if seed == 0:
-            seed = random.randint(1, sys.maxsize)
-        print(f"Using seed {seed}")
-        seed_S_generators(seed)
-
         #Create the directories
         gene_trees_folder = genome_folder / "Gene_trees"
         sequences_folder = experiment_folder / "S"
         genesequences_folder = sequences_folder / "Genes"
+
+        seed_generators(parameters["SEED"], sequences_folder / SSEED,
+                        seed_S_generators)
 
         shutil.rmtree(sequences_folder)
         genesequences_folder.mkdir(parents=True)
@@ -438,7 +429,7 @@ class Zombi():
             divisionsequences_folder = sequences_folder / "Divisions"
             divisionsequences_folder.mkdir()
 
-            gf_lengths: Dict[str, int] = dict()
+            gf_lengths: dict[str, int] = dict()
 
             with open(genome_folder / GENEFAMILYLENGTHS) as f:
                 f.readline()
@@ -483,7 +474,7 @@ class Zombi():
             division_trees = [x.name for x in division_trees_folder.iterdir()
                               if COMPLETETREEsuffix in x.name]
 
-            division_lengths: Dict[str, int] = dict()
+            division_lengths: dict[str, int] = dict()
 
             with open(genome_folder / DIVISIONLENGTHS) as f:
                 f.readline()
@@ -511,8 +502,8 @@ class Zombi():
 
             # Now we write all the fastas and we create a dictionary to recover the sequences
 
-            node2genef2seq: Dict[str, Dict[str, str]] = defaultdict(dict) # To keep the genes
-            node2divf2seq: Dict[str, Dict[str, str]] = defaultdict(dict)  # To keep the divisions
+            node2genef2seq: dict[str, dict[str, str]] = defaultdict(dict) # To keep the genes
+            node2divf2seq: dict[str, dict[str, str]] = defaultdict(dict)  # To keep the divisions
             
             gene_fastas = [x for x in os.listdir(genesequences_folder)
                            if COMPLETEsuffix in x]
@@ -588,12 +579,27 @@ class Zombi():
 #    entry = [(">" + species, whole_genome)]
 #    af.fasta_writer(os.path.join(sequences_folder, species + WHOLEGENOMEsuffix), entry)
 
+def seed_generators(seed: int|str, seed_file: Path, seed_function: Callable):
+    """
+    Seed a random generator and save the seed to a file. If `seed` is 0, a
+    random seed is generated.
+    """
+    seed = int(seed)
+    if seed == 0:
+        seed = random.randint(1, sys.maxsize)
+
+    print(f"Using seed {seed}")
+    seed_function(seed)
+
+    with open(seed_file, "w") as f:
+        f.write(str(seed) + "\n")
+
 
 def simulate_sequences_on_tree(tree_file: str, gene_trees_folder: Path,
                                outfolder: Path,
                                seq_sim: SequenceSimulator,
-                               family_lens: Dict[str, int],
-                               id_to_seq: Optional[Dict[str, SeqRecord]]=None,
+                               family_lens: dict[str, int],
+                               id_to_seq: Optional[dict[str, SeqRecord]]=None,
                                verbose: bool=False) -> None:
     """
     Create a fasta file containing all the evolved sequences for the nodes of
@@ -609,9 +615,9 @@ def simulate_sequences_on_tree(tree_file: str, gene_trees_folder: Path,
         write a the new fasta file to this directory
     seq_sim : SequenceSimulator
         simulated the sequences using this object
-    family_lens : Dict[str, int]
+    family_lens : dict[str, int]
         map genome or division family id to sequence length
-    id_to_seq : Optional[Dict[str, SeqRecord]], optional
+    id_to_seq : Optional[dict[str, SeqRecord]], optional
         map genome or division family id to sequence
     """
     family = tree_file.split("_")[0]
