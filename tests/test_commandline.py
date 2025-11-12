@@ -3,51 +3,8 @@ Tests for the command-line interface of Zombi.
 We test that some of the files are created, and that the genomes created are 
 consistent when using the --all-genomes flag.
 """
-import pytest
-
-from pathlib import Path
-
 from zombi.Filenames import COMPLETETREE, TREEEVENTS, TREELENGTHS, EXTANTTREE
-from zombi.Filenames import TRANSFERRATES, EVENTRATES, EXTENSIONRATES
 from zombi.Test import crosscheckGenomes, comparePiecesToGenomes, Filetype
-
-T_PARAMS = Path('Parameters/SpeciesTreeParameters.tsv')
-G_PARAMS = Path('Parameters/GenomeParameters.tsv')
-S_PARAMS = Path('Parameters/SequenceParameters.tsv')
-#T_PARAMS = Path('tests/SpeciesTreeParametersSeeded.tsv') #With Seed set
-#G_PARAMS = Path('tests/GenomeParametersSeeded.tsv')      #With Seed set
-#S_PARAMS = Path('tests/SequenceParametersSeeded.tsv')    #With Seed set
-G_PARAMS_ALL = Path('tests/GenomeParametersAllgenomes.tsv')
-T_SMALL_PARAMS = Path('tests/SpeciesTreeParametersSmall.tsv')
-Gm_PARAMS = Path('tests/GenomeParametersAllgenomes.tsv')
-
-#@pytest.fixture(scope='session')
-#def projdir(tmp_path_factory) -> Path:
-#  return tmp_path_factory.mktemp('zombi_project')
-#
-#@pytest.fixture
-#def run_T(projdir, script_runner):
-#  """ Test the T mode of Zombi. """
-#  result = script_runner.run(['zombi', 'T', '-f', T_PARAMS, projdir])
-#  assert result.success
-#  return projdir / 'T'
-#
-#@pytest.fixture(scope='session')
-#def smallprojdir(tmp_path_factory) -> Path:
-#  return tmp_path_factory.mktemp('zombi_project_small')
-
-#@pytest.fixture
-#def small_T(smallprojdir, script_runner):
-#  """ Test the T mode of Zombi. """
-#  completetree = smallprojdir / 'T' / COMPLETETREE
-#
-#  while True:
-#    result = script_runner.run(['zombi', 'T', '-f', T_SMALL_PARAMS, smallprojdir])
-#    assert result.success
-#    assert completetree.exists()
-#
-#    if completetree.stat().st_size > 20:
-#      return smallprojdir / 'T'
 
 
 def test_T(run_T):
@@ -69,19 +26,6 @@ def test_Gf(run_Gf_all):
   comparePiecesToGenomes(run_Gf_all / 'All_genomes', True)
   crosscheckGenomes(run_Gf_all)
   crosscheckGenomes(run_Gf_all, Filetype.PIECES)
-
-
-#@pytest.fixture
-#def run_RateCustomizer(projdir, script_runner):
-#  """ Test the RateCustomizer mode of Zombi. """
-#  result = script_runner.run(['zombiRateCustomizer', 'G', G_PARAMS, projdir])
-#  assert result.success
-#
-#  customrates = projdir / 'CustomRates'
-#  assert (customrates / TRANSFERRATES).exists()
-#  assert (customrates / EVENTRATES).exists()
-#  assert (customrates / EXTENSIONRATES).exists()
-#  return True
 
 
 def test_Gu(run_Gu):
