@@ -4633,6 +4633,3 @@ def write_geneorder_events(outfile: Path, events: list[GeneOrderEvent],
             line = [str(time), etype, breakpoints, str(length), name]
             line = "\t".join(line) + "\n"
             f.write(line)
-
-
-

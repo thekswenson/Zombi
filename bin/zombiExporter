@@ -18,8 +18,7 @@ from collections import namedtuple
 from collections import defaultdict as ddict
 
 from zombi.AuxiliarFunctions import get_genome, get_last_genome
-from zombi.AuxiliarFunctions import organize_genomes_by_branch
-from zombi.Events import LFER, LFER_B, LFER_F, ONE_BP_EVENTS, POS, TDUP
+from zombi.Events import AFER, LFER, LFER_B, LFER_F, LOSS, ORIG, POS, TDUP
 from zombi.Events import TWO_BP_EVENTS, DUP
 from zombi.Export import get_genes, get_leaf_names, random_seq
 from zombi.Export import whole_genome_to_GFF
@@ -209,9 +208,14 @@ def processGeneFamilies(fam2id2genome2rec: dict[str, dict[str, dict[str, SeqReco
 
 
 def getEventLines(eventfile: Path, genomesdir: Path,
-                  parent: str, child: str) -> list[str]:
+                  parent: str, child: str) -> list[tuple[str, float, str, str]]:
     """
-    Return the lines describing the broken adjacencies for the given event file.
+    Return tuples describing the broken adjacencies for the given event file.
+
+    Notes
+    -----
+    - Assumes single chromosome genomes.
+    - Assumes that chromosomes are circular.
 
     Parameters
     ----------
@@ -228,6 +232,7 @@ def getEventLines(eventfile: Path, genomesdir: Path,
     genome = get_last_genome(f'{genomesdir}/{parent}-')
 
     df = pd.read_csv(eventfile, sep='\t')
+    idiff = 0
     for i, time, event, bps, _, chrom in df.itertuples():
         #`chrom` is not currently used since it doesn't exist in the
         #genome files!
@@ -236,14 +241,21 @@ def getEventLines(eventfile: Path, genomesdir: Path,
         else:
             bps = list(map(int, bps.split(',')))
 
-        if event in ONE_BP_EVENTS:
-            print(f'bkps {bps} length genome {len(genome)}')
-            gene1, gene2 = genome[bps[0]-1], genome[bps[0]]
-            retlist.append(f'{child}\t{time}\t{event}\t{gene1}|{gene2}')
+        if event == AFER:
+            gene1, gene2 = genome[bps[0]-1], genome[bps[0] % len(genome)]
+            if retlist and time == retlist[-1][1]:
+                assert retlist[-1][2] == LOSS
+                retlist[-1] = (child, time, event, f'{gene1}|{gene2}')
+            else:
+                retlist.append((child, time, event, f'{gene1}|{gene2}'))
+
+        elif event == ORIG:
+            gene1, gene2 = genome[bps[0]-1], genome[bps[0] % len(genome)]
+            retlist.append((child, time, event, f'{gene1}|{gene2}'))
 
         elif event == TDUP:
             gene1, gene2 = genome[bps[1]], genome[(bps[1]+1) % len(genome)]
-            retlist.append(f'{child}\t{time}\t{event}\t{gene1}|{gene2}')
+            retlist.append((child, time, event, f'{gene1}|{gene2}'))
 
         elif event == LFER or event == LFER_F or event == LFER_B:
             pass
@@ -251,25 +263,24 @@ def getEventLines(eventfile: Path, genomesdir: Path,
         elif event in TWO_BP_EVENTS:
             gene1, gene2 = genome[bps[0]-1], genome[bps[0]]
             gene3, gene4 = genome[bps[1]], genome[(bps[1]+1) % len(genome)]
-            retlist.append(f'{child}\t{time}\t{event}\t{gene1}|{gene2},{gene3}|{gene4}')
+            retlist.append((child, time, event, f'{gene1}|{gene2},{gene3}|{gene4}'))
 
         elif event == POS:
             if bps[2] != bps[0]:   #didn't put it back in the same place
                 gene1, gene2 = genome[bps[0]-1], genome[bps[0]]
                 gene3, gene4 = genome[bps[1]], genome[(bps[1]+1) % len(genome)]
-                gene5, gene6 = genome[bps[2]-1], genome[bps[2]]
-                retlist.append(f'{child}\t{time}\t{event}\t'
-                               f'{gene1}|{gene2},{gene3}|{gene4},{gene5}|{gene6}')
-
+                gene5, gene6 = genome[bps[2]-1], genome[bps[2] % len(genome)]
+                retlist.append((child, time, event,
+                               f'{gene1}|{gene2},{gene3}|{gene4},{gene5}|{gene6}'))
         elif event == DUP:
-            gene1, gene2 = genome[bps[2]-1], genome[bps[2]]
-            retlist.append(f'{child}\t{time}\t{event}\t{gene1}|{gene2}')
+            gene1, gene2 = genome[bps[2]-1], genome[bps[2] % len(genome)]
+            retlist.append((child, time, event, f'{gene1}|{gene2}'))
 
         else:
             raise ValueError(f'Unknown event type "{event}" in file '
                              f'"{eventfile}".')
 
-        genome = get_genome(genomesdir / f'{child}-{i}{GENOMEsuffix}')
+        genome = get_genome(genomesdir / f'{child}-{i-idiff}{GENOMEsuffix}')
 
     return retlist
 
@@ -571,7 +582,7 @@ def export_Breakpoints(args):
     tree = getDirectedTree(treefile)
 
     #For each branch, read the events file and calculate the broken adjacencies:
-    branch2lines = {}
+    branch2events: dict[str, list[tuple]] = {}
     for eventfile in eventsdir.iterdir():
         branch = eventfile.name.replace(GENEORDEREVENTSsuffix, '')
         if branch == 'Initial':
@@ -581,14 +592,14 @@ def export_Breakpoints(args):
         else:
             parent = list(tree.predecessors(branch))[0]
 
-        branch2lines[branch] = getEventLines(eventfile, genomesdir, parent, branch)
+        branch2events[branch] = getEventLines(eventfile, genomesdir, parent, branch)
 
     #Write the output file
     with open(out_file, 'w') as f:
         f.write('BRANCH\tTIME\tEVENT\tBROKEN_ADJACENCIES\n')
-        for branch, lines in branch2lines.items():
+        for branch, lines in branch2events.items():
             for line in lines:
-                f.write(line + '\n')
+                f.write('\t'.join(map(str, line)) + '\n')
 
 
 if __name__ == "__main__":
