@@ -8,7 +8,7 @@ from collections import Counter
 from enum import StrEnum
 from pathlib import Path
 
-from .AuxiliarFunctions import organize_genomes_by_branch
+from .AuxiliarFunctions import get_genome, get_genome_from_pieces, organize_genomes_by_branch
 from .Filenames import GENOMEsuffix, PIECESsuffix
 
 ## || ## || ## || ## || ## || ## || ## || ## || ## || ## || ## || ## || ## || ##
@@ -74,8 +74,8 @@ def comparePiecesToGenomes(dir: Path, allgenomes=False):
       piecesfile = dir / piecesname
       assert piecesfile.exists(), f'Missing pieces file for {genomefile}'
 
-      porder = getGenomeFromPieces(piecesfile)
-      gorder = getGenome(genomefile)
+      porder = get_genome_from_pieces(piecesfile)
+      gorder = get_genome(genomefile)
 
       assert porder == gorder, (f'Gene order mismatch between {piecesfile} and '
                                 f'{genomefile}')
@@ -87,32 +87,6 @@ def comparePiecesToGenomes(dir: Path, allgenomes=False):
     genomename = piecesfile.name.replace(PIECESsuffix, GENOMEsuffix)
     assert (dir / genomename).exists(), f'Missing genome file for {piecesfile}'
 
-
-def getGenome(genomefile: Path) -> list[str]:
-  """
-  Get the gene order from a GENOME file using pandas.
-  """
-  df = pd.read_csv(genomefile, sep='\t')
-
-  #Make a list of the FAMILY column
-  geneorder = []
-  for gene, sign in df[['GENE_FAMILY', 'ORIENTATION']].itertuples(index=False):
-    geneorder.append(f'{sign}{gene}')
-
-  return geneorder
-
-
-def getGenomeFromPieces(piecesfile: Path) -> list[str]:
-  """
-  Get the gene order from a PIECES file using pandas.
-  """
-  df = pd.read_csv(piecesfile, sep='\t')
-  #Make a list of the FAMILY column for only rows where the 'TYPE' is 'Gene'
-  geneorder = []
-  for gene, sign in df[df['TYPE'] == 'Gene'][['FAMILY', 'ORIENTATION']].itertuples(index=False):
-    geneorder.append(f'{sign}{gene}')
-
-  return geneorder
 
 
 #-- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - -- - - --

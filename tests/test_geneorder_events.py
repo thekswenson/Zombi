@@ -77,14 +77,14 @@ def test_Gu(run_T, rerun_Gu):
 
 def checkEventsAgainstGenomes(treefile: Path, eventsdir: Path, genomesdir: Path):
   """
-  Check the the gene-order events correctly reproduce the genomes in the
+  Check that the gene-order events correctly reproduce the genomes in the
   genomesdir.
   """
   tree: nx.DiGraph = Phylo.to_networkx(Phylo.read(treefile, "newick")) #type: ignore
 
   for parent, child in tree.edges():
     eventfile = eventsdir / f'{child}{GENEORDEREVENTSsuffix}'
-    genome = get_last_genome(f'{genomesdir}/{parent}-')
+    genome, _ = get_last_genome(f'{genomesdir}/{parent}-')
 
     #Organize events by time:
     df = pd.read_csv(eventfile, sep='\t')

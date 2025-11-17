@@ -39,7 +39,7 @@ def run_T_factory(pdir, runner):
   """ Run the T mode of zombi with one of the given runners. """
   completetree = pdir / 'T' / COMPLETETREE
 
-  result = runner.run(['zombi', 'T', T_SMALL_PARAMS, pdir])
+  result = runner.run(['zombi', 'T', T_PARAMS, pdir])
   if hasattr(result, 'success'):
     assert result.success, f'Error running T:\n{result.stderr}\n{result.stdout}'
   else:
@@ -214,4 +214,3 @@ def run_RateCustomizer(projdir):
   assert (customrates / EVENTRATES).exists()
   assert (customrates / EXTENSIONRATES).exists()
   return True
-

@@ -90,8 +90,8 @@ def whole_genome_to_GFF(pieces_files: list[Path], outfile: Path,
                 f.readline()            # Header
 
                 for line in f:
-                    # ["FAMILY", "TYPE", "IDENTITY", "LENGTH", "TOTAL_LEFT", "TOTAL_RIGHT", "ORIENTATION"]
-                    family, type, identity, length, tleft, tright, orientation = line.strip().split("\t")
+                    # ["FAMILY", "TYPE", "ID", "LENGTH", "TOTAL_LEFT", "TOTAL_RIGHT", "ORIENTATION"]
+                    family, type, id, length, tleft, tright, orientation = line.strip().split("\t")
 
                     maxcoordinate = max(maxcoordinate, int(tright))
 

@@ -2137,12 +2137,16 @@ class Genome:
         the string indicating the pendant node name
     chromosomes: List[Chromosome]
         the list of chromosomes in this genome
+    time: float
+        the time in the simulation where this genome was created
+        (the time of the most recent event leading to this genome)
     """
 
-    def __init__(self):
+    def __init__(self, time=0.0):
 
         self.species = ""
         self.chromosomes: list[Chromosome] = []
+        self.time = time
 
     def start_genome(self, input):
 

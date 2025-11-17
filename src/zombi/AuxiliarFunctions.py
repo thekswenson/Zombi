@@ -6,6 +6,7 @@ import sys
 import scipy
 import scipy.stats as ss
 import pandas as pd
+import networkx as nx
 
 from collections import defaultdict
 from itertools import pairwise
@@ -15,7 +16,7 @@ from numpy.random import Generator as npGenerator
 from BCBio import GFF
 from Bio.SeqFeature import SeqFeature
 from Bio.SeqRecord import SeqRecord
-from Bio import SeqIO
+from Bio import SeqIO, Phylo
 
 from .Events import FER, LOSS, ORIG, TDUP
 from .Filenames import COMPLETEsuffix, GENOMEsuffix, SUBSTITUTIONSCALEDsuffix
@@ -1065,7 +1066,7 @@ def organize_genomes_by_branch(dir: Path, allgenomes: bool = False) \
     return node2files, numfiles
 
 
-def get_last_genome(fileprefix: str) -> list[str]:
+def get_last_genome(fileprefix: str) -> tuple[list[str], Path]:
   """
   Get the genome from the filename with with the highest sequence number for the
   given path prefix.
@@ -1077,7 +1078,8 @@ def get_last_genome(fileprefix: str) -> list[str]:
     num = int(suffix.replace(GENOMEsuffix, ''))
     num2file[num] = file
 
-  return get_genome(num2file[max(num2file.keys())])
+  f = num2file[max(num2file.keys())]
+  return get_genome(num2file[max(num2file.keys())]), f
 
 
 def get_genome(tsvfile: Path) -> list[str]:
@@ -1085,10 +1087,43 @@ def get_genome(tsvfile: Path) -> list[str]:
   Get the genome from the given filename.
   """
   #Use pandas to read the TSV file
-  df = pd.read_csv(tsvfile, sep='\t')
+  df = pd.read_csv(tsvfile, sep='\t', comment='#')
 
   assert 'GENE_FAMILY' in df.columns, f'No GENE_FAMILY column in {tsvfile}!'
   assert 'ORIENTATION' in df.columns, f'No ORIENTATION column in {tsvfile}!'
-  return [f'{sign}{gene}'
-          for gene, sign in zip(df['GENE_FAMILY'], df['ORIENTATION'])]
+  assert 'ID' in df.columns, f'No ID column in {tsvfile}!'
+  return [f'{sign}{gene}_{gid}'
+          for gene, sign, gid in zip(df['GENE_FAMILY'], df['ORIENTATION'],
+                                     df['ID'])]
 
+
+def get_genome_from_pieces(piecesfile: Path) -> list[str]:
+  """
+  Get the gene order from a PIECES file using pandas.
+  """
+  df = pd.read_csv(piecesfile, sep='\t', comment='#')
+  #Make a list of the FAMILY column for only rows where the 'TYPE' is 'Gene'
+  geneorder = []
+  for gene, sign in df[df['TYPE'] == 'Gene'][['FAMILY', 'ORIENTATION', 'ID']].itertuples(index=False):
+    geneorder.append(f'{sign}{gene}')
+
+  return geneorder
+
+
+
+def get_directed_tree(treefile: Path) -> nx.DiGraph:
+    """
+    Return the tree as a directed graph, where the nodes are the names of the
+    nodes in the given newick file (rather than biopython Clade objects).
+
+    Parameters
+    ----------
+    treefile : Path
+        the newick file containing the tree
+    """
+    t = Phylo.to_networkx(Phylo.read(treefile, "newick", rooted=True)) #type: ignore
+    tree = nx.DiGraph()
+    for u, v in t.edges():
+        tree.add_edge(u.name, v.name)
+
+    return tree

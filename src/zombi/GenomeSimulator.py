@@ -155,7 +155,8 @@ class GenomeSimulator():
 
         for genome_name, genome in genomes_to_write.items():
             with open(genome_folder / (genome_name + GENOMEsuffix), "w") as f:
-                header = ["POSITION", "GENE_FAMILY", "ORIENTATION", "GENE_ID"]
+                f.write(f'# Genome created at time {genome.time}\n')
+                header = ["POSITION", "GENE_FAMILY", "ORIENTATION", "ID"]
                 header = "\t".join(map(str, header)) + "\n"
                 f.write(header)
 
@@ -168,7 +169,7 @@ class GenomeSimulator():
 
             if intergenic_sequences:
                 with open(os.path.join(genome_folder, genome_name + LENGTHSsuffix), "w") as f:
-                    header = ["POSITION", "IDENTITY", "LENGTH"]
+                    header = ["POSITION", "ID", "LENGTH"]
                     header = "\t".join(map(str, header)) + "\n"
                     f.write(header)
 
@@ -209,7 +210,7 @@ class GenomeSimulator():
 
             with open(genome_folder / (genome_name + PIECESsuffix), "w") as f:
 
-                header = ["FAMILY", "TYPE", "IDENTITY", "LENGTH", "TOTAL_LEFT",
+                header = ["FAMILY", "TYPE", "ID", "LENGTH", "TOTAL_LEFT",
                           "TOTAL_RIGHT", "ORIENTATION"]
                 header = "\t".join(map(str, header)) + "\n"
                 f.write(header)
@@ -806,7 +807,7 @@ class GenomeSimulator():
         """
         genome = Genome()
         genome.species = "Root"
-        time = 0
+        time = 0.0
 
         chrom_len, gene_features = af.parse_GFF(genome_file)
 
@@ -870,7 +871,8 @@ class GenomeSimulator():
 
 
     def make_gene(self, gene_feature: SeqFeature, species_tree_node: str,
-                  time: int, family_mode = False, empirical_rates = False) -> tuple[Gene, GeneFamily]:
+                  time: float, family_mode = False, empirical_rates = False) \
+        -> tuple[Gene, GeneFamily]:
         """
         Make a new gene in a new gene family, based on the given `gene_feature`.
 
@@ -1015,8 +1017,14 @@ class GenomeSimulator():
                 current_time += time_to_next_genome_event
 
                 if info := self.evolve_genomes(d, u, t, l, i, c, o, current_time):
-                    if self.save_all and info:
-                        self.add_genome_to_all_genomes(info[1])
+                    if info:
+                        if isinstance(info[1], tuple):  #time of genome creation
+                            self.node_genomes[info[1][1]].time = current_time
+                        else:
+                            self.node_genomes[info[1]].time = current_time
+
+                        if self.save_all:
+                            self.copy_genome_to_all_genomes(info[1])
 
 
     def run_i(self):
@@ -1103,8 +1111,14 @@ class GenomeSimulator():
 
                 current_time += time_to_next_genome_event
                 if info := self.evolve_genomes_i(d, t, l, i, c, o, rm, rw, current_time):
-                    if self.save_all and info:
-                        self.add_genome_to_all_genomes(info[1])
+                    if info:
+                        if isinstance(info[1], tuple):  #time of genome creation
+                            self.node_genomes[info[1][1]].time = current_time
+                        else:
+                            self.node_genomes[info[1]].time = current_time
+                            
+                        if self.save_all:
+                            self.copy_genome_to_all_genomes(info[1])
 
 
     def run_m(self):
@@ -1181,8 +1195,14 @@ class GenomeSimulator():
 
                 current_time += time_to_next_genome_event
                 if info := self.evolve_genomes_m(current_time):
-                    if self.save_all and info:
-                        self.add_genome_to_all_genomes(info[1])
+                    if info:
+                        if isinstance(info[1], tuple):  #time of genome creation
+                            self.node_genomes[info[1][1]].time = current_time
+                        else:
+                            self.node_genomes[info[1]].time = current_time
+                     
+                        if self.save_all:
+                            self.copy_genome_to_all_genomes(info[1])
 
 
     def run_u(self):
@@ -1245,8 +1265,14 @@ class GenomeSimulator():
 
                 current_time += time_to_next_genome_event
                 if info := self.advanced_evolve_genomes(current_time):
-                    if self.save_all and info:
-                        self.add_genome_to_all_genomes(info[1])
+                    if info:
+                        if isinstance(info[1], tuple):  #time of genome creation
+                            self.node_genomes[info[1][1]].time = current_time
+                        else:
+                            self.node_genomes[info[1]].time = current_time
+                            
+                        if self.save_all:
+                            self.copy_genome_to_all_genomes(info[1])
 
 
     def run_f(self):
@@ -1334,8 +1360,14 @@ class GenomeSimulator():
             else:
                 current_time += time_to_next_genome_event
                 if info := self.advanced_evolve_genomes_f(d, u, t, l, i, c, o, current_time):
-                    if self.save_all and info:
-                        self.add_genome_to_all_genomes(info[1])
+                    if info:
+                        if isinstance(info[1], tuple):  #time of genome creation
+                            self.node_genomes[info[1][1]].time = current_time
+                        else:
+                            self.node_genomes[info[1]].time = current_time
+
+                        if self.save_all:
+                            self.copy_genome_to_all_genomes(info[1])
 
 
     def run_f_debug(self, injected_events): # Only for debugging purposes
@@ -1469,8 +1501,8 @@ class GenomeSimulator():
                     self.make_origination_intergenic(ch,c1,lineage, time)
 
 
-    def add_genome_to_all_genomes(self, toadd: Genome|str|tuple[str, str],
-                                  checklineage=False):
+    def copy_genome_to_all_genomes(self, toadd: Genome|str|tuple[str, str],
+                                   checklineage=False):
         """
         Add a genome or a pair of genomes to the `self.all_genomes` dict.
 
@@ -1490,8 +1522,8 @@ class GenomeSimulator():
 
         elif isinstance(toadd, tuple):
             assert len(toadd) == 2
-            self.add_genome_to_all_genomes(toadd[0], checklineage)
-            self.add_genome_to_all_genomes(toadd[1], checklineage)
+            self.copy_genome_to_all_genomes(toadd[0], checklineage)
+            self.copy_genome_to_all_genomes(toadd[1], checklineage)
             return
 
         else:
@@ -2317,15 +2349,15 @@ class GenomeSimulator():
         genomes for the child species `c1` and `c2`.
         """
         if self.save_all:
-            self.add_genome_to_all_genomes(sp, True)
+            self.copy_genome_to_all_genomes(sp, True)
 
         if sp not in self.geneorder_events:
             self.geneorder_events[sp] = []
 
         genome_sp = self.node_genomes[sp]
 
-        genome1 = Genome()
-        genome2 = Genome()
+        genome1 = Genome(time)
+        genome2 = Genome(time)
 
         if hasattr(genome_sp, 'interactome'):
             genome1.interactome = copy.deepcopy(genome_sp.interactome)
@@ -2430,7 +2462,7 @@ class GenomeSimulator():
         Deactivate the genome at species node `sp` due to extinction.
         """
         if self.save_all:
-            self.add_genome_to_all_genomes(sp, True)
+            self.copy_genome_to_all_genomes(sp, True)
 
         if sp not in self.geneorder_events:
             self.geneorder_events[sp] = []
@@ -2456,7 +2488,7 @@ class GenomeSimulator():
                         map(str, [genome.species, gene.gene_id])))
 
             if self.save_all:
-                self.add_genome_to_all_genomes(genome_name, True)
+                self.copy_genome_to_all_genomes(genome_name, True)
 
             if genome_name not in self.geneorder_events:
                 self.geneorder_events[genome_name] = []
@@ -4017,8 +4049,8 @@ class GenomeSimulator():
     def make_speciation_divisions(self, time, pn, c1, c2):
         
         genome_pn: Genome = self.node_genomes_pieces[pn]
-        genome1 = Genome()
-        genome2 = Genome()
+        genome1 = Genome(time)
+        genome2 = Genome(time)
 
         self.node_genomes_pieces[c1] = genome1
         self.node_genomes_pieces[c2] = genome2

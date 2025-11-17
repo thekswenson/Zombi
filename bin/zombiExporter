@@ -11,13 +11,14 @@ import networkx as nx
 import pandas as pd
 
 from pathlib import Path
-from Bio import SeqIO, Phylo
+from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 from collections import namedtuple
 from collections import defaultdict as ddict
 
 from zombi.AuxiliarFunctions import get_genome, get_last_genome
+from zombi.AuxiliarFunctions import get_directed_tree
 from zombi.Events import AFER, LFER, LFER_B, LFER_F, LOSS, ORIG, POS, TDUP
 from zombi.Events import TWO_BP_EVENTS, DUP
 from zombi.Export import get_genes, get_leaf_names, random_seq
@@ -229,7 +230,7 @@ def getEventLines(eventfile: Path, genomesdir: Path,
         The child node on the branch for which we're getting broken adjacencies.
     """
     retlist = []
-    genome = get_last_genome(f'{genomesdir}/{parent}-')
+    genome, _ = get_last_genome(f'{genomesdir}/{parent}-')
 
     df = pd.read_csv(eventfile, sep='\t')
     idiff = 0
@@ -242,11 +243,13 @@ def getEventLines(eventfile: Path, genomesdir: Path,
             bps = list(map(int, bps.split(',')))
 
         if event == AFER:
-            gene1, gene2 = genome[bps[0]-1], genome[bps[0] % len(genome)]
-            if retlist and time == retlist[-1][1]:
+            if retlist and time == retlist[-1][1]:  #replacement transfer
                 assert retlist[-1][2] == LOSS
+                gene1, gene2 = prevgenome[bps[0]-1], prevgenome[bps[0] % len(prevgenome)]
                 retlist[-1] = (child, time, event, f'{gene1}|{gene2}')
+                idiff += 1
             else:
+                gene1, gene2 = genome[bps[0]-1], genome[bps[0] % len(genome)]
                 retlist.append((child, time, event, f'{gene1}|{gene2}'))
 
         elif event == ORIG:
@@ -258,7 +261,7 @@ def getEventLines(eventfile: Path, genomesdir: Path,
             retlist.append((child, time, event, f'{gene1}|{gene2}'))
 
         elif event == LFER or event == LFER_F or event == LFER_B:
-            pass
+            retlist.append((child, time, event, ''))  #no broken adjacencies
 
         elif event in TWO_BP_EVENTS:
             gene1, gene2 = genome[bps[0]-1], genome[bps[0]]
@@ -272,6 +275,8 @@ def getEventLines(eventfile: Path, genomesdir: Path,
                 gene5, gene6 = genome[bps[2]-1], genome[bps[2] % len(genome)]
                 retlist.append((child, time, event,
                                f'{gene1}|{gene2},{gene3}|{gene4},{gene5}|{gene6}'))
+            else:
+                retlist.append((child, time, event, ''))  #no broken adjacencies
         elif event == DUP:
             gene1, gene2 = genome[bps[2]-1], genome[bps[2] % len(genome)]
             retlist.append((child, time, event, f'{gene1}|{gene2}'))
@@ -280,24 +285,12 @@ def getEventLines(eventfile: Path, genomesdir: Path,
             raise ValueError(f'Unknown event type "{event}" in file '
                              f'"{eventfile}".')
 
+        prevgenome = genome
         genome = get_genome(genomesdir / f'{child}-{i-idiff}{GENOMEsuffix}')
 
     return retlist
 
     
-def getDirectedTree(treefile: Path) -> nx.DiGraph:
-    """
-    Return the tree as a directed graph, where the nodes are the names of the
-    nodes in the given newick file (rather than biopython Clade objects).
-    """
-    t = Phylo.to_networkx(Phylo.read(treefile, "newick", rooted=True)) #type: ignore
-    tree = nx.DiGraph()
-    for u, v in t.edges():
-        tree.add_edge(u.name, v.name)
-
-    return tree
-
-
 # _____________________________________________________________________________
 
 
@@ -373,8 +366,8 @@ def main():
     args.func(args) 
 
 
-    #MAIN:    __    __    __    __    __    __    __    __    __    __    __    __
-    #__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \_
+#MAIN:    __    __    __    __    __    __    __    __    __    __    __    __
+#__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \_
 
 
 def export_PositionalOrthologs(args):
@@ -566,7 +559,7 @@ def export_Breakpoints(args):
     
     gdir = proj_dir / 'G'
     genomesdir = gdir / 'All_genomes'
-    message = ('Run "zombi G" with "ALL_GENOMES" and'
+    message = ('Run "zombi G" with "ALL_GENOMES" and '
                '"GENEORDER_EVENTS_PER_BRANCH" activated.')
     if not genomesdir.exists():
         sys.exit(f'ERROR: {genomesdir} does not exist. {message}')
@@ -575,11 +568,8 @@ def export_Breakpoints(args):
     if not eventsdir.exists():
         sys.exit(f'ERROR: {eventsdir} does not exist. {message}')
 
-    #Organize the genome files by branch (node name)
-    #node2files = organize_genomes_by_branch(genomesdir, True)
-
     treefile = proj_dir / 'T' / COMPLETETREE
-    tree = getDirectedTree(treefile)
+    tree = get_directed_tree(treefile)
 
     #For each branch, read the events file and calculate the broken adjacencies:
     branch2events: dict[str, list[tuple]] = {}

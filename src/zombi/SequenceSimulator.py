@@ -796,10 +796,10 @@ def write_whole_genome(pieces_file: Path, seq_sim: SequenceSimulator,
         
         for line in f:
 
-            # ["FAMILY", "TYPE", "IDENTITY", "LENGTH", "TOTAL_LEFT", "TOTAL_RIGHT", "ORIENTATION"]
-            family, gtype, identity, length, tleft, tright, orientation = line.strip().split("\t")
+            # ["FAMILY", "TYPE", "ID", "LENGTH", "TOTAL_LEFT", "TOTAL_RIGHT", "ORIENTATION"]
+            family, gtype, id, length, tleft, tright, orientation = line.strip().split("\t")
         
-            name = node + "_" + identity
+            name = node + "_" + id
             directory = sequences_folder
             if gtype == "Divi":
                 directory = directory / "Divisions"
