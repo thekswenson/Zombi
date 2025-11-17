@@ -4,6 +4,7 @@ The fixtures to be shared across multiple test modules.
 import subprocess
 import pytest
 
+from typing import NamedTuple
 from pathlib import Path
 
 from zombi.Filenames import COMPLETETREE, EVENTRATES, EXTENSIONRATES
@@ -65,6 +66,7 @@ def run_small_T_factory(pdir, runner):
   """ Run the T mode of zombi with one of the given runners. """
   completetree = pdir / 'T' / COMPLETETREE
 
+  numtries = 100
   while True:
     result = runner.run(['zombi', 'T', '-f', T_SMALL_PARAMS, pdir])
     if hasattr(result, 'success'):
@@ -79,6 +81,9 @@ def run_small_T_factory(pdir, runner):
       return pdir / 'T'
 
     print(f'INFO: Tree too small ({completetree.stat().st_size} bytes), rerunning...')
+    assert numtries != 0, 'Could not generate a small tree after many attempts!'
+    numtries -= 1
+
 
 @pytest.fixture(scope='session')
 def run_small_T(smallprojdir):
@@ -94,7 +99,11 @@ def rerun_small_T(smallprojdir, script_runner):
 #     .     .     .     .     .     .     .     .     .     .     .     .
 # Genomes:
 
-def G_runner(pdir, mode='G', force=True, allgenomes=False, seeded=False):
+class RunDirs(NamedTuple):
+  T: Path
+  G: Path
+
+def G_runner(pdir, mode='G', force=True, allgenomes=False, seeded=False) -> Path:
   """
   Run the G mode of Zombi.
 
@@ -123,84 +132,85 @@ def G_runner(pdir, mode='G', force=True, allgenomes=False, seeded=False):
   result = subprocess.run(['zombi', mode, fflag, params, pdir])
   assert result.returncode == 0, (
     f'Error running G:\n{result.stderr}\n{result.stdout}')
+
+  assert (pdir / 'G').exists()
   return pdir / 'G'
 
 
 @pytest.fixture(scope='session')
-def run_G(projdir, run_T):
+def run_G(projdir, run_T) -> RunDirs:
   """ Run the G mode of Zombi. Module-scoped to avoid rerunning. """
-  return G_runner(projdir)
+  return RunDirs(run_T, G_runner(projdir))
 
 @pytest.fixture(scope='session')
-def run_G_all(projdir, run_T):
+def run_G_all(projdir, run_T) -> RunDirs:
   """ Run the G mode of Zombi. Module-scoped to avoid rerunning. """
-  return G_runner(projdir, allgenomes=True)
+  return RunDirs(run_T, G_runner(projdir, allgenomes=True))
 
 @pytest.fixture(scope='session')
-def run_G_seeded(projdir, run_T):
+def run_G_seeded(projdir, run_T) -> RunDirs:
   """ Run the G mode of Zombi. Module-scoped to avoid rerunning. """
-  return G_runner(projdir, seeded=True)
+  return RunDirs(run_T, G_runner(projdir, seeded=True))
 
 @pytest.fixture
-def rerun_G(projdir, run_T):
+def rerun_G(projdir, run_T) -> RunDirs:
   """ Run the G mode of Zombi. """
-  return G_runner(projdir)
+  return RunDirs(run_T, G_runner(projdir))
 
 @pytest.fixture
-def rerun_G_all(projdir, run_T):
+def rerun_G_all(projdir, run_T) -> RunDirs:
   """ Run the G mode of Zombi. """
-  return G_runner(projdir, allgenomes=True)
+  return RunDirs(run_T, G_runner(projdir, allgenomes=True))
 
 @pytest.fixture
-def rerun_G_seeded(projdir, run_T):
+def rerun_G_seeded(projdir, run_T) -> RunDirs:
   """ Run the G mode of Zombi. """
-  return G_runner(projdir, seeded=True)
+  return RunDirs(run_T, G_runner(projdir, seeded=True))
 
 
 @pytest.fixture(scope='session')
-def run_Gf(projdir, run_T):
+def run_Gf(projdir, run_T) -> RunDirs:
   """ Run the Gf mode of Zombi. Module-scoped to avoid rerunning. """
-  return G_runner(projdir, mode='Gf')
+  return RunDirs(run_T, G_runner(projdir, mode='Gf'))
 
 @pytest.fixture(scope='session')
-def run_Gf_all(projdir, run_T):
+def run_Gf_all(projdir, run_T) -> RunDirs:
   """ Run the Gf mode of Zombi. Module-scoped to avoid rerunning. """
-  return G_runner(projdir, mode='Gf', allgenomes=True)
+  return RunDirs(run_T, G_runner(projdir, mode='Gf', allgenomes=True))
 
 @pytest.fixture
-def rerun_Gf(projdir, run_T):
+def rerun_Gf(projdir, run_T) -> RunDirs:
   """ Run the Gf mode of Zombi. """
-  return G_runner(projdir, mode='Gf')
+  return RunDirs(run_T, G_runner(projdir, mode='Gf'))
 
 @pytest.fixture
-def rerun_Gf_all(projdir, run_T):
+def rerun_Gf_all(projdir, run_T) -> RunDirs:
   """ Run the Gf mode of Zombi. """
-  return G_runner(projdir, mode='Gf', allgenomes=True)
+  return RunDirs(run_T, G_runner(projdir, mode='Gf', allgenomes=True))
 
 
 @pytest.fixture(scope='session')
-def run_Gm(smallprojdir, run_small_T):
+def run_Gm(smallprojdir, run_small_T) -> RunDirs:
   """ Run the Gm mode of Zombi. Module-scoped to avoid rerunning. """
-  return G_runner(smallprojdir, mode='Gm', allgenomes=True)
+  return RunDirs(run_small_T, G_runner(smallprojdir, mode='Gm', allgenomes=True))
 
 @pytest.fixture
-def rerun_Gm(smallprojdir, run_small_T):
+def rerun_Gm(smallprojdir, run_small_T) -> RunDirs:
   """ Run the Gm mode of Zombi. """
-  return G_runner(smallprojdir, mode='Gm', allgenomes=True)
+  return RunDirs(run_small_T, G_runner(smallprojdir, mode='Gm', allgenomes=True))
 
 
 @pytest.fixture(scope='session')
-def run_Gu(projdir, run_T, run_RateCustomizer):
+def run_Gu(projdir, run_T, run_RateCustomizer) -> RunDirs:
   """ Run the Gu mode of Zombi. Module-scoped to avoid rerunning. """
   assert run_RateCustomizer, 'There was a problem with run_RateCustomizer!'
-  return G_runner(projdir, mode='Gu', allgenomes=True)
+  return RunDirs(run_T, G_runner(projdir, mode='Gu', allgenomes=True))
 
 @pytest.fixture
-def rerun_Gu(projdir, run_T, run_RateCustomizer):
+def rerun_Gu(projdir, run_T, run_RateCustomizer) -> RunDirs:
   """ Run the Gu mode of Zombi. """
   assert run_RateCustomizer, 'There was a problem with run_RateCustomizer!'
-  return G_runner(projdir, mode='Gu', allgenomes=True)
-
+  return RunDirs(run_T, G_runner(projdir, mode='Gu', allgenomes=True))
 
 @pytest.fixture(scope='session')
 def run_RateCustomizer(projdir):

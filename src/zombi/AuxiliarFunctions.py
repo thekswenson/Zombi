@@ -1066,7 +1066,7 @@ def organize_genomes_by_branch(dir: Path, allgenomes: bool = False) \
     return node2files, numfiles
 
 
-def get_last_genome(fileprefix: str) -> tuple[list[str], Path]:
+def get_last_genome(fileprefix: str, addgid=True) -> tuple[list[str], Path]:
   """
   Get the genome from the filename with with the highest sequence number for the
   given path prefix.
@@ -1079,12 +1079,17 @@ def get_last_genome(fileprefix: str) -> tuple[list[str], Path]:
     num2file[num] = file
 
   f = num2file[max(num2file.keys())]
-  return get_genome(num2file[max(num2file.keys())]), f
+  return get_genome(num2file[max(num2file.keys())], addgid), f
 
 
-def get_genome(tsvfile: Path) -> list[str]:
+def get_genome(tsvfile: Path, addgid=True) -> list[str]:
   """
   Get the genome from the given filename.
+
+  Parmameters
+  ----------
+  addgid : bool, default false
+      whether to append the gene ID to the gene name
   """
   #Use pandas to read the TSV file
   df = pd.read_csv(tsvfile, sep='\t', comment='#')
@@ -1092,20 +1097,30 @@ def get_genome(tsvfile: Path) -> list[str]:
   assert 'GENE_FAMILY' in df.columns, f'No GENE_FAMILY column in {tsvfile}!'
   assert 'ORIENTATION' in df.columns, f'No ORIENTATION column in {tsvfile}!'
   assert 'ID' in df.columns, f'No ID column in {tsvfile}!'
-  return [f'{sign}{gene}_{gid}'
-          for gene, sign, gid in zip(df['GENE_FAMILY'], df['ORIENTATION'],
-                                     df['ID'])]
+  genome = []
+  for data in df.itertuples():
+      gene, sign, gid = data.GENE_FAMILY, data.ORIENTATION, data.ID
+      if addgid:
+          genome.append(f'{sign}{gene}_{gid}')
+      else:
+          genome.append(f'{sign}{gene}')
+
+  return genome
 
 
-def get_genome_from_pieces(piecesfile: Path) -> list[str]:
+def get_genome_from_pieces(piecesfile: Path, addgid=True) -> list[str]:
   """
   Get the gene order from a PIECES file using pandas.
   """
   df = pd.read_csv(piecesfile, sep='\t', comment='#')
+
   #Make a list of the FAMILY column for only rows where the 'TYPE' is 'Gene'
   geneorder = []
-  for gene, sign in df[df['TYPE'] == 'Gene'][['FAMILY', 'ORIENTATION', 'ID']].itertuples(index=False):
-    geneorder.append(f'{sign}{gene}')
+  for gene, sign, gid in df[df['TYPE'] == 'Gene'][['FAMILY', 'ORIENTATION', 'ID']].itertuples(index=False):
+    if addgid:
+        geneorder.append(f'{sign}{gene}_{gid}')
+    else:
+        geneorder.append(f'{sign}{gene}')
 
   return geneorder
 

@@ -18,7 +18,7 @@ from .Filenames import GENOMEsuffix, PIECESsuffix
 class Filetype(StrEnum):
   GENOME = 'GENOME'
   PIECES = 'PIECES'
-def crosscheckGenomes(genome_folder: Path, filetype=Filetype.GENOME):
+def crosscheck_genomes(genome_folder: Path, filetype=Filetype.GENOME):
   """
   Ensure that the genomes in the `All_genomes` folder matches those in the
   `Genomes` folder.
@@ -60,7 +60,7 @@ def crosscheckGenomes(genome_folder: Path, filetype=Filetype.GENOME):
     #    f'{genome_file} and {previous_file} differ!')
 
 
-def comparePiecesToGenomes(dir: Path, allgenomes=False):
+def compare_pieces_to_genomes(dir: Path, allgenomes=False):
   """
   Ensure that the gene orders are the same in the PIECES and GENOMES files.
   """
