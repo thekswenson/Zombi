@@ -65,7 +65,7 @@ def main():
 
   print(f'To generate simulations, run snakemake in the project directory:\n'
         f'  1. `cd {proj_dir}`\n'
-        f'  2. edit {proj_dir}/config.yaml\n'
+        f'  2. edit the config.yaml\n'
         f'  3. `snakemake -c 1 --configfile config.yaml`')
 
 if __name__ == "__main__":
