@@ -539,8 +539,9 @@ class Zombi():
             leaves = af.get_leaves_from_file(leaves_file)
     
             for pieces_file in pieces_files:
-                write_whole_genome(pieces_file, ss, sequences_folder,
-                                   genomeseq_folder, leaves)
+                if "Initial" not in str(pieces_file):
+                    write_whole_genome(pieces_file, ss, sequences_folder,
+                                       genomeseq_folder, leaves)
 
             whole_genome_to_GFF(pieces_files,
                                 Path(sequences_folder, GENOMES))

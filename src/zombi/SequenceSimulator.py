@@ -283,15 +283,15 @@ class SequenceSimulator():
             f.write(treestr)
 
 
-    def retrieve_sequences(self, name, gf, sequences_folder):
+    def retrieve_sequences(self, name, gf, sequences_folder: Path):
         """
         Read the simulated sequences from the specified location.
         """
-        for n,s in af.fasta_reader(os.path.join(sequences_folder, gf + COMPLETEsuffix)):
+        for n,s in af.fasta_reader(sequences_folder / (gf + COMPLETEsuffix)):
             if n[1:] == name:
                 return s
 
-        raise(NodeMissingError('Missing sequence for {name} in "{gf}{COMPLETEsuffix}".'))
+        raise(NodeMissingError(f'Missing sequence for {name} in "{gf}{COMPLETEsuffix}".'))
 
 
     def retrieve_orientation(self, species, gene_name, lengths_folder: Path):
@@ -305,7 +305,7 @@ class SequenceSimulator():
                 if gene_name == gf + "_" + id:
                     return orientation
 
-        raise(NodeMissingError('Missing info for {gene_name} in "{gr}_{id}".'))
+        raise(NodeMissingError(f'Missing info for {gene_name} in "{gf}_{id}".'))
 
 
     def simulate_single_sequence(self, name, gene_length, tree_file: Path, sequences_folder: Path):
