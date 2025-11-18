@@ -268,7 +268,7 @@ def doArrivingTransfer(genome: list[str], breakpoint: int, time: float,
                             f'in {eventsdir}!')
 
   #Get the segment from the LFER event
-  othergenome = getGenomeAtTime(genomesdir, file, time)
+  othergenome = getGenomeAtTime(genomesdir, file, time, False)
   bp1, bp2 = map(int, result['BREAKPOINTS'].item().split(','))
   segment = getSegment(othergenome, bp1, bp2)
 
@@ -279,7 +279,8 @@ def doArrivingTransfer(genome: list[str], breakpoint: int, time: float,
   return genome[:breakpoint] + segment + genome[breakpoint:]
 
 
-def getGenomeAtTime(genomesdir: Path, eventfile: Path, time: float) -> list[str]:
+def getGenomeAtTime(genomesdir: Path, eventfile: Path, time: float,
+                    addgid=True) -> list[str]:
   """
   Get the genome at the given time from the given event file.
   """
@@ -300,8 +301,7 @@ def getGenomeAtTime(genomesdir: Path, eventfile: Path, time: float) -> list[str]
 
   name = eventfile.name.replace(GENEORDEREVENTSsuffix, '')
   #Get the genome from the corresponding genome file
-  return get_genome(genomesdir / f'{name}-{count}{GENOMEsuffix}')
-
+  return get_genome(genomesdir / f'{name}-{count}{GENOMEsuffix}', addgid)
   
 def getSegment(genome: list[str], start: int, end: int) -> list[str]:
   """
