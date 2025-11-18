@@ -11,13 +11,13 @@ Final simulated sequences will be at directories of the form:
   SIMDIR/sequences/treeparams-T-rep0/TP1/.../genomeparams-G-rep0/GP1/.../sequenceparams-S-rep0/SP1/.../S/
 
 - The `TP1`, `GP1`, and `SP1` are the tree, genome, and sequence parameters,
-  respectively. `rep0` is the replicate number (because any set of parameters
-  for each of the steps can have many replicates). The mode of each step
-  is included in the parameter directory name, e.g. `-T-` for trees,
+  respectively. `rep0` is the replicate number (because a fixed set of
+  parameters for each of the steps can have multiple replicates). The mode of
+  each step is included in the parameter directory name, e.g. `-T-` for trees,
   `-G-` for genomes, and `-S-` for sequences.
-- The parameter directories (e.g. `TP1`) are named by the zombi parameters from
-  the config.yaml file, and have a minus `-` separating each parameter name from
-  its value.
+- The parameter directories (e.g. `TP1`) are named by be each non-default
+  zombi parameter in the config.yaml file, and have a minus `-` separating
+  each parameter name from its value.
 
 Note that, to prevent the simulations from accidentally being rerun, there
 are lock files (e.g. lock_G.flag) that are saved in the simulation directory. To
@@ -140,7 +140,7 @@ rule zombi_run_T:
      
       #Run the simulation
     mode = extractTreeMode(wildcards.tparams)
-    shell('zombi {mode} {input.paramfile} ' + SIMDIR +
+    shell('zombi {mode} -f {input.paramfile} ' + SIMDIR +
           '/trees/{wildcards.tparams} &> {log}')
     lockfile.touch()
 
@@ -167,7 +167,7 @@ rule zombi_run_G:
 
       #Run the simulation
     mode = extractGenomeMode(wildcards.tgparams)
-    shell('zombi {mode} {input.paramfile} ' + SIMDIR +
+    shell('zombi {mode} -f {input.paramfile} ' + SIMDIR +
           '/genomes/{wildcards.tgparams} &> {log}')
     lockfile.touch()
 
@@ -195,7 +195,7 @@ rule zombi_run_S:
 
       #Run the simulation
     mode = extractSequenceMode(wildcards.tgsparams)
-    shell('zombi {mode} -p {threads} {input.paramfile} ' + SIMDIR +
+    shell('zombi {mode} -f -p {threads} {input.paramfile} ' + SIMDIR +
           '/sequences/{wildcards.tgsparams} &> {log}')
     lockfile.touch()
 

@@ -1,5 +1,10 @@
 # coding: utf-8
 """
+This is the snakefile for running ZOMBI simulations for a single set of
+parameters.
+Rather than using this file directly, it may be better to use the zombiSnakemake
+command to setup a new simulation suite.
+
 To prevent the simulations from accidentally being rerun, there are lock files
 (e.g. lock_G.flag) that are saved in the simulation directory. To rerun the
 simulation, remove the lock file.
