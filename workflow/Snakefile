@@ -29,5 +29,5 @@ include: 'rules/zombi.smk'
 
 rule all:
   input:
-    buildAllTargetList
+    buildAllZombiTargets
 

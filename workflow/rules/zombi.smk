@@ -88,6 +88,8 @@ except KeyError as e:
 
 #To export:
 
+#This is the list of all parameter directory names, over all combinations of
+#specified parameters.
 ZOMBIPARAMDIRS = expandZombiFullParamDirs(ZOMBI_P, DEFAULTTREECONFIG,
                                           DEFAULTGENOMECONFIG, DEFAULTSEQCONFIG,
                                           TREPS_L, GREPS_L, SREPS_L)
@@ -104,9 +106,11 @@ wildcard_constraints:
 # For the All rule
 #_______________________________________________________________________________
 
-def buildAllTargetList(wildcards):
+def buildAllZombiTargets(wildcards):
   """
-  Build the list of ultimate targets based on the settings.
+  Build the list of ultimate targets based on the settings. With this list of
+  targets, the complete set of simulations, based on the specified parameters
+  in the config.yaml file, will be run.
   """
   files = []
   files += expand(SIMDIR + '/sequences/{zparams}S/Genes',

@@ -112,8 +112,8 @@ def zombiFullParamDirs(params: dict[str, Any], treeconfig: str,
                        genomeconfig: str, seqconfig: str) -> list[str]:
   """
   Generate the list of parameter directories.
-  The directories will include replicate wildcards for the tree (trep), genome
-  (grep), and sequence (srep) parameters. Directories will end with a slash '/'.
+  The directories will include wildcards for the replicates: the tree (trep),
+  genome (grep), and sequence (srep). Directories will end with a slash '/'.
   """
   treedirs = zombiTreeParamDirs(params['TMODE'], params['SPECIESTREE'], treeconfig)
   genomedirs = zombiGenomeParamDirs(params['GMODE'], params['GENOME'], genomeconfig)

@@ -42,6 +42,8 @@ ZOMBI_EXPORT_FFGC_SNAKEFILE = str(PATH_TO_RULES / 'export_FFGC.smk')
 # ZOMBI_P, ZOMBI_TREEP, ZOMBI_GENP, ZOMBI_SEQP
 #____________________________________________________________________________
 
+# The NOREPS versions of these variables have replicate wildcards to be
+# completed (trep, grep, srep).
 ZOMBIPARAMDIRS_NOREPS = zombiFullParamDirs(ZOMBI_P, DEFAULTTREECONFIG,
                                            DEFAULTGENOMECONFIG, DEFAULTSEQCONFIG)
 #ZOMBIPARAMDIRS included from zombi.smk

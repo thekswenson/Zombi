@@ -4,7 +4,7 @@ This Snakefile is used to run Zombi simulations over a range of parameters.
 
 It is an empty workflow that includes the rules installed in the mamba
 environment. The configfile is loaded and then the `all` rule fills in the
-target files using `buildAllTargetList` from ZOMBI_SNAKEFILE.
+target files using `buildAllZombiTargets` from ZOMBI_SNAKEFILE.
 """
 from zombi.snakemake.parameters import ZOMBI_SNAKEFILE
 
@@ -18,4 +18,4 @@ include: ZOMBI_SNAKEFILE
 
 rule all:
   input:
-    buildAllTargetList
+    buildAllZombiTargets
