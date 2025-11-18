@@ -7,6 +7,7 @@ pairs of genomes.
 import json
 import sys
 import argparse
+from typing import Iterator, NamedTuple
 import networkx as nx
 import pandas as pd
 
@@ -130,10 +131,13 @@ GFFHEADER = ('##gff-version 3\n'
              '#named "families.txt".')
 BEDHEADER = ('#Blocks written with the name column containing the family id.\n'
              '#The seventh column contains the gene name.')
+COORDNOTE = ('#Intergene regions were ignored when creating this file, so\n'
+             '#gene coordinates are contiguous, and may not correspond to the\n'
+             '#simulated coordinates (use -p for accurate coordinates).')
 
 def processGeneFamilies(fam2id2genome2rec: dict[str, dict[str, dict[str, SeqRecord]]],
-                        projdir: Path, outdir: Path,
-                        gff=True) -> dict[str, dict[str, CoordPair]]:
+                        projdir: Path, outdir: Path, gff=True,
+                        useintergenic=False) -> dict[str, dict[str, CoordPair]]:
     """
     For each gene family, create a GFF or BED file with the intervals of the
     genes in the family. Also create a FASTA file with genome sequence.
@@ -144,6 +148,9 @@ def processGeneFamilies(fam2id2genome2rec: dict[str, dict[str, dict[str, SeqReco
         Map family id to gene id to genome to SeqRecord.
     gff : bool
         If True, create GFF files. If False, create BED files.
+    useintergenic : bool
+        If True, use intergenic regions when calculating gene coordinates
+        (from the _PIECES.tsv files).
 
     Returns
     -------
@@ -151,61 +158,83 @@ def processGeneFamilies(fam2id2genome2rec: dict[str, dict[str, dict[str, SeqReco
         Map family id to gene id to start and end coordinates.
     """
     genomesdir = projdir / GENOMES
-    genomesuffix = GENOMEsuffix
+    suffix = GENOMEsuffix
+    if useintergenic:
+        suffix = PIECESsuffix
 
     fam2recid2pos: dict[str, dict[str, CoordPair]] = ddict(dict)
     leaves = get_leaf_names(projdir)
     for genome in leaves:
-        #Read the gene order. Each line is a tab-separated list containing
-        # position, family, strand, and gene ID.
-        gfile = genomesdir / f'{genome}{genomesuffix}'
-        with open(gfile) as f:
-            header = f.readline()                       #header
-            if not header.startswith('POSITION'):
-                raise(ValueError(f'Unexpected header in "{gfile}"'))
-        
-            genomesequence = SeqRecord(Seq(''))
-            lines = ''
-            i = 1
-            for line in f:
-                _, family, strand, geneid = line.strip().split('\t')
+        i = 1
+        lines = ''
+        genomesequence = SeqRecord(Seq(''))
+        gfile = genomesdir / f'{genome}{suffix}'
+        for g in iterGenesFromGenome(gfile, useintergenic):
+            #TODO: the following is a workaround for the case when a gene
+            #is the last surviving representative. The sequence is not
+            #simulated by Zombi in this case, at present!
+            if g.family not in fam2id2genome2rec:
+                fam2id2genome2rec[g.family][g.gid][genome] = random_seq()
+                print(f'Loner gene {g.family}_{g.gid} not simulated in '
+                      f'{genome}. ')
 
-                #TODO: the following is a workaround for the case when a gene
-                #is the last surviving representative. The sequence is not
-                #simulated by Zombi in this case, at present!
-                if family not in fam2id2genome2rec:
-                    fam2id2genome2rec[family][geneid][genome] = random_seq()
-                    print(f'Loner gene {family}_{geneid} not simulated in '
-                          f'{genome}. ')
+            rec = fam2id2genome2rec[g.family][g.gid][genome]
+            genomesequence += rec
+            assert rec.id
 
-                rec = fam2id2genome2rec[family][geneid][genome]
-                genomesequence += rec
-                assert rec.id
-                fam2recid2pos[family][rec.id] = CoordPair(i, i+len(rec)-1, strand)
-                if gff:
-                    lines += (f'{genome}\tZombi\tCDS\t{i}\t{i+len(rec)-1}\t'
-                              f'.\t{strand}\t0\tID={family}_{geneid}\n')
-                else:
-                    lines += (f'{genome}\t{i-1}\t{i+len(rec)-1}\t{family}\t0\t'
-                              f'{strand}\t{family}_{geneid}\n')
-                i += len(rec)
+            if useintergenic:
+                start = g.start
+                end = g.end
+            else:
+                start = i
+                end = i + len(rec) - 1
+
+            fam2recid2pos[g.family][rec.id] = CoordPair(start, end, g.strand)
 
             if gff:
-                lines = GFFHEADER + '\n' + lines
-                outfile = outdir / f'{genome}.gff'
+                lines += (f'{genome}\tZombi\tCDS\t{start}\t{end}\t'
+                          f'.\t{g.strand}\t0\tID={g.family}_{g.gid}\n')
             else:
-                lines = BEDHEADER + '\n' + lines
-                outfile = outdir / f'{genome}.bed'
+                lines += (f'{genome}\t{start+1}\t{end}\t{g.family}\t0\t'
+                          f'{g.strand}\t{g.family}_{g.gid}\n')
+            i += len(rec)
 
-            with open(outfile, 'w') as f:
-                f.write(lines)
+        if not useintergenic:
+            lines = COORDNOTE + '\n' + lines
+        if gff:
+            lines = GFFHEADER + '\n' + lines
+            outfile = outdir / f'{genome}.gff'
+        else:
+            lines = BEDHEADER + '\n' + lines
+            outfile = outdir / f'{genome}.bed'
 
-            assert len(genomesequence) == i - 1
-            genomesequence.id = genome
-            genomesequence.description = ''
-            SeqIO.write(genomesequence, outdir / f'{genome}.fa', 'fasta')
+        with open(outfile, 'w') as f:
+            f.write(lines)
+
+        assert len(genomesequence) == i - 1
+        genomesequence.id = genome
+        genomesequence.description = ''
+        SeqIO.write(genomesequence, outdir / f'{genome}.fa', 'fasta')
 
     return fam2recid2pos
+
+
+class GeneTuple(NamedTuple):
+    family: str
+    gid: str
+    strand: str
+    start: int
+    end: int
+
+def iterGenesFromGenome(gfile: Path, useintergenic: bool) -> Iterator[GeneTuple]:
+    df = pd.read_csv(gfile, sep='\t', comment='#').astype(str)
+    if useintergenic:
+        for family, type, geneid, _, start, end, strand in df.itertuples(index=False):
+            if type == 'Gene':
+                yield GeneTuple(family, geneid, strand, int(start), int(end))
+    else:
+        for _, family, strand, geneid in df.itertuples(index=False):
+            yield GeneTuple(family, geneid, strand, 0, 0)
 
 
 def getEventLines(eventfile: Path, genomesdir: Path,
@@ -433,9 +462,7 @@ def export_FFGC(args):
     out_dir.mkdir(parents=True, exist_ok=True)
 
     #Read the gene sequences
-    genesdir = proj_dir / GENES
-    genesuffix = COMPLETEsuffix
-    fam2id2genome2rec = get_genes(genesdir, genesuffix)
+    fam2id2genome2rec = get_genes(proj_dir / GENES, COMPLETEsuffix)
 
     fam2recid2pos = processGeneFamilies(fam2id2genome2rec, proj_dir, out_dir,
                                         gff=True)
@@ -485,25 +512,21 @@ def export_GFF(args):
 
 def export_BED(args):
     """
-    For each genome, creates a BED with all intervals of the genome, along with
+    For each genome, create a BED with all intervals of the genome, along with
     a FASTA file containing the genome sequence.
     """
     proj_dir: Path = args.PROJ_DIR
     out_dir: Path = args.OUT_DIR
     use_pieces = args.pieces
-    if use_pieces:
-        raise NotImplementedError(f'Exporting {PIECESsuffix} to BED is not '
-                                  'yet supported.')
 
     #Make the directory if it doesn't exist
     out_dir.mkdir(parents=True, exist_ok=True)
 
     #Read the gene sequences
-    genesdir = proj_dir / GENES
-    genesuffix = COMPLETEsuffix
-    fam2id2genome2rec = get_genes(genesdir, genesuffix)
+    fam2id2genome2rec = get_genes(proj_dir / GENES, COMPLETEsuffix)
 
-    processGeneFamilies(fam2id2genome2rec, proj_dir, out_dir, gff=False)
+    processGeneFamilies(fam2id2genome2rec, proj_dir, out_dir, gff=False,
+                        useintergenic=use_pieces)
 
 
 def export_DupInfo(args):

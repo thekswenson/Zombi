@@ -2,16 +2,16 @@ from pathlib import Path
 from collections import defaultdict as ddict
 from random import choice
 import re
+import sys
 from Bio import Phylo, SeqIO
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 
 from .SequenceSimulator import node_piecesre
-from .Filenames import EXTANTTREE, PRUNEDsuffix
+from .Filenames import EXTANTTREE, COMPLETEsuffix, PRUNEDsuffix
 
 
-def get_genes(genesdir: Path,
-              suffix=PRUNEDsuffix) \
+def get_genes(genesdir: Path, suffix=COMPLETEsuffix) \
     -> dict[str, dict[str, dict[str, SeqRecord]]]:
     """
     Read the gene fasta records from the given directory.
@@ -21,7 +21,8 @@ def get_genes(genesdir: Path,
     genesdir : Path
         The directory containing the gene fasta files.
     suffix : str
-        The suffix of the gene fasta files. Default is 'pruned.fasta'.
+        The suffix of the gene fasta files.
+        (either PRUNEDsuffix or COMPLETEsuffix)
 
     Returns
     -------
@@ -31,7 +32,9 @@ def get_genes(genesdir: Path,
     fam2id2genome2rec: dict[str, dict[str, dict[str, SeqRecord]]] \
         = ddict(lambda: ddict(dict))
 
-    idre = re.compile(r'(n\d+)_(\d+)')
+    assert suffix in {PRUNEDsuffix, COMPLETEsuffix}
+
+    idre = re.compile(r'(Root|n\d+)_(\d+)')
     files = False
     for file in genesdir.glob('*'+suffix):
         files = True
@@ -39,6 +42,9 @@ def get_genes(genesdir: Path,
         for record in SeqIO.parse(file, 'fasta'):
             if m := idre.match(record.id):
                 fam2id2genome2rec[family][m.group(2)][m.group(1)] = record
+            else:
+                sys.exit(f'ERROR: unexpected gene ID format: "{record.id}" '
+                         f'in file "{file}".')
 
     if not files:
         raise FileNotFoundError(f'No files found in {genesdir} with suffix '
