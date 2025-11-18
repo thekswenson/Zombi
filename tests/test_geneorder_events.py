@@ -15,7 +15,7 @@ from zombi.Filenames import TREEEVENTS, TREELENGTHS, EXTANTTREE, COMPLETETREE
 from zombi.Filenames import GENEORDEREVENTSsuffix, GENOMEsuffix
 from zombi.Events import LFER_F, TDUP, DUP, LFER, AFER, LOSS, INV, POS, ORIG
 from zombi.Events import LFER_B
-from zombi.Test import crosscheckGenomes, comparePiecesToGenomes
+from zombi.Test import crosscheck_genomes, compare_pieces_to_genomes
 
 REPS = 10
 
@@ -29,44 +29,43 @@ def test_t(run_T):
 
 
 @pytest.mark.repeat(REPS)
-def test_G(run_T, rerun_G_all):
-  eventsdir = rerun_G_all / 'Geneorder_events_per_branch'
+def test_G(rerun_G_all):
+  eventsdir = rerun_G_all.G / 'Geneorder_events_per_branch'
   assert eventsdir.exists()
-  genomesdir = rerun_G_all / 'All_genomes'
-  checkEventsAgainstGenomes(run_T / COMPLETETREE, eventsdir, genomesdir)
+  genomesdir = rerun_G_all.G / 'All_genomes'
+  checkEventsAgainstGenomes(rerun_G_all.T / COMPLETETREE, eventsdir, genomesdir)
 
 
 @pytest.mark.repeat(REPS)
-def test_Gf(run_T, rerun_Gf_all):
+def test_Gf(rerun_Gf_all):
   """ Test the G mode of Zombi. """
-  eventsdir = rerun_Gf_all / 'Geneorder_events_per_branch'
+  eventsdir = rerun_Gf_all.G / 'Geneorder_events_per_branch'
   assert eventsdir.exists()
-  allgenomesdir = rerun_Gf_all / 'All_genomes'
-  comparePiecesToGenomes(rerun_Gf_all / 'Genomes')
-  crosscheckGenomes(allgenomesdir)
-  comparePiecesToGenomes(allgenomesdir, True)
-  checkEventsAgainstGenomes(run_T / COMPLETETREE, eventsdir, allgenomesdir)
+  allgenomesdir = rerun_Gf_all.G / 'All_genomes'
+  compare_pieces_to_genomes(rerun_Gf_all.G / 'Genomes')
+  crosscheck_genomes(allgenomesdir)
+  compare_pieces_to_genomes(allgenomesdir, True)
+  checkEventsAgainstGenomes(rerun_Gf_all.T / COMPLETETREE, eventsdir, allgenomesdir)
 
 
 @pytest.mark.repeat(REPS)
-def test_Gm(run_small_T, rerun_Gm):
+def test_Gm(rerun_Gm):
   """ Test the Gm mode of Zombi. """
-  eventsdir = rerun_Gm / 'Geneorder_events_per_branch'
+  eventsdir = rerun_Gm.G / 'Geneorder_events_per_branch'
   assert eventsdir.exists()
-  genomesdir = rerun_Gm / 'All_genomes'
-  checkEventsAgainstGenomes(run_small_T / COMPLETETREE, eventsdir, genomesdir)
+  genomesdir = rerun_Gm.G / 'All_genomes'
+  checkEventsAgainstGenomes(rerun_Gm.T / COMPLETETREE, eventsdir, genomesdir)
 
 
 @pytest.mark.repeat(REPS)
-def test_Gu(run_T, rerun_Gu):
+def test_Gu(rerun_Gu):
   """ Test the Gu mode of Zombi. """
-  crosscheckGenomes(rerun_Gu)
+  crosscheck_genomes(rerun_Gu.G)
 
-  eventsdir = rerun_Gu / 'Geneorder_events_per_branch'
+  eventsdir = rerun_Gu.G / 'Geneorder_events_per_branch'
   assert eventsdir.exists()
-  genomesdir = rerun_Gu / 'All_genomes'
-  checkEventsAgainstGenomes(run_T / COMPLETETREE, eventsdir, genomesdir)
-
+  genomesdir = rerun_Gu.G / 'All_genomes'
+  checkEventsAgainstGenomes(rerun_Gu.T / COMPLETETREE, eventsdir, genomesdir)
 
 
 
@@ -84,7 +83,7 @@ def checkEventsAgainstGenomes(treefile: Path, eventsdir: Path, genomesdir: Path)
 
   for parent, child in tree.edges():
     eventfile = eventsdir / f'{child}{GENEORDEREVENTSsuffix}'
-    genome, _ = get_last_genome(f'{genomesdir}/{parent}-')
+    genome, _ = get_last_genome(f'{genomesdir}/{parent}-', False)
 
     #Organize events by time:
     df = pd.read_csv(eventfile, sep='\t')
@@ -123,7 +122,7 @@ def checkEventsAgainstGenomes(treefile: Path, eventsdir: Path, genomesdir: Path)
         raise ValueError(f'Unknown event type {event} in {eventfile}!')
 
       genomefile = genomesdir / f'{child}-{i}{GENOMEsuffix}'
-      expected_genome = get_genome(genomefile)
+      expected_genome = get_genome(genomefile, False)
 
       assert len(genome) == len(expected_genome), (f'Genome length mismatch '
         f'after event {event} at time {time} in {eventfile}, compared to '
