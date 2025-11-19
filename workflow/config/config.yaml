@@ -13,7 +13,7 @@ SIMDIR: 'simulations'  #The base output directory.
 #    Parameters/SequenceParameters.tsv for all the possible values that can
 #    be set, along with their defaults.
 #
-#When these are lists. All combinations from all lists will be generated.
+#When these are lists, all combinations from all lists will be generated.
 #
 ZOMBI:
   TMODE: 'T'  #Overall tree mode from {T, Tu, Tf, Tm}
