@@ -1393,8 +1393,11 @@ class Chromosome(abc.ABC):
             yield x
 
     def select_random_length(self, p):
-
-        return int(af.obtain_value(p, G_NPRNG()))
+        try:
+            return int(af.obtain_value(p, G_NPRNG()))
+        except ValueError as e:
+            raise ValueError(f"selecting random length with parameter {p}, "
+                             f"make sure the number is between 0 and 1: {e}")
 
     def return_rates(self):
 
@@ -1839,7 +1842,7 @@ class CircularChromosome(Chromosome):
         """
         Returns the index list of the affected genes. This will be a range
         of consecutive integers that can WRAP around, but always starts with
-        the first affected gene (e.g. [8, 9, 0, 1, 2])
+        the first affected gene (e.g. [8, 9, 0, 1, 2] when it wraps)
         """
         position = self.select_random_position()
         length = self.select_random_length(p_extension)

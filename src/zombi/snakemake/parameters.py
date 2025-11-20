@@ -116,7 +116,7 @@ def zombiFullParamDirs(params: dict[str, Any], treeconfig: str,
   genome (grep), and sequence (srep). Directories will end with a slash '/'.
   """
   treedirs = zombiTreeParamDirs(params['TMODE'], params['SPECIESTREE'], treeconfig)
-  genomedirs = zombiGenomeParamDirs(params['GMODE'], params['GENOME'], genomeconfig)
+  genomedirs = zombiGenomeParamPart(params['GMODE'], params['GENOME'], genomeconfig)
   seqdirs = zombiSeqParamDirs(params['SMODE'], params['SEQUENCE'], seqconfig)
   dirs = []
   for tdir, gdir, sdir in product(treedirs, genomedirs, seqdirs):
@@ -198,6 +198,21 @@ def zombiTreeParamStrs(tmode: str, treeparams: dict[str, list],
           for d in zombiTreeParamDirs(tmode, treeparams, defaultconfig)]
 
 
+def zombiGenomeParamDirs(params: dict[str, Any], treeconfig: str,
+                         genomeconfig: str) -> list[str]:
+  """
+  Generate the list of parameter directories only up to the genome part.
+  The directories will include wildcards for the replicates: the tree (trep),
+  genome (grep), and sequence (srep). Directories will end with a slash '/'.
+  """
+  treedirs = zombiTreeParamDirs(params['TMODE'], params['SPECIESTREE'], treeconfig)
+  genomedirs = zombiGenomeParamPart(params['GMODE'], params['GENOME'], genomeconfig)
+  dirs = []
+  for tdir, gdir in product(treedirs, genomedirs):
+    dirs.append(f'{tdir}{gdir}')
+  return dirs
+
+
 def expandZombiGenomeParamDirs(params: dict[str, Any],
                                treeconfig: str,
                                genomeconfig: str,
@@ -208,17 +223,13 @@ def expandZombiGenomeParamDirs(params: dict[str, Any],
   wildcards to all possible combinations. The directories returned by this
   function will end with a slash '/'.
   """
-  treedirs = zombiTreeParamDirs(params['TMODE'], params['SPECIESTREE'], treeconfig)
-  genomedirs = zombiGenomeParamDirs(params['GMODE'], params['GENOME'], genomeconfig)
-  alldirs = []
-  for tdir, gdir in product(treedirs, genomedirs):
-    alldirs.append(f'{tdir}{gdir}')
+  alldirs = zombiGenomeParamDirs(params, treeconfig, genomeconfig)
 
   return [d.format(trep=t, grep=g) for t, g in product(treps, greps)
           for d in alldirs]
 
 
-def zombiGenomeParamDirs(gmode: str, genomeparams: dict[str, list],
+def zombiGenomeParamPart(gmode: str, genomeparams: dict[str, list],
                          defaultconfig: str) -> list[str]:
   """
   Create the parameter directories for the given parameters.  Each value could
@@ -240,7 +251,7 @@ def zombiGenomeParamStrs(gmode: str, genomeparams: dict[str, list], defaultconfi
   The names will include replicate wildcards for the genome (grep).
   """
   return [d.replace('/', '_').strip('_')
-          for d in zombiGenomeParamDirs(gmode, genomeparams, defaultconfig)]
+          for d in zombiGenomeParamPart(gmode, genomeparams, defaultconfig)]
 
 
 def zombiSeqParamDirs(smode: str, seqparams: dict[str, list],

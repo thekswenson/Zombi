@@ -134,36 +134,37 @@ def read_empirical_rates(rates_file: str, scale_rates = 1.0):
 
 def obtain_value(value, nprngen: npGenerator) -> float:
 
-    handle = value.split(":")
+    typeid, val = value.split(":")
 
-    if handle[0] == "f":
+    if typeid == "f":
         # Fixed value
-        value =  float(handle[1])
+        value =  float(val)
 
-    elif handle[0] == "n":
+    elif typeid == "n":
         # normal distribution
-        params = handle[1].split(";")
+        params = val.split(";")
         value = abs(nprngen.normal(float(params[0]), float(params[1])))
 
-    elif handle[0] == "l":
+    elif typeid == "l":
         # lognormal distribution
-        params = handle[1].split(";")
+        params = val.split(";")
         value = abs(nprngen.lognormal(float(params[0]), float(params[1])))
 
-    elif handle[0] == "u":
+    elif typeid == "u":
         # uniform distribution
-        params = handle[1].split(";")
+        params = val.split(";")
         value = abs(nprngen.uniform(float(params[0]), float(params[1])))
 
-    elif handle[0] == "g":
+    elif typeid == "g":
         # geometric distribution
-        value = float(nprngen.geometric(float(handle[1])))
+        value = float(nprngen.geometric(float(val)))
 
-    elif handle[0] == "e":
+    elif typeid == "e":
         # exponential distribution
-        value = nprngen.exponential(float(handle[1]))
+        value = nprngen.exponential(float(val))
 
     return value
+
 
 def discretize(alpha, ncat, disttype="lognorm"):
 

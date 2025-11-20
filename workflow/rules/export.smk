@@ -19,6 +19,7 @@ from zombi.snakemake.parameters import expandZombiFullParamStrs
 from zombi.snakemake.parameters import zombiTreeParamDirs
 from zombi.snakemake.parameters import zombiTreeParamStrs
 from zombi.snakemake.parameters import zombiGenomeParamDirs
+from zombi.snakemake.parameters import expandZombiGenomeParamDirs
 from zombi.snakemake.parameters import zombiGenomeParamStrs
 from zombi.snakemake.parameters import zombiSeqParamDirs
 from zombi.snakemake.parameters import zombiSeqParamStrs
@@ -27,7 +28,7 @@ from zombi.snakemake.parameters import DEFAULTSEQCONFIG, PATH_TO_RULES
 
 include: 'zombi.smk'
 
-OUTDIR = config['OUTDIR']
+OUTDIR = Path(config['OUTDIR'])
 
 
 # List of application specific export files:
@@ -42,13 +43,13 @@ ZOMBI_EXPORT_FFGC_SNAKEFILE = str(PATH_TO_RULES / 'export_FFGC.smk')
 # ZOMBI_P, ZOMBI_TREEP, ZOMBI_GENP, ZOMBI_SEQP
 #____________________________________________________________________________
 
-# The NOREPS versions of these variables have replicate wildcards to be
+# The REPS versions of these variables have replicate wildcards to be
 # completed (trep, grep, srep).
-ZOMBIPARAMDIRS_NOREPS = zombiFullParamDirs(ZOMBI_P, DEFAULTTREECONFIG,
-                                           DEFAULTGENOMECONFIG, DEFAULTSEQCONFIG)
+ZOMBIPARAMDIRS_REPS = zombiFullParamDirs(ZOMBI_P, DEFAULTTREECONFIG,
+                                         DEFAULTGENOMECONFIG, DEFAULTSEQCONFIG)
 #ZOMBIPARAMDIRS included from zombi.smk
-ZOMBIPARAMSTRS_NOREPS = zombiFullParamStrs(ZOMBI_P, DEFAULTTREECONFIG,
-                                           DEFAULTGENOMECONFIG, DEFAULTSEQCONFIG)
+ZOMBIPARAMSTRS_REPS = zombiFullParamStrs(ZOMBI_P, DEFAULTTREECONFIG,
+                                         DEFAULTGENOMECONFIG, DEFAULTSEQCONFIG)
 ZOMBIPARAMSTRS = expandZombiFullParamStrs(ZOMBI_P, DEFAULTTREECONFIG,
                                           DEFAULTGENOMECONFIG, DEFAULTSEQCONFIG,
                                           TREPS_L, GREPS_L, SREPS_L)
@@ -56,8 +57,11 @@ ZOMBITREEPARAMDIRS = zombiTreeParamDirs(ZOMBI_P['TMODE'], ZOMBI_TREEP,
                                         DEFAULTTREECONFIG)
 ZOMBITREEPARAMSTRS = zombiTreeParamStrs(ZOMBI_P['TMODE'], ZOMBI_TREEP,
                                         DEFAULTTREECONFIG)
-ZOMBIGENOMEPARAMDIRS = zombiGenomeParamDirs(ZOMBI_P['GMODE'], ZOMBI_GENP,
-                                            DEFAULTGENOMECONFIG)
+ZOMBIGENOMEPARAMDIRS_REPS = zombiGenomeParamDirs(ZOMBI_P, DEFAULTTREECONFIG,
+                                                 DEFAULTGENOMECONFIG)
+ZOMBIGENOMEPARAMDIRS = expandZombiGenomeParamDirs(ZOMBI_P, DEFAULTTREECONFIG,
+                                                  DEFAULTGENOMECONFIG,
+                                                  TREPS_L, GREPS_L)
 ZOMBIGENOMEPARAMSTRS = zombiGenomeParamStrs(ZOMBI_P['GMODE'], ZOMBI_GENP,
                                             DEFAULTGENOMECONFIG)
 ZOMBISEQPARAMDIRS = zombiSeqParamDirs(ZOMBI_P['SMODE'], ZOMBI_SEQP,
@@ -66,7 +70,44 @@ ZOMBISEQPARAMSTRS = zombiSeqParamStrs(ZOMBI_P['SMODE'], ZOMBI_SEQP,
                                       DEFAULTSEQCONFIG)
 
 
-# Process Zombi Output
+# Zombi Exports (zombiExporter output added to the export directory)
+#____________________________________________________________________________
+
+rule Zombi_export_blocks:
+  """
+  Use zombiExport to compute the blocks directory for each simulation.
+  """
+  input:
+    G=SIMDIR / 'genomes/{zgproj}/G'
+  output:
+    directory(SIMDIR / 'genomes/{zgproj}/export/blocks')
+  log:
+    SIMDIR / 'genomes/{zgproj}/logs/blocks.log'
+  params:
+    projdir=subpath(input.G, parent=True)
+
+  shell:
+    'zombiExporter bed --no-sequences "{params.projdir}" "{output}" &> "{log}"'
+
+
+rule Zombi_export_breakpoints:
+  """
+  Use zombiExport to compute the breaks file for each simulation.
+  """
+  input:
+    G=SIMDIR / 'genomes/{zgproj}/G'
+  output:
+    breakpoints=SIMDIR / 'genomes/{zgproj}/export/breakpoints.tsv'
+  log:
+    SIMDIR / 'genomes/{zgproj}/logs/breakpoints.log'
+  params:
+    projdir=subpath(input.G, parent=True)
+
+  shell:
+    'zombiExporter breakpoints "{params.projdir}" "{output.breakpoints}" &> "{log}"'
+
+
+# Process Zombi Outpu
 #____________________________________________________________________________
 
 rule Zombi_duplicates_file_to_project:
@@ -75,10 +116,10 @@ rule Zombi_duplicates_file_to_project:
   the duplication counts file.
   """
   input:
-    SIMDIR + '/genomes/{tgparams}/duplication_counts_orig.tsv',
+    SIMDIR / 'genomes/{tgparams}/duplication_counts_orig.tsv',
 
   output:
-    OUTDIR + '/{project}/{tgparams}/' + SPARAMS + '{sparams}/zombi/duplication_counts.tsv',
+    OUTDIR / '{project}/{tgparams}' / SPARAMS / '{sparams}/zombi/duplication_counts.tsv',
 
   run:
     #Convert the relative path to a fully qualified path:
@@ -93,10 +134,10 @@ rule Zombi_positional_orthologs_toproject:
   and OUTDIR don't need to be in the same directory.
   """
   input:
-    SIMDIR + '/genomes/{tgparams}/positional_orthologs-z_orig.json',
+    SIMDIR / 'genomes/{tgparams}/positional_orthologs-z_orig.json',
 
   output:
-    OUTDIR + '/{project}/{tgparams}/' + SPARAMS + '{sparams}/zombi/positional_orthologs-z.json',
+    OUTDIR / '{project}/{tgparams}' / SPARAMS / '{sparams}/zombi/positional_orthologs-z.json',
 
   run:
     #Convert the relative path to a fully qualified path:
