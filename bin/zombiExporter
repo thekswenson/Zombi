@@ -145,7 +145,8 @@ def processGeneFamilies(fam2id2genome2rec: dict[str, dict[str, dict[str, SeqReco
     Parameters
     ----------
     fam2id2genome2rec : dict[str, dict[str, dict[str, SeqRecord]]]
-        Map family id to gene id to genome to SeqRecord.
+        Map family id to gene id to genome to SeqRecord. If empty, no sequences
+        are produces, and fictitious coordinates and gene lengths are used.
     gff : bool
         If True, create GFF files. If False, create BED files.
     useintergenic : bool
@@ -162,10 +163,15 @@ def processGeneFamilies(fam2id2genome2rec: dict[str, dict[str, dict[str, SeqReco
     if useintergenic:
         suffix = PIECESsuffix
 
+    skip_sequences = False
+    if not fam2id2genome2rec:
+        skip_sequences = True
+        fam2id2genome2rec = ddict(lambda: ddict(dict))
+
     fam2recid2pos: dict[str, dict[str, CoordPair]] = ddict(dict)
     leaves = get_leaf_names(projdir)
     for genome in leaves:
-        i = 1
+        i = 0
         lines = ''
         genomesequence = SeqRecord(Seq(''))
         gfile = genomesdir / f'{genome}{suffix}'
@@ -173,29 +179,30 @@ def processGeneFamilies(fam2id2genome2rec: dict[str, dict[str, dict[str, SeqReco
             #TODO: the following is a workaround for the case when a gene
             #is the last surviving representative. The sequence is not
             #simulated by Zombi in this case, at present!
-            if g.family not in fam2id2genome2rec:
+            if g.family not in fam2id2genome2rec or skip_sequences:
                 fam2id2genome2rec[g.family][g.gid][genome] = random_seq()
-                print(f'Loner gene {g.family}_{g.gid} not simulated in '
-                      f'{genome}. ')
+                if not skip_sequences:
+                    print(f'Loner gene {g.family}_{g.gid} not simulated in '
+                          f'{genome}. ')
 
             rec = fam2id2genome2rec[g.family][g.gid][genome]
             genomesequence += rec
             assert rec.id
 
             if useintergenic:
-                start = g.start
+                start = g.start  # pythonic indexes
                 end = g.end
             else:
                 start = i
-                end = i + len(rec) - 1
+                end = i + len(rec)
 
             fam2recid2pos[g.family][rec.id] = CoordPair(start, end, g.strand)
 
             if gff:
-                lines += (f'{genome}\tZombi\tCDS\t{start}\t{end}\t'
+                lines += (f'{genome}\tZombi\tCDS\t{start+1}\t{end}\t'
                           f'.\t{g.strand}\t0\tID={g.family}_{g.gid}\n')
             else:
-                lines += (f'{genome}\t{start+1}\t{end}\t{g.family}\t0\t'
+                lines += (f'{genome}\t{start}\t{end}\t{g.family}\t0\t'
                           f'{g.strand}\t{g.family}_{g.gid}\n')
             i += len(rec)
 
@@ -211,10 +218,11 @@ def processGeneFamilies(fam2id2genome2rec: dict[str, dict[str, dict[str, SeqReco
         with open(outfile, 'w') as f:
             f.write(lines)
 
-        assert len(genomesequence) == i - 1
-        genomesequence.id = genome
-        genomesequence.description = ''
-        SeqIO.write(genomesequence, outdir / f'{genome}.fa', 'fasta')
+        assert len(genomesequence) == i
+        if not skip_sequences:
+            genomesequence.id = genome
+            genomesequence.description = ''
+            SeqIO.write(genomesequence, outdir / f'{genome}.fa', 'fasta')
 
     return fam2recid2pos
 
@@ -334,44 +342,48 @@ def main():
 
     outdir_p = argparse.ArgumentParser(add_help=False)
     outdir_p.add_argument('OUT_DIR', type=Path,
-                           help='output files to this directory')
+                          help='output files to this directory')
 
-    gfhelp = 'Export the gene orders as a single GFF file.'
+    pieces_p = argparse.ArgumentParser(add_help=False)
+    pieces_p.add_argument('-p', '--pieces', action='store_true',
+                          help=f'use {PIECESsuffix} files instead '
+                               f'{GENOMEsuffix} files (for true coordinates)')
+
+    gfhelp = 'Export the blocks as a single GFF file.'
     p_gf = subparsers.add_parser('gff', aliases=['gf'],
-                                 parents=[parent],
+                                 parents=[parent, pieces_p],
                                  description=gfhelp, help=gfhelp)
+    bdhelp = 'Export the blocks as a BED file (and FASTA files).'
+    bddesc = bdhelp + ' Genome coordinates are fictitious unless -p is used.'
+    p_bd = subparsers.add_parser('bed', aliases=['bd'],
+                                 parents=[parent, outdir_p, pieces_p],
+                                 description=bddesc, help=bdhelp)
     pohelp = 'Export the positional ortholog sets.'
     p_po = subparsers.add_parser('posortho', aliases=['po'],
                                  parents=[parent],
                                  description=pohelp, help=pohelp)
     ffhelp = 'Export extant leaf genomes and sequences for use with FFGC.'
     p_ff = subparsers.add_parser('ffgc', aliases=['ff'],
-                                 parents=[parent, outdir_p],
+                                 parents=[parent, outdir_p, pieces_p],
                                  description=ffhelp, help=ffhelp)
-    bdhelp = 'Export the blocks as a BED file and FASTA files.'
-    p_bd = subparsers.add_parser('bed', aliases=['bd'],
-                                 parents=[parent, outdir_p],
-                                 description=bdhelp, help=bdhelp)
     duhelp = 'Make a TSV file mapping family id to number of duplications.'
     p_du = subparsers.add_parser('dupinfo', aliases=['du'], parents=[parent],
                                  description=duhelp, help=duhelp)
-    bphelp = 'Export the adjacencies broken for each edge.'
+    bphelp = 'Export the adjacencies broken for each tree edge.'
     p_bp = subparsers.add_parser('breakpoints', aliases=['bp'],
                                  parents=[parent],
                                  description=bphelp, help=bphelp)
 
     p_gf.add_argument('OUT_FILE', type=Path,
                       help='output file')
-    p_gf.add_argument('-p', '--pieces', action='store_true',
-                      help=f'use {PIECESsuffix} files instead {GENOMEsuffix} files')
 
     p_po.add_argument('OUT_FILE', type=Path,
                       help='the JSON file')
     p_po.add_argument('-n', '--no-family', action='store_true',
                       help='exclude family id from the gene name')
 
-    p_bd.add_argument('-p', '--pieces', action='store_true',
-                      help=f'use {PIECESsuffix} files instead {GENOMEsuffix} files')
+    p_bd.add_argument('-n', '--no-sequences', action='store_true',
+                      help=f'do not export FASTA sequence files for each block')
 
     p_du.add_argument('OUT_FILE', type=Path,
                       help='output TSV file')
@@ -380,9 +392,9 @@ def main():
                       help='the TSV file')
  
     p_gf.set_defaults(func=export_GFF)
+    p_bd.set_defaults(func=export_BED)
     p_po.set_defaults(func=export_PositionalOrthologs)
     p_ff.set_defaults(func=export_FFGC)
-    p_bd.set_defaults(func=export_BED)
     p_du.set_defaults(func=export_DupInfo)
     p_bp.set_defaults(func=export_Breakpoints)
 
@@ -457,6 +469,7 @@ def export_FFGC(args):
     """
     proj_dir: Path = args.PROJ_DIR
     out_dir: Path = args.OUT_DIR
+    use_pieces = args.pieces
 
     #Make the directory if it doesn't exist
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -465,7 +478,7 @@ def export_FFGC(args):
     fam2id2genome2rec = get_genes(proj_dir / GENES, COMPLETEsuffix)
 
     fam2recid2pos = processGeneFamilies(fam2id2genome2rec, proj_dir, out_dir,
-                                        gff=True)
+                                        True, use_pieces)
 
     #Write the family file
     with open(out_dir / 'families.txt', 'w') as f:
@@ -518,12 +531,15 @@ def export_BED(args):
     proj_dir: Path = args.PROJ_DIR
     out_dir: Path = args.OUT_DIR
     use_pieces = args.pieces
+    skip_sequences = args.no_sequences
 
     #Make the directory if it doesn't exist
     out_dir.mkdir(parents=True, exist_ok=True)
 
     #Read the gene sequences
-    fam2id2genome2rec = get_genes(proj_dir / GENES, COMPLETEsuffix)
+    fam2id2genome2rec = {}
+    if not skip_sequences:
+        fam2id2genome2rec = get_genes(proj_dir / GENES, COMPLETEsuffix)
 
     processGeneFamilies(fam2id2genome2rec, proj_dir, out_dir, gff=False,
                         useintergenic=use_pieces)
