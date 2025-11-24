@@ -157,8 +157,8 @@ rule zombi_run_G:
 
   output:
     G=directory(SIMDIR / 'genomes/{tgparams}/G'),
-    genomes=directory(SIMDIR / 'genomes/{tgparams}/G/Genomes'),
-    genefamilies=directory(SIMDIR / 'genomes/{tgparams}/G/Gene_families'),
+    Genomes=directory(SIMDIR / 'genomes/{tgparams}/G/Genomes'),
+    Gene_families=directory(SIMDIR / 'genomes/{tgparams}/G/Gene_families'),
 
   log:
     SIMDIR / 'genomes/{tgparams}/logs/G.log'
@@ -249,37 +249,6 @@ rule zombi_link_to_TG:
     #Path(str(output.G)).symlink_to(f'{os.getcwd()}/{input.gdir}')
     #shell(f'ln -s {os.getcwd()}/{input.treedir} {output.T}')
     #shell(f'ln -s {os.getcwd()}/{input.gdir} {output.G}')
-
-
-# Create extra output files using zombiExporter
-#____________________________________________________________________________
-
-rule zombi_positional_orthologs:
-  """
-  Get the positional orthologs file from the Zombi output.
-  """
-  input:
-    rules.zombi_run_G.output.genefamilies
-
-  output:
-    SIMDIR / 'genomes/{tgparams}/positional_orthologs-z_orig.json',
-
-  shell:
-    'zombiExporter po ' + str(SIMDIR) + '/genomes/{wildcards.tgparams} {output}'
-
-
-rule zombi_duplications_file:
-  """
-  Create the duplications file for the Zombi output.
-  """
-  input:
-    SIMDIR / 'genomes/{tgparams}/G/Genomes',
-
-  output:
-    SIMDIR / 'genomes/{tgparams}/duplication_counts_orig.tsv',
-
-  run:
-    shell('zombiExporter dupinfo ' + str(SIMDIR) + '/genomes/{wildcards.tgparams} {output}')
 
 
 # Zombi Input

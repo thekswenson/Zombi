@@ -78,11 +78,11 @@ rule Zombi_export_blocks:
   Use zombiExport to compute the blocks directory for each simulation.
   """
   input:
-    G=SIMDIR / 'genomes/{zgproj}/G'
+    G=rules.zombi_run_G.output.G
   output:
-    directory(SIMDIR / 'genomes/{zgproj}/export/blocks')
+    directory(SIMDIR / 'genomes/{tgparams}/export/blocks')
   log:
-    SIMDIR / 'genomes/{zgproj}/logs/blocks.log'
+    SIMDIR / 'genomes/{tgparams}/logs/blocks.log'
   params:
     projdir=subpath(input.G, parent=True)
 
@@ -95,11 +95,11 @@ rule Zombi_export_breakpoints:
   Use zombiExport to compute the breaks file for each simulation.
   """
   input:
-    G=SIMDIR / 'genomes/{zgproj}/G'
+    G=rules.zombi_run_G.output.G
   output:
-    breakpoints=SIMDIR / 'genomes/{zgproj}/export/breakpoints.tsv'
+    breakpoints=SIMDIR / 'genomes/{tgparams}/export/breakpoints.tsv'
   log:
-    SIMDIR / 'genomes/{zgproj}/logs/breakpoints.log'
+    SIMDIR / 'genomes/{tgparams}/logs/breakpoints.log'
   params:
     projdir=subpath(input.G, parent=True)
 
@@ -107,7 +107,35 @@ rule Zombi_export_breakpoints:
     'zombiExporter breakpoints "{params.projdir}" "{output.breakpoints}" &> "{log}"'
 
 
-# Process Zombi Outpu
+rule zombi_positional_orthologs:
+  """
+  Get the positional orthologs file from the Zombi output.
+  """
+  input:
+    rules.zombi_run_G.output.Gene_families
+
+  output:
+    SIMDIR / 'genomes/{tgparams}/positional_orthologs-z_orig.json',
+
+  shell:
+    'zombiExporter po ' + str(SIMDIR) + '/genomes/{wildcards.tgparams} {output}'
+
+
+rule zombi_duplications_file:
+  """
+  Create the duplications file for the Zombi output.
+  """
+  input:
+    rules.zombi_run_G.output.Genomes
+
+  output:
+    SIMDIR / 'genomes/{tgparams}/duplication_counts_orig.tsv',
+
+  run:
+    shell('zombiExporter dupinfo ' + str(SIMDIR) + '/genomes/{wildcards.tgparams} {output}')
+
+
+# Process Zombi Output
 #____________________________________________________________________________
 
 rule Zombi_duplicates_file_to_project:
