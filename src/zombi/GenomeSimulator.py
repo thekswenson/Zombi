@@ -33,7 +33,7 @@ from .Genomes import Chromosome, CircularChromosome, CoordinateChoiceError
 from .Genomes import Gene, GeneFamily, Genome, DivisionFamily, Intergene
 from .Genomes import Division, T_DIR, Intergene, LinearChromosome
 from .Random import G_RNG, G_NPRNG
-from .Filenames import BRANCHEVENTSTABLE, COMPLETETREE, EVENTRATES, FAMILYRATES
+from .Filenames import FULLGENOMEEVENTS, COMPLETETREE, EVENTRATES, FAMILYRATES
 from .Filenames import GENEFAMILYGFF, BRANCHEVENTSSCALEDsuffix
 from .Filenames import BRANCHEVENTSsuffix, GENEFAMEVENTSsuffix, GENOMEsuffix
 from .Filenames import INTERACTOMEsuffix, TREELENGTHS, GENEORDEREVENTSsuffix
@@ -425,7 +425,7 @@ class GenomeSimulator():
             table = sorted(table, key=lambda x:x[1])
             
             if table:
-                with open(events_per_branch_folder / BRANCHEVENTSTABLE, "w") as f:
+                with open(events_per_branch_folder / FULLGENOMEEVENTS, "w") as f:
 
                     header = "\t".join(["BRANCH", "TIME", "EVENT", "BREAKPOINTS"]) + "\n"
                     f.write(header)
