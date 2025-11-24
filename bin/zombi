@@ -19,7 +19,7 @@ from zombi.SequenceSimulator import SequenceSimulator, write_whole_genome
 from zombi.Export import whole_genome_to_GFF
 from zombi.Random import seed_G_generators, seed_S_generators, seed_T_generators
 from zombi.Random import T_NPRNG
-from zombi.Filenames import BRANCHWISERATES, CATEGORIES, GENEFAMILYLENGTHS
+from zombi.Filenames import BRANCHWISERATES, CATEGORIES, GENEFAMILYLENGTHS, BRANCHEVENTSsuffix, GENEORDEREVENTSsuffix
 from zombi.Filenames import COMPLETETREEsuffix, PRUNEDTREEsuffix
 from zombi.Filenames import GTSUBSTITUTIONRATES, RATES, RATESTREE
 from zombi.Filenames import REDSCALEDEVENTS, REDSCALEDTREE, SCALEDEVENTS
@@ -231,22 +231,31 @@ class Zombi():
 
         if parameters["PROFILES"] == 1:
             print("Writing Profiles")
-            profiles_folder = os.path.join(genome_folder, "Profiles")
+            profiles_folder = genome_folder / "Profiles"
             gss.write_profiles(profiles_folder)
                         
         if parameters["GENEORDER_EVENTS_PER_BRANCH"] == 1:
             scale = parameters["SCALE_TREE"]
-            print("Writing Events Per Branch")
+            print("Writing Gene Order Events Per Branch")
             folder = genome_folder / "Geneorder_events_per_branch"
             gss.write_geneorder_events_per_branch(folder, scale, scaled_file,
                                                   events_file)
+            gss.write_extant_events_per_branch(experiment_folder / "T" / EXTANTTREE,
+                                               experiment_folder / "T" / COMPLETETREE,
+                                               genome_folder / "Geneorder_events_per_branch",
+                                               genome_folder / "Extant_geneorder_events_per_branch",
+                                               GENEORDEREVENTSsuffix)
 
         if parameters["EVENTS_PER_BRANCH"] == 1:
             scale = parameters["SCALE_TREE"]
             print("Writing Events Per Branch")
-            events_per_branch_folder = genome_folder / "Events_per_branch"
-            gss.write_events_per_branch(events_per_branch_folder, scale,
-                                        scaled_file, events_file)
+            gss.write_events_per_branch(genome_folder / "Events_per_branch",
+                                        scale, scaled_file, events_file)
+            gss.write_extant_events_per_branch(experiment_folder / "T" / EXTANTTREE,
+                                               experiment_folder / "T" / COMPLETETREE,
+                                               genome_folder / "Events_per_branch",
+                                               genome_folder / "Extant_events_per_branch",
+                                               BRANCHEVENTSsuffix)
             
         if parameters["GENE_TREES"] == 1 and parameters["RECONCILED_TREES"] == 1:
             print("Writing Gene Trees")

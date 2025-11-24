@@ -993,6 +993,9 @@ def read_protein_sequences(gff_file: str, genome_folder: Path,
 
 
 def get_leaves_from_file(leavesfile: Path) -> set[str]:
+    """
+    Read a file specifying a leaf per line, and return a set of leaves.
+    """
     leaves = set()
     with open(leavesfile) as f:
         f.readline()    #Burn the opening line
@@ -1124,22 +1127,3 @@ def get_genome_from_pieces(piecesfile: Path, addgid=True) -> list[str]:
         geneorder.append(f'{sign}{gene}')
 
   return geneorder
-
-
-
-def get_directed_tree(treefile: Path) -> nx.DiGraph:
-    """
-    Return the tree as a directed graph, where the nodes are the names of the
-    nodes in the given newick file (rather than biopython Clade objects).
-
-    Parameters
-    ----------
-    treefile : Path
-        the newick file containing the tree
-    """
-    t = Phylo.to_networkx(Phylo.read(treefile, "newick", rooted=True)) #type: ignore
-    tree = nx.DiGraph()
-    for u, v in t.edges():
-        tree.add_edge(u.name, v.name)
-
-    return tree

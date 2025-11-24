@@ -12,13 +12,14 @@ import sys
 import numpy
 import copy
 import os
-import networkx as nx
 import ete3
 import itertools
+import networkx as nx
+import pandas as pd
 
 from ete3.coretype.tree import TreeNode
 from Bio.SeqFeature import SeqFeature
-from typing import Any, Iterable, Union
+from typing import Any, Iterable
 from pathlib import Path
 from collections import Counter, defaultdict
 
@@ -32,13 +33,15 @@ from .Genomes import Chromosome, CircularChromosome, CoordinateChoiceError
 from .Genomes import Gene, GeneFamily, Genome, DivisionFamily, Intergene
 from .Genomes import Division, T_DIR, Intergene, LinearChromosome
 from .Random import G_RNG, G_NPRNG
-from .Filenames import BRANCHEVENTSTABLE, COMPLETETREE, EVENTRATES, FAMILYRATES, GENEORDEREVENTSSCALEDsuffix
+from .Filenames import BRANCHEVENTSTABLE, COMPLETETREE, EVENTRATES, FAMILYRATES
 from .Filenames import GENEFAMILYGFF, BRANCHEVENTSSCALEDsuffix
 from .Filenames import BRANCHEVENTSsuffix, GENEFAMEVENTSsuffix, GENOMEsuffix
 from .Filenames import INTERACTOMEsuffix, TREELENGTHS, GENEORDEREVENTSsuffix
 from .Filenames import PIECESsuffix, GENEFAMILYLENGTHS, PROFILES
 from .Filenames import DIVISIONLENGTHS, LENGTHSsuffix, INITIALGENOMEINFO
 from .Filenames import GENEFAMILYINFO, EXTENSIONRATES, TRANSFERRATES
+from .Filenames import GENEORDEREVENTSSCALEDsuffix
+from .Tree import Tree
 
 
 class GenomeSimulator():
@@ -421,13 +424,14 @@ class GenomeSimulator():
                         
             table = sorted(table, key=lambda x:x[1])
             
-            with open(events_per_branch_folder / BRANCHEVENTSTABLE, "w") as f:
-                
-                header = "\t".join(["BRANCH", "TIME", "EVENT", "BREAKPOINTS"]) + "\n"
-                f.write(header)
-                
-                for e in table:
-                    f.write("\t".join([str(x) for x in e]) + "\n")
+            if table:
+                with open(events_per_branch_folder / BRANCHEVENTSTABLE, "w") as f:
+
+                    header = "\t".join(["BRANCH", "TIME", "EVENT", "BREAKPOINTS"]) + "\n"
+                    f.write(header)
+
+                    for e in table:
+                        f.write("\t".join([str(x) for x in e]) + "\n")
         
         events_per_branch_folder.mkdir(parents=True, exist_ok=True)
 
@@ -511,12 +515,49 @@ class GenomeSimulator():
                         line = "\t".join(line) + "\n"
                         f.write(line)
 
-    
-    
-    def write_profiles(self, profiles_folder):
 
-        if not os.path.isdir(profiles_folder):
-            os.mkdir(profiles_folder)
+    def write_extant_events_per_branch(self, extant_tree_file: Path,
+                                       complete_tree_file: Path,
+                                       events_dir: Path,
+                                       out_dir: Path,
+                                       filesuffix):
+        """
+        Write the events per branch for the extant tree. In the simplest case,
+        this just copies event files form the complete tree. When some of the
+        branches of the extant tree are composed of multiple complete tree
+        branches, these have to be inferred from the two trees, and the events
+        files concatenated.
+        """
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        ctree = Tree(complete_tree_file)
+        etree = Tree(extant_tree_file)
+
+        #Create an event file for each node of the extant tree, which merges
+        #event files for all missing nodes between it and its parent:
+        for node in etree:
+            extantparent = etree.parent(node)
+            n = node
+            p = ctree.parent(n)
+            #Build the path to the extantparent:
+            path = [n]
+            while p and p != extantparent:
+                path.append(p)
+                p = ctree.parent(p)
+
+            #Concatenate dataframes along path:
+            df = pd.DataFrame()
+            for n in reversed(path):
+                dfn = pd.read_csv(events_dir / f"{n}{filesuffix}",
+                                  sep="\t", comment="#")
+                df = pd.concat([df, dfn])
+
+            df.to_csv(out_dir / f"{node}{filesuffix}", sep="\t", index=False)
+
+
+    def write_profiles(self, profiles_folder: Path):
+
+        profiles_folder.mkdir(parents=True, exist_ok=True)
 
 
         genome_names = [x for x in self.node_genomes.keys()]
@@ -550,7 +591,7 @@ class GenomeSimulator():
         mlenx = len(data)
         mleny = len(data[0])
 
-        with open(os.path.join(profiles_folder, PROFILES), "w") as f:
+        with open(profiles_folder / PROFILES, "w") as f:
             for i in range(mleny):
                 line = list()
                 for j in range(mlenx):

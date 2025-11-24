@@ -20,14 +20,6 @@ from zombi.Test import crosscheck_genomes, compare_pieces_to_genomes
 REPS = 10
 
 
-def test_t(run_T):
-  """ Test the T mode of Zombi. """
-  assert (run_T / TREEEVENTS).exists()
-  assert (run_T / COMPLETETREE).exists()
-  assert (run_T / EXTANTTREE).exists()
-  assert (run_T / TREELENGTHS).exists()
-
-
 @pytest.mark.repeat(REPS)
 def test_G(rerun_G_all):
   eventsdir = rerun_G_all.G / 'Geneorder_events_per_branch'

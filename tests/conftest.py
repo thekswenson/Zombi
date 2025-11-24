@@ -7,7 +7,7 @@ import pytest
 from typing import NamedTuple
 from pathlib import Path
 
-from zombi.Filenames import COMPLETETREE, EVENTRATES, EXTENSIONRATES
+from zombi.Filenames import COMPLETETREE, EVENTRATES, EXTANTTREE, EXTENSIONRATES, TREEEVENTS, TREELENGTHS
 from zombi.Filenames import TRANSFERRATES
 
 
@@ -38,7 +38,8 @@ def smallprojdir(tmp_path_factory) -> Path:
 
 def run_T_factory(pdir, runner):
   """ Run the T mode of zombi with one of the given runners. """
-  completetree = pdir / 'T' / COMPLETETREE
+  Tdir = pdir / 'T'
+  completetree = Tdir / COMPLETETREE
 
   result = runner.run(['zombi', 'T', T_PARAMS, pdir])
   if hasattr(result, 'success'):
@@ -48,7 +49,10 @@ def run_T_factory(pdir, runner):
       f'Error running T:\n{result.stderr}\n{result.stdout}')
 
   assert completetree.exists()
-  return pdir / 'T'
+  assert (Tdir / TREEEVENTS).exists()
+  assert (Tdir / EXTANTTREE).exists()
+  assert (Tdir / TREELENGTHS).exists()
+  return Tdir
 
 
 @pytest.fixture(scope='session')

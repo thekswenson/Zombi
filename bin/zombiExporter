@@ -19,14 +19,14 @@ from collections import namedtuple
 from collections import defaultdict as ddict
 
 from zombi.AuxiliarFunctions import get_genome, get_last_genome
-from zombi.AuxiliarFunctions import get_directed_tree
 from zombi.Events import AFER, LFER, LFER_B, LFER_F, LOSS, ORIG, POS, TDUP
 from zombi.Events import TWO_BP_EVENTS, DUP
 from zombi.Export import get_genes, get_leaf_names, random_seq
 from zombi.Export import whole_genome_to_GFF
-from zombi.Filenames import GENEFAMEVENTSsuffix, GENEORDEREVENTSsuffix
+from zombi.Filenames import EXTANTTREE, GENEFAMEVENTSsuffix, GENEORDEREVENTSsuffix
 from zombi.Filenames import PIECESsuffix, GENOMEsuffix, COMPLETEsuffix
 from zombi.Filenames import COMPLETETREE
+from zombi.Tree import Tree
     
     
 # Constants
@@ -282,7 +282,8 @@ def getEventLines(eventfile: Path, genomesdir: Path,
         if event == AFER:
             if retlist and time == retlist[-1][1]:  #replacement transfer
                 assert retlist[-1][2] == LOSS
-                gene1, gene2 = prevgenome[bps[0]-1], prevgenome[bps[0] % len(prevgenome)]
+                gene1 = prevgenome[bps[0]-1]
+                gene2 = prevgenome[bps[0] % len(prevgenome)]
                 retlist[-1] = (child, time, event, f'{gene1}|{gene2}')
                 idiff += 1
             else:
@@ -390,6 +391,8 @@ def main():
  
     p_bp.add_argument('OUT_FILE', type=Path,
                       help='the TSV file')
+    p_bp.add_argument('-c', '--complete', action='store_true',
+                      help='use complete tree, including extinct lineages')
  
     p_gf.set_defaults(func=export_GFF)
     p_bd.set_defaults(func=export_BED)
@@ -595,7 +598,8 @@ def export_Breakpoints(args):
     """
     proj_dir: Path = args.PROJ_DIR
     out_file: Path = args.OUT_FILE
-    
+    include_extinct = args.complete
+
     gdir = proj_dir / 'G'
     genomesdir = gdir / 'All_genomes'
     message = ('Run "zombi G" with "ALL_GENOMES" and '
@@ -607,19 +611,35 @@ def export_Breakpoints(args):
     if not eventsdir.exists():
         sys.exit(f'ERROR: {eventsdir} does not exist. {message}')
 
-    treefile = proj_dir / 'T' / COMPLETETREE
-    tree = get_directed_tree(treefile)
+    completetreefile = proj_dir / 'T' / COMPLETETREE
+    if include_extinct:
+        treefile = completetreefile
+    else:
+        treefile = proj_dir / 'T' / EXTANTTREE
+
+    #If we are using the extant tree, there are missing edges with events on
+    #them that need to be included:
+    tree = Tree(treefile)
+    root = tree.root
+    includednode = tree.node_set()
+
+    #If we are using the extant tree and the root was pruned, then include the
+    #nodes on the path to the root:
+    if root != 'Root':
+        completetree = Tree(completetreefile)
+        while root != 'Root':
+            root = completetree.parent(root)
+            includednode.add(root)
 
     #For each branch, read the events file and calculate the broken adjacencies:
     branch2events: dict[str, list[tuple]] = {}
     for eventfile in eventsdir.iterdir():
         branch = eventfile.name.replace(GENEORDEREVENTSsuffix, '')
-        if branch == 'Initial':
-            continue
-        elif branch == 'Root':
-            parent = 'Initial'
-        else:
-            parent = list(tree.predecessors(branch))[0]
+        if branch in includednode:
+            if branch == 'Root':
+                parent = 'Initial'
+            else:
+                parent = tree.parent(branch)
 
         branch2events[branch] = getEventLines(eventfile, genomesdir, parent, branch)
 

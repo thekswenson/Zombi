@@ -681,7 +681,8 @@ class SpeciesTreeGenerator():
 
                     mynode1, cp_nodes1 = find_descendant(surviving_nodes, c1)
                     mynode2, cp_nodes2 = find_descendant(surviving_nodes, c2)
-                    surviving_nodes[p] = {"state": 1, "descendant": mynode1 + ";" + mynode2, "collapsed": surviving_nodes[c1]["collapsed"] + "+" + surviving_nodes[c2]["collapsed"],
+                    surviving_nodes[p] = {"state": 1, "descendant": mynode1 + ";" + mynode2,
+                                          "collapsed": surviving_nodes[c1]["collapsed"] + "+" + surviving_nodes[c2]["collapsed"],
                                           "extinct": en1 + "+" + en2}
 
                 elif surviving_nodes[c1]["state"] == 1 and surviving_nodes[c2]["state"] == 0:
@@ -696,12 +697,14 @@ class SpeciesTreeGenerator():
 
                 elif surviving_nodes[c1]["state"] == 1 and surviving_nodes[c2]["state"] == -1:
                     mynode, cp_nodes = find_descendant(surviving_nodes, c2)
-                    surviving_nodes[p] = {"state": 1, "descendant": c1 + ";" + mynode, "collapsed": "N+" + surviving_nodes[c2]["collapsed"],
+                    surviving_nodes[p] = {"state": 1, "descendant": c1 + ";" + mynode,
+                                          "collapsed": "N+" + surviving_nodes[c2]["collapsed"],
                                           "extinct": ""}
 
                 elif surviving_nodes[c1]["state"] == -1 and surviving_nodes[c2]["state"] == 1:
                     mynode, cp_nodes = find_descendant(surviving_nodes, c1)
-                    surviving_nodes[p] = {"state": 1, "descendant": mynode + ";" + c2, "collapsed": surviving_nodes[c1]["collapsed"] + "+N",
+                    surviving_nodes[p] = {"state": 1, "descendant": mynode + ";" + c2,
+                                          "collapsed": surviving_nodes[c1]["collapsed"] + "+N",
                                           "extinct": ""}
 
                 elif surviving_nodes[c1]["state"] == -1 and surviving_nodes[c2]["state"] == 0:
@@ -709,7 +712,8 @@ class SpeciesTreeGenerator():
 
                     en2 = get_extinct(surviving_nodes, c2)
 
-                    surviving_nodes[p] = {"state": -1, "descendant": mynode, "collapsed": surviving_nodes[c1]["collapsed"] + ";" + p,
+                    surviving_nodes[p] = {"state": -1, "descendant": mynode,
+                                          "collapsed": surviving_nodes[c1]["collapsed"] + ";" + p,
                                           "extinct": en2}
 
                 elif surviving_nodes[c1]["state"] == 0 and surviving_nodes[c2]["state"] == -1:
@@ -717,7 +721,8 @@ class SpeciesTreeGenerator():
 
                     en1 = get_extinct(surviving_nodes, c2)
 
-                    surviving_nodes[p] = {"state": -1, "descendant": mynode, "collapsed": surviving_nodes[c2]["collapsed"] + ";" + p,
+                    surviving_nodes[p] = {"state": -1, "descendant": mynode,
+                                          "collapsed": surviving_nodes[c2]["collapsed"] + ";" + p,
                                           "extinct": en1}
 
         extanttree = ete3.Tree()
@@ -728,7 +733,7 @@ class SpeciesTreeGenerator():
         wroot.name = "Root"
         wroot.dist = float(events[0][0]) # We add the root distance
 
-        t = (len(events))
+        #t = (len(events))
 
         wquick_nodes = dict()
         equick_nodes = dict()
@@ -740,7 +745,7 @@ class SpeciesTreeGenerator():
         map_collapsed = dict()
         map_extinct = dict()
 
-        for i, values in enumerate(events):
+        for values in events:
 
             current_time, event, nodes = values
 
