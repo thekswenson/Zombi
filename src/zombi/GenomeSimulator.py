@@ -536,23 +536,52 @@ class GenomeSimulator():
         #Create an event file for each node of the extant tree, which merges
         #event files for all missing nodes between it and its parent:
         for node in etree:
-            extantparent = etree.parent(node)
-            n = node
-            p = ctree.parent(n)
-            #Build the path to the extantparent:
-            path = [n]
-            while p and p != extantparent:
-                path.append(p)
-                p = ctree.parent(p)
+            #The path to the extant parent.
+            path = ctree.path_to_node(node, etree.parent(node))
 
             #Concatenate dataframes along path:
             df = pd.DataFrame()
             for n in reversed(path):
                 dfn = pd.read_csv(events_dir / f"{n}{filesuffix}",
                                   sep="\t", comment="#")
-                df = pd.concat([df, dfn])
+                if not dfn.empty:
+                    df = pd.concat([df, dfn])
 
             df.to_csv(out_dir / f"{node}{filesuffix}", sep="\t", index=False)
+
+
+    def write_extant_full_genomes(self, extant_tree_file: Path,
+                                  complete_tree_file: Path,
+                                  events_dir: Path,
+                                  out_dir: Path):
+        """
+        Write the full genome events table for the extant genomes.  See the
+        docstring for `write_extant_events_per_branch()` for more info.
+        """
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        ctree = Tree(complete_tree_file)
+        etree = Tree(extant_tree_file)
+
+        df = pd.read_csv(events_dir / FULLGENOMEEVENTS, sep="\t", comment="#")
+        #Rename rows for nodes that are not in the extant tree:
+        torename = {}
+        for node in etree:
+            #The path to the extant parent.
+            path = ctree.path_to_node(node, etree.parent(node))[1:]
+
+            #Rename everything on the path:
+            for n in path:
+                torename[n] = node
+
+        assert True #assign the index of the column
+        column = 0
+        for i in range(len(df)):
+            node = df.iat[i, column]
+            if node in torename:
+                df.iat[i, column] = torename[node]
+        
+        df.to_csv(out_dir / FULLGENOMEEVENTS, sep="\t", index=False)
 
 
     def write_profiles(self, profiles_folder: Path):

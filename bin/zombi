@@ -256,6 +256,11 @@ class Zombi():
                                                genome_folder / "Events_per_branch",
                                                genome_folder / "Extant_events_per_branch",
                                                BRANCHEVENTSsuffix)
+            if advanced_mode == "f":
+                gss.write_extant_full_genomes(experiment_folder / "T" / EXTANTTREE,
+                                              experiment_folder / "T" / COMPLETETREE,
+                                              genome_folder / "Events_per_branch",
+                                              genome_folder / "Extant_events_per_branch")
             
         if parameters["GENE_TREES"] == 1 and parameters["RECONCILED_TREES"] == 1:
             print("Writing Gene Trees")

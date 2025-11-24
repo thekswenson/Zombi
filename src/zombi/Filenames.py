@@ -42,6 +42,7 @@ BRANCHEVENTSSCALEDsuffix = "_brancheventsscaled.tsv"
 GENEORDEREVENTSsuffix = "_geneorderevents.tsv"
 GENEORDEREVENTSSCALEDsuffix = "_geneordereventsscaled.tsv"
 FULLGENOMEEVENTS = "Full_genome_events.tsv"
+FULLGENOMEEXTANTEVENTS = "Full_genome_extant_events.tsv"
 FAMILYRATES = "Family_rates.tsv"
 
 PRUNEDTREEsuffix = "_prunedtree.nwk"

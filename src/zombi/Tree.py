@@ -1,5 +1,5 @@
 """
-Simple Tree class for interacting with the extant and complete tree generated
+Simple Tree class used to process the "extant" and "complete" trees generated
 in the T phase.
 """
 from typing import Iterator
@@ -12,7 +12,7 @@ from Bio import Phylo
 class Tree:
     """
     A tree class based on a DiGraph.  It knows its root and can give you paths
-    from a node to the root.
+    from between nodes towards the root.
 
     Attibutes
     ---------
@@ -62,10 +62,19 @@ class Tree:
 
     def path_to_root(self, node: str) -> list[str]:
         """ Return a path to the root, from the given node.  """
-        path = [node]
-        while node != self.root:
-            node = self.parent(node)
+        return self.path_to_node(node, self.root)
+    
+    
+    def path_to_node(self, node: str, target: str) -> list[str]:
+        """
+        Return a path up to, but not including the target. `node` is included
+        in the path (if it is not `target`). If the target is the empty string
+        '', or not on the path to the root, then include the root.
+        """
+        path = []
+        while node and node != target:
             path.append(node)
+            node = self.parent(node)
 
         return path
 
